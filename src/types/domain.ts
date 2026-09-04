@@ -83,7 +83,48 @@ export type Booking = {
   childId: Uuid;
   status: BookingStatus;
   scheduledAt: IsoDateTime;
+  checkedInAt: IsoDateTime | null;
   coinCost: number;
+};
+
+/** Reserva já resolvida com atividade e criança — o que as telas consomem. */
+export type BookingDetails = Booking & {
+  activity: Activity;
+  child: Child;
+};
+
+export type Achievement = {
+  id: string;
+  label: string;
+  emoji: string;
+  /** Null enquanto a conquista ainda não foi desbloqueada. */
+  unlockedAt: IsoDateTime | null;
+};
+
+/** Quantas aulas a criança fez em cada modalidade. */
+export type ActivityTally = {
+  category: ActivityCategoryId;
+  label: string;
+  emoji: string;
+  count: number;
+};
+
+export type Journey = {
+  childId: Uuid;
+  xp: number;
+  level: number;
+  /** Nome do nível exibido ao lado do XP ("Explorador", "Campeão"...). */
+  levelName: string;
+  /** XP acumulado dentro do nível atual. */
+  xpIntoLevel: number;
+  /** XP necessário para completar o nível atual. */
+  xpPerLevel: number;
+  achievements: Achievement[];
+  activityTally: ActivityTally[];
+  /** Aulas por semana, da mais antiga para a mais recente. */
+  weeklyActivity: { label: string; count: number }[];
+  totalActivities: number;
+  totalCategories: number;
 };
 
 export type Session = {

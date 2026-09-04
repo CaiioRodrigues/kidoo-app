@@ -1,7 +1,17 @@
 import { ACTIVITIES, CATEGORIES, PLANS } from './data';
+import { XP_PER_CHECK_IN, XP_PER_LEVEL, buildAchievements, levelFromXp } from './journey';
 import { ApiError } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
-import type { Activity, Booking, Child, Session, SubscriptionState } from '@/types/domain';
+import type {
+  Activity,
+  ActivityCategoryId,
+  ActivityTally,
+  Booking,
+  BookingDetails,
+  Child,
+  Session,
+  SubscriptionState,
+} from '@/types/domain';
 
 /**
  * Backend simulado em memória. Só existe para a UI ser desenvolvida e testada
@@ -69,6 +79,74 @@ function matchesFilters(activity: Activity, filters: ActivityFilters | undefined
   return true;
 }
 
+/** Junta a reserva com a atividade e a criança que as telas precisam mostrar. */
+function toDetails(booking: Booking): BookingDetails {
+  const activity = ACTIVITIES.find((item) => item.id === booking.activityId);
+  const child = state.children.find((item) => item.id === booking.childId);
+  if (!activity || !child) {
+    throw new ApiError('not_found', 'Reserva não encontrada.');
+  }
+  return { ...booking, activity, child };
+}
+
+/** Aulas efetivamente frequentadas, por modalidade. */
+function attendanceOf(childId: string): {
+  total: number;
+  byCategory: Map<ActivityCategoryId, number>;
+} {
+  const byCategory = new Map<ActivityCategoryId, number>();
+  let total = 0;
+
+  for (const booking of state.bookings) {
+    if (booking.childId !== childId) continue;
+    if (booking.status !== 'checked_in' && booking.status !== 'completed') continue;
+
+    const activity = ACTIVITIES.find((item) => item.id === booking.activityId);
+    if (!activity) continue;
+
+    total += 1;
+    byCategory.set(activity.category, (byCategory.get(activity.category) ?? 0) + 1);
+  }
+
+  return { total, byCategory };
+}
+
+/**
+ * Demo: dá um histórico à criança recém-cadastrada para a Jornada não nascer
+ * vazia na apresentação. REMOVER ao ligar o backend real.
+ */
+function seedDemoHistory(child: Child): void {
+  const seeds: { activityId: string; daysAgo: number }[] = [
+    { activityId: 'a-futebol-kids', daysAgo: 21 },
+    { activityId: 'a-futebol-kids', daysAgo: 14 },
+    { activityId: 'a-natacao-infantil', daysAgo: 10 },
+    { activityId: 'a-futebol-kids', daysAgo: 7 },
+    { activityId: 'a-natacao-infantil', daysAgo: 4 },
+    { activityId: 'a-judo-kids', daysAgo: 2 },
+  ];
+
+  for (const seed of seeds) {
+    const activity = ACTIVITIES.find((item) => item.id === seed.activityId);
+    if (!activity) continue;
+
+    const when = new Date();
+    when.setDate(when.getDate() - seed.daysAgo);
+
+    state.bookings = [
+      ...state.bookings,
+      {
+        id: randomId('b'),
+        activityId: activity.id,
+        childId: child.id,
+        status: 'completed',
+        scheduledAt: when.toISOString(),
+        checkedInAt: when.toISOString(),
+        coinCost: activity.coinCost,
+      },
+    ];
+  }
+}
+
 export const mockApi: KidooApi = {
   auth: {
     async signIn({ email, password }) {
@@ -102,7 +180,7 @@ export const mockApi: KidooApi = {
     },
     async create(input) {
       const session = requireSession();
-      const child: Child = {
+      const base: Child = {
         id: randomId('c'),
         guardianId: session.guardian.id,
         name: input.name,
@@ -114,7 +192,22 @@ export const mockApi: KidooApi = {
         level: 1,
         achievements: 0,
       };
-      state.children = [...state.children, child];
+      state.children = [...state.children, base];
+      seedDemoHistory(base);
+
+      // XP e conquistas coerentes com o histórico semeado acima (demo).
+      const { total, byCategory } = attendanceOf(base.id);
+      const xp = total * XP_PER_CHECK_IN;
+      const child: Child = {
+        ...base,
+        xp,
+        level: levelFromXp(xp).level,
+        achievements: buildAchievements(total, byCategory, new Date().toISOString()).filter(
+          (achievement) => achievement.unlockedAt !== null,
+        ).length,
+      };
+      state.children = state.children.map((item) => (item.id === child.id ? child : item));
+
       return delay(child);
     },
   },
@@ -175,8 +268,55 @@ export const mockApi: KidooApi = {
   bookings: {
     async list() {
       requireSession();
-      return delay(state.bookings);
+      // Mais recentes primeiro — é o que a aba Reservas mostra no topo.
+      const sorted = [...state.bookings].sort(
+        (a, b) => Date.parse(b.scheduledAt) - Date.parse(a.scheduledAt),
+      );
+      return delay(sorted.map(toDetails));
     },
+
+    async get(id) {
+      requireSession();
+      const booking = state.bookings.find((item) => item.id === id);
+      if (!booking) throw new ApiError('not_found', 'Reserva não encontrada.');
+      return delay(toDetails(booking), 150);
+    },
+
+    async checkIn(bookingId) {
+      requireSession();
+      const booking = state.bookings.find((item) => item.id === bookingId);
+      if (!booking) throw new ApiError('not_found', 'Reserva não encontrada.');
+      if (booking.status === 'cancelled') {
+        throw new ApiError('not_found', 'Esta reserva foi cancelada.');
+      }
+
+      const checkedIn: Booking =
+        booking.status === 'checked_in'
+          ? booking
+          : { ...booking, status: 'checked_in', checkedInAt: new Date().toISOString() };
+
+      state.bookings = state.bookings.map((item) => (item.id === bookingId ? checkedIn : item));
+
+      // Check-in credita XP e pode desbloquear conquistas.
+      if (booking.status !== 'checked_in') {
+        const { total, byCategory } = attendanceOf(checkedIn.childId);
+        state.children = state.children.map((child) => {
+          if (child.id !== checkedIn.childId) return child;
+          const xp = child.xp + XP_PER_CHECK_IN;
+          return {
+            ...child,
+            xp,
+            level: levelFromXp(xp).level,
+            achievements: buildAchievements(total, byCategory, new Date().toISOString()).filter(
+              (achievement) => achievement.unlockedAt !== null,
+            ).length,
+          };
+        });
+      }
+
+      return delay(toDetails(checkedIn));
+    },
+
     async create({ activityId, childId }) {
       requireSession();
       const activity = ACTIVITIES.find((item) => item.id === activityId);
@@ -202,13 +342,77 @@ export const mockApi: KidooApi = {
         childId,
         status: 'confirmed',
         scheduledAt: activity.nextSessionAt,
+        checkedInAt: null,
         coinCost: activity.coinCost,
       };
       state.bookings = [...state.bookings, booking];
       return delay(booking);
     },
   },
+
+  journey: {
+    async get(childId) {
+      requireSession();
+      const child = state.children.find((item) => item.id === childId);
+      if (!child) throw new ApiError('not_found', 'Criança não encontrada.');
+
+      const { total, byCategory } = attendanceOf(childId);
+      const { level, levelName, xpIntoLevel } = levelFromXp(child.xp);
+
+      const activityTally: ActivityTally[] = [...byCategory.entries()]
+        .map(([category, count]) => {
+          const meta = CATEGORIES.find((item) => item.id === category);
+          return {
+            category,
+            label: meta?.label ?? category,
+            emoji: meta?.emoji ?? '⭐',
+            count,
+          };
+        })
+        .sort((a, b) => b.count - a.count);
+
+      return delay({
+        childId,
+        xp: child.xp,
+        level,
+        levelName,
+        xpIntoLevel,
+        xpPerLevel: XP_PER_LEVEL,
+        achievements: buildAchievements(total, byCategory, new Date().toISOString()),
+        activityTally,
+        weeklyActivity: weeklyActivityOf(childId),
+        totalActivities: total,
+        totalCategories: byCategory.size,
+      });
+    },
+  },
 };
+
+/** Aulas por semana nas últimas 5 semanas, da mais antiga para a mais recente. */
+function weeklyActivityOf(childId: string): { label: string; count: number }[] {
+  const WEEKS = 5;
+  const MS_PER_WEEK = 1000 * 60 * 60 * 24 * 7;
+  const now = Date.now();
+
+  const buckets = Array.from({ length: WEEKS }, (_, index) => ({
+    label: index === WEEKS - 1 ? 'Esta' : `S${index + 1}`,
+    count: 0,
+  }));
+
+  for (const booking of state.bookings) {
+    if (booking.childId !== childId) continue;
+    if (booking.status !== 'checked_in' && booking.status !== 'completed') continue;
+
+    const reference = booking.checkedInAt ?? booking.scheduledAt;
+    const weeksAgo = Math.floor((now - Date.parse(reference)) / MS_PER_WEEK);
+    if (weeksAgo < 0 || weeksAgo >= WEEKS) continue;
+
+    const bucket = buckets[WEEKS - 1 - weeksAgo];
+    if (bucket) bucket.count += 1;
+  }
+
+  return buckets;
+}
 
 function ageInYears(birthDate: string): number {
   const birth = new Date(birthDate);

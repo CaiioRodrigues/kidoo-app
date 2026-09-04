@@ -43,7 +43,7 @@ export default function WelcomeScreen() {
             variant="ghost"
             size="md"
             haptic={false}
-            onPress={() => router.replace('/(tabs)')}
+            onPress={() => router.replace('/(tabs)/home')}
           />
           <Text variant="caption" color={colors.textFaint} center style={styles.legal}>
             Ao continuar você concorda com os Termos de Uso e com a Política de Privacidade do

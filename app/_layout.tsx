@@ -56,6 +56,11 @@ export default function RootLayout() {
               name="activity/[id]"
               options={{ presentation: 'card', animation: 'slide_from_bottom' }}
             />
+            <Stack.Screen name="booking/confirm" options={{ presentation: 'modal' }} />
+            <Stack.Screen
+              name="booking/[id]/check-in"
+              options={{ animation: 'fade', gestureEnabled: false }}
+            />
           </Stack>
         </QueryClientProvider>
       </SafeAreaProvider>

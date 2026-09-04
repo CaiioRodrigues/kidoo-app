@@ -31,7 +31,7 @@ export default function SignInScreen() {
     setSubmitting(true);
     try {
       await signIn(parsed.data);
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/home');
     } catch (error) {
       setFormError(toUserMessage(error));
     } finally {

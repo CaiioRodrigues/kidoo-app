@@ -15,6 +15,8 @@ export const queryKeys = {
   activities: (filters?: ActivityFilters) => ['activities', filters ?? {}] as const,
   activity: (id: string) => ['activity', id] as const,
   recommended: (childId: string) => ['recommended', childId] as const,
+  booking: (id: string) => ['booking', id] as const,
+  journey: (childId: string) => ['journey', childId] as const,
 };
 
 export function useCategories() {
@@ -87,6 +89,59 @@ export function useSubscribe() {
     mutationFn: (planId: PlanId) => api.plans.subscribe(planId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
+    },
+  });
+}
+
+export function useBookings() {
+  const authenticated = useAuthStore((state) => state.status === 'authenticated');
+  return useQuery({
+    queryKey: queryKeys.bookings,
+    queryFn: () => api.bookings.list(),
+    enabled: authenticated,
+    // Reservas mudam com check-in: cache curto para a aba refletir a realidade.
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useBooking(id: string) {
+  return useQuery({
+    queryKey: queryKeys.booking(id),
+    queryFn: () => api.bookings.get(id),
+    enabled: id.length > 0,
+  });
+}
+
+export function useJourney(childId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.journey(childId ?? ''),
+    queryFn: () => api.journey.get(childId ?? ''),
+    enabled: Boolean(childId),
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useCreateBooking() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { activityId: string; childId: string }) => api.bookings.create(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
+    },
+  });
+}
+
+export function useCheckIn() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (bookingId: string) => api.bookings.checkIn(bookingId),
+    onSuccess: (booking) => {
+      // Check-in mexe em reserva, XP da criança e jornada.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.booking(booking.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.children });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.journey(booking.childId) });
     },
   });
 }

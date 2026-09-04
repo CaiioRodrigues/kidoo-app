@@ -27,7 +27,7 @@ export default function SplashRoute() {
 
   if (holdFinished) {
     return status === 'authenticated' ? (
-      <Redirect href="/(tabs)" />
+      <Redirect href="/(tabs)/home" />
     ) : (
       <Redirect href="/(auth)/welcome" />
     );

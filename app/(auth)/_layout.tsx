@@ -7,7 +7,7 @@ export default function AuthLayout() {
   const status = useAuthStore((state) => state.status);
 
   // Quem já tem sessão válida nunca vê as telas de entrada.
-  if (status === 'authenticated') return <Redirect href="/(tabs)" />;
+  if (status === 'authenticated') return <Redirect href="/(tabs)/home" />;
 
   return (
     <Stack

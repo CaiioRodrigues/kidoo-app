@@ -47,7 +47,7 @@ export default function PlanScreen() {
 
       setActiveChild(child.id);
       reset();
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/home');
     } catch (caught) {
       setError(toUserMessage(caught));
     }

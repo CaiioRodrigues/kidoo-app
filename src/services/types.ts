@@ -3,7 +3,9 @@ import type {
   ActivityCategory,
   ActivityCategoryId,
   Booking,
+  BookingDetails,
   Child,
+  Journey,
   Plan,
   PlanId,
   Session,
@@ -45,7 +47,13 @@ export type KidooApi = {
     current(): Promise<SubscriptionState | null>;
   };
   bookings: {
-    list(): Promise<Booking[]>;
+    list(): Promise<BookingDetails[]>;
+    get(id: string): Promise<BookingDetails>;
     create(input: { activityId: string; childId: string }): Promise<Booking>;
+    /** Registra a presença na aula e credita XP para a criança. */
+    checkIn(bookingId: string): Promise<BookingDetails>;
+  };
+  journey: {
+    get(childId: string): Promise<Journey>;
   };
 };

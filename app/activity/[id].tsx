@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { HeaderBar } from '@/components/navigation';
@@ -13,6 +13,7 @@ const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
 /** Tela 7 — Detalhes da atividade (reserva chega na próxima fase). */
 export default function ActivityDetailScreen() {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: activity, isPending, isError } = useActivity(id ?? '');
 
@@ -108,10 +109,15 @@ export default function ActivityDetailScreen() {
         <View style={styles.footer}>
           <CoinBadge amount={activity.coinCost} />
           <Button
-            title="Reservar em breve"
-            disabled
+            title="Reservar"
             fullWidth={false}
             size="md"
+            onPress={() =>
+              router.push({
+                pathname: '/booking/confirm',
+                params: { activityId: activity.id },
+              })
+            }
             style={styles.reserve}
           />
         </View>

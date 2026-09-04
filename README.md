@@ -153,7 +153,7 @@ para respeitar fonte grande do sistema sem quebrar o layout.
 
 ## Estado atual
 
-**Implementado**
+As 10 telas do fluxo estão implementadas:
 
 1. Splash / abertura da marca
 2. Login / cadastro (com validação e aceite LGPD)
@@ -161,16 +161,23 @@ para respeitar fonte grande do sistema sem quebrar o layout.
 4. Assinatura — escolha de plano
 5. Home — recomendados, modalidades, jornada, coins
 6. Explorar — busca e filtro por modalidade
-7. Detalhes da atividade (sem o fluxo de reserva)
+7. Detalhes da atividade
+8. Reserva / confirmação (+ aba Reservas com histórico e status)
+9. Check-in, com XP creditado e conquistas desbloqueadas
+10. Jornada da criança — XP, níveis, conquistas e evolução semanal
 
-**Próxima fase**
+O ciclo fecha: reservar → check-in → XP → conquista → jornada atualizada.
 
-8. Reserva / confirmação
-9. Check-in
-10. Jornada da criança (XP, conquistas, evolução)
+### Gamificação
 
-Além disso: backend real, pagamento da assinatura, push notifications e testes
-(unitários com Jest + E2E com Maestro).
+- 100 XP por check-in; 250 XP fecham um nível
+- Níveis: Iniciante, Curioso, Aventureiro, Explorador, Campeão
+- Conquistas por regra (`src/services/mock/journey.ts`): primeira aula,
+  3 aulas de futebol, 2 de natação, 3 modalidades diferentes
+- Check-in é idempotente: repetir não credita XP duas vezes
+
+**Próxima fase:** backend real, pagamento da assinatura, push notifications e
+testes (unitários com Jest + E2E com Maestro).
 
 ---
 
@@ -178,6 +185,9 @@ Além disso: backend real, pagamento da assinatura, push notifications e testes
 
 - As imagens das atividades no mock apontam para o Unsplash e servem apenas
   para desenvolvimento. Substitua por mídia própria dos parceiros.
+- `seedDemoHistory` (em `src/services/mock/index.ts`) dá 6 aulas concluídas à
+  criança recém-cadastrada, para a Jornada não nascer vazia na apresentação.
+  **Remover ao ligar o backend real** — está marcado no código.
 - O logotipo é uma reconstrução em código (`src/components/brand/KidooLogo.tsx`)
   a partir do guia de identidade; para as lojas, exporte os ícones do arquivo
   original de design para `assets/`.
