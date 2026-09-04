@@ -1,0 +1,160 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { useLocalSearchParams } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+
+import { HeaderBar } from '@/components/navigation';
+import { Badge, Button, Card, CoinBadge, Screen, Text } from '@/components/ui';
+import { formatDistance, formatSessionTime } from '@/lib/format';
+import { useActivity } from '@/hooks/queries';
+import { colors, radius, spacing } from '@/theme';
+
+const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
+
+/** Tela 7 — Detalhes da atividade (reserva chega na próxima fase). */
+export default function ActivityDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { data: activity, isPending, isError } = useActivity(id ?? '');
+
+  if (isPending) {
+    return (
+      <Screen>
+        <HeaderBar />
+        <Text variant="body" color={colors.textFaint}>
+          Carregando atividade…
+        </Text>
+      </Screen>
+    );
+  }
+
+  if (isError || !activity) {
+    return (
+      <Screen>
+        <HeaderBar />
+        <Text variant="body" color={colors.textMuted}>
+          Não encontramos esta atividade. Ela pode ter saído do ar.
+        </Text>
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen scroll padded={false} edges={['top', 'bottom']} contentContainerStyle={styles.scroll}>
+      <View style={styles.headerOverlay}>
+        <HeaderBar />
+      </View>
+
+      <Image
+        source={{ uri: activity.imageUrl }}
+        style={styles.hero}
+        contentFit="cover"
+        placeholder={{ blurhash: BLURHASH }}
+        transition={200}
+        cachePolicy="memory-disk"
+        accessibilityIgnoresInvertColors
+      />
+
+      <View style={styles.content}>
+        {activity.partner.verified ? (
+          <Badge
+            label="Parceiro verificado"
+            tone="success"
+            left={<Ionicons name="shield-checkmark" size={13} color={colors.success} />}
+          />
+        ) : null}
+
+        <Text variant="title">{activity.title}</Text>
+
+        <View style={styles.metaRow}>
+          <Ionicons name="star" size={15} color={colors.accentYellow} />
+          <Text variant="label" color={colors.textMuted}>
+            {activity.rating.toFixed(1).replace('.', ',')} ({activity.reviewCount} avaliações)
+          </Text>
+        </View>
+
+        <View style={styles.metaRow}>
+          <Ionicons name="business-outline" size={15} color={colors.textFaint} />
+          <Text variant="label" color={colors.textMuted} style={styles.flex}>
+            {activity.partner.name}
+          </Text>
+        </View>
+
+        <View style={styles.metaRow}>
+          <Ionicons name="location-outline" size={15} color={colors.textFaint} />
+          <Text variant="label" color={colors.textMuted} style={styles.flex}>
+            {activity.partner.neighborhood}, {activity.partner.city} •{' '}
+            {formatDistance(activity.distanceKm)}
+          </Text>
+        </View>
+
+        <View style={styles.tags}>
+          <Badge label={`${activity.minAge}-${activity.maxAge} anos`} tone="brand" />
+          {activity.tags.map((tag) => (
+            <Badge key={tag} label={tag} tone="neutral" />
+          ))}
+        </View>
+
+        <Text variant="body" color={colors.textMuted} style={styles.description}>
+          {activity.description}
+        </Text>
+
+        <Card bordered elevation="none" style={styles.sessionCard}>
+          <Ionicons name="time-outline" size={18} color={colors.primary} />
+          <Text variant="label" color={colors.text} style={styles.flex}>
+            Próxima turma: {formatSessionTime(activity.nextSessionAt)}
+          </Text>
+        </Card>
+
+        <View style={styles.footer}>
+          <CoinBadge amount={activity.coinCost} />
+          <Button
+            title="Reservar em breve"
+            disabled
+            fullWidth={false}
+            size="md"
+            style={styles.reserve}
+          />
+        </View>
+      </View>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll: { paddingBottom: spacing.xxl },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: spacing.base,
+    right: spacing.base,
+    zIndex: 2,
+  },
+  hero: { width: '100%', height: 260, backgroundColor: colors.backgroundMuted },
+  content: {
+    marginTop: -spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    gap: spacing.sm,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.xxl,
+    borderTopRightRadius: radius.xxl,
+  },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  description: { marginTop: spacing.sm },
+  sessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.base,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.base,
+    marginTop: spacing.xl,
+  },
+  reserve: { paddingHorizontal: spacing.xxl },
+  flex: { flex: 1 },
+});
