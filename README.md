@@ -7,6 +7,51 @@ Construído com **Expo SDK 57 / React Native 0.86 / React 19** e **expo-router**
 
 ---
 
+## Como ver o app
+
+### 1. Expo Go — mais rápido, sem build (~2 min)
+
+No computador:
+
+```bash
+npm install
+npx expo start
+```
+
+No celular, instale o **Expo Go** (Play Store / App Store) e leia o QR code que
+aparece no terminal. Celular e computador precisam estar na mesma rede Wi-Fi;
+se a rede bloquear, use `npx expo start --tunnel`.
+
+Todos os módulos nativos usados aqui (secure-store, image, haptics,
+image-picker, reanimated, gesture-handler, svg) fazem parte do runtime do
+Expo Go, então o app roda completo, com hot reload.
+
+### 2. APK instalável — via EAS Build (nuvem, ~15 min)
+
+Não exige Android SDK na sua máquina. O perfil `preview` já está configurado
+em `eas.json` para gerar **APK** (e não AAB):
+
+```bash
+npm install -g eas-cli
+eas login                              # conta Expo gratuita
+eas build --platform android --profile preview
+```
+
+Ao final o EAS devolve um link de download do `.apk`, que você instala
+direto no aparelho.
+
+### 3. Build local — exige Android Studio
+
+Com o Android SDK e JDK 17+ instalados:
+
+```bash
+npx expo run:android --variant release
+```
+
+O APK sai em `android/app/build/outputs/apk/release/`.
+
+---
+
 ## Como rodar
 
 ```bash
