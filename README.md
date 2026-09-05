@@ -185,6 +185,22 @@ perceberia até ver a tela.
 
 O seletor fica na aba Perfil.
 
+### Check-in confirmado pelo parceiro
+
+O check-in gera um **comprovante**: um QR e um código de 6 dígitos que o
+parceiro lê para confirmar a presença (`src/lib/check-in.ts`). Duas decisões
+que valem também no backend real:
+
+- **O código expira** (30 min). Um código eterno viraria passe livre: bastaria
+  guardar a captura de tela para "provar presença" em outro dia.
+- **O QR não carrega dado da criança.** Leva só o id da reserva e o código;
+  quem escanear de fora não descobre nome, idade nem foto. O parceiro busca o
+  resto no servidor, autenticado.
+
+O código também **morre ao ser usado**, então não vale para uma segunda aula.
+Enquanto não existe o app do parceiro, um botão visível apenas em
+desenvolvimento simula a leitura, para o ciclo ser testável de ponta a ponta.
+
 ### Avaliações
 
 Atividades têm nota de 0 a 5 com meia estrela, distribuição por nota e
@@ -194,6 +210,11 @@ comentários (`src/features/reviews/`). A tela de detalhes ganhou as abas
 Quando uma atividade ainda não tem comentários, o resumo cai para a nota do
 catálogo em vez de exibir "0,0". Comentários mostram apenas o primeiro nome de
 quem avaliou — nunca o nome completo nem o da criança.
+
+Depois da aula o responsável avalia o estabelecimento (estrelas + comentário),
+pela tela de check-in ou pela aba Reservas. Só é possível avaliar uma aula em
+que houve check-in, e apenas uma vez por aula — as duas regras são do serviço,
+não da tela.
 
 ### Economia de Kidoo Coins
 

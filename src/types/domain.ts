@@ -159,6 +159,31 @@ export type Booking = {
   checkedInAt: IsoDateTime | null;
   coinCost: number;
   payment: CoinPayment;
+  /**
+   * Código que o parceiro lê para confirmar a presença. Só existe depois do
+   * check-in, e expira — um código eterno viraria um passe livre.
+   */
+  checkIn: CheckInTicket | null;
+  /** Quando o parceiro validou o código. Null enquanto não validou. */
+  partnerConfirmedAt: IsoDateTime | null;
+  /** Avaliação já enviada para esta reserva, se houver. */
+  reviewId: Uuid | null;
+};
+
+/**
+ * Comprovante de check-in apresentado ao parceiro.
+ *
+ * O código curto é para digitação manual; o payload do QR carrega a mesma
+ * informação para leitura. Ambos apontam para a mesma reserva e caducam
+ * juntos.
+ */
+export type CheckInTicket = {
+  /** 6 dígitos, fácil de ditar em voz alta. */
+  code: string;
+  /** Conteúdo do QR — inclui a reserva, para o parceiro validar o vínculo. */
+  qrPayload: string;
+  issuedAt: IsoDateTime;
+  expiresAt: IsoDateTime;
 };
 
 /** Reserva já resolvida com atividade e criança — o que as telas consomem. */
@@ -188,6 +213,8 @@ export type CheckInResult = {
   booking: BookingDetails;
   xpEarned: number;
   levelUp: { from: number; to: number; bonusEarned: number } | null;
+  /** Código a apresentar ao parceiro. */
+  ticket: CheckInTicket;
 };
 
 export type Journey = {

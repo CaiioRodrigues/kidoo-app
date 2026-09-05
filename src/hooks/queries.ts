@@ -126,9 +126,12 @@ export function useCreateBooking() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: { activityId: string; childId: string }) => api.bookings.create(input),
-    onSuccess: () => {
+    onSuccess: (_booking, variables) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
+      // A carteira de bônus vive dentro de journey: sem invalidar aqui, o saldo
+      // debitado no servidor continuaria aparecendo cheio na tela.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.journey(variables.childId) });
     },
   });
 }
@@ -153,5 +156,30 @@ export function useReviews(activityId: string) {
     queryFn: () => api.catalog.reviews(activityId),
     enabled: activityId.length > 0,
     staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useConfirmByPartner() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { bookingId: string; code: string }) =>
+      api.bookings.confirmByPartner(input),
+    onSuccess: (booking) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.booking(booking.id) });
+    },
+  });
+}
+
+export function useSubmitReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { bookingId: string; rating: number; comment: string }) =>
+      api.catalog.submitReview(input),
+    onSuccess: (review) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews(review.activityId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.activity(review.activityId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });
+    },
   });
 }

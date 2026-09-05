@@ -73,6 +73,7 @@ function ThemedApp() {
               name="booking/[id]/check-in"
               options={{ animation: 'fade', gestureEnabled: false }}
             />
+            <Stack.Screen name="booking/[id]/review" options={{ presentation: 'modal' }} />
           </Stack>
         </QueryClientProvider>
       </SafeAreaProvider>

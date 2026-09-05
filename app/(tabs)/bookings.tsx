@@ -50,7 +50,11 @@ export default function BookingsScreen() {
           <BookingRow
             booking={item}
             onPress={() =>
-              router.push({ pathname: '/booking/[id]/check-in', params: { id: item.id } })
+              router.push(
+                (item.status === 'checked_in' || item.status === 'completed') && !item.reviewId
+                  ? { pathname: '/booking/[id]/review', params: { id: item.id } }
+                  : { pathname: '/booking/[id]/check-in', params: { id: item.id } },
+              )
             }
           />
         )}
@@ -106,7 +110,14 @@ function BookingRow({ booking, onPress }: { booking: BookingDetails; onPress: ()
         <Text variant="caption" color={colors.textFaint}>
           {formatSessionTime(booking.scheduledAt)}
         </Text>
-        <Badge label={status.label} tone={status.tone} />
+        <View style={styles.badgeRow}>
+          <Badge label={status.label} tone={status.tone} />
+          {booking.reviewId ? (
+            <Badge label="Avaliada" tone="neutral" />
+          ) : booking.status === 'checked_in' || booking.status === 'completed' ? (
+            <Badge label="Avaliar" tone="yellow" />
+          ) : null}
+        </View>
       </View>
 
       <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
@@ -134,5 +145,6 @@ const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.backgroundMuted,
     },
     info: { flex: 1, gap: spacing.xxs },
+    badgeRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
     empty: { marginTop: spacing.xxxl },
   });

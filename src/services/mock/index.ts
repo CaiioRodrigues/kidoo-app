@@ -1,5 +1,6 @@
 import { ACTIVITIES, CATEGORIES, PLANS } from './data';
 import { REVIEWS, summarize } from './reviews';
+import { isTicketValid, issueCheckInTicket } from '@/lib/check-in';
 import {
   bonusForLevel,
   buildWallet,
@@ -18,6 +19,7 @@ import type {
   ActivityTally,
   BonusGrant,
   Booking,
+  Review,
   BookingDetails,
   CheckInResult,
   Child,
@@ -48,6 +50,8 @@ type MockState = {
   children: Child[];
   bookings: Booking[];
   bonusGrants: BonusGrant[];
+  /** Avaliações enviadas nesta sessão, antes das fixas do catálogo. */
+  reviews: Review[];
   subscription: SubscriptionState | null;
 };
 
@@ -56,6 +60,7 @@ const state: MockState = {
   children: [],
   bookings: [],
   bonusGrants: [],
+  reviews: [],
   subscription: null,
 };
 
@@ -181,6 +186,9 @@ function seedDemoHistory(child: Child): void {
         checkedInAt: when.toISOString(),
         coinCost: activity.coinCost,
         payment: { fromBonus: 0, fromSubscription: activity.coinCost, total: activity.coinCost },
+        checkIn: null,
+        partnerConfirmedAt: when.toISOString(),
+        reviewId: null,
       },
     ];
   }
@@ -276,9 +284,9 @@ export const mockApi: KidooApi = {
       const activity = ACTIVITIES.find((item) => item.id === activityId);
       if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
 
-      const reviews = REVIEWS.filter((review) => review.activityId === activityId).sort(
-        (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
-      );
+      const reviews = [...state.reviews, ...REVIEWS]
+        .filter((review) => review.activityId === activityId)
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 
       return delay({
         summary: summarize(reviews, {
@@ -287,6 +295,35 @@ export const mockApi: KidooApi = {
         }),
         reviews,
       });
+    },
+
+    async submitReview({ bookingId, rating, comment }) {
+      const session = requireSession();
+      const booking = state.bookings.find((item) => item.id === bookingId);
+      if (!booking) throw new ApiError('not_found', 'Reserva não encontrada.');
+      if (booking.status !== 'checked_in' && booking.status !== 'completed') {
+        throw new ApiError('not_found', 'Só é possível avaliar depois do check-in.');
+      }
+      if (booking.reviewId) {
+        throw new ApiError('not_found', 'Esta aula já foi avaliada.');
+      }
+
+      const review: Review = {
+        id: randomId('r'),
+        activityId: booking.activityId,
+        // Só o primeiro nome, como todas as outras avaliações.
+        authorName: session.guardian.name.split(' ')[0] ?? 'Responsável',
+        rating: Math.min(5, Math.max(1, Math.round(rating))),
+        comment: comment.trim(),
+        createdAt: new Date().toISOString(),
+        helpfulCount: 0,
+      };
+
+      state.reviews = [review, ...state.reviews];
+      state.bookings = state.bookings.map((item) =>
+        item.id === bookingId ? { ...item, reviewId: review.id } : item,
+      );
+      return delay(review);
     },
 
     async recommended(childId) {
@@ -353,10 +390,22 @@ export const mockApi: KidooApi = {
         throw new ApiError('not_found', 'Esta reserva foi cancelada.');
       }
 
+      // Reemite o código se o antigo expirou: o responsável não pode ficar
+      // preso sem comprovante só porque demorou para chamar o parceiro.
+      const ticket =
+        booking.checkIn && isTicketValid(booking.checkIn)
+          ? booking.checkIn
+          : issueCheckInTicket(booking.id);
+
       const checkedIn: Booking =
         booking.status === 'checked_in'
-          ? booking
-          : { ...booking, status: 'checked_in', checkedInAt: new Date().toISOString() };
+          ? { ...booking, checkIn: ticket }
+          : {
+              ...booking,
+              status: 'checked_in',
+              checkedInAt: new Date().toISOString(),
+              checkIn: ticket,
+            };
 
       state.bookings = state.bookings.map((item) => (item.id === bookingId ? checkedIn : item));
 
@@ -392,7 +441,34 @@ export const mockApi: KidooApi = {
         });
       }
 
-      return delay({ booking: toDetails(checkedIn), xpEarned, levelUp });
+      return delay({ booking: toDetails(checkedIn), xpEarned, levelUp, ticket });
+    },
+
+    async confirmByPartner({ bookingId, code }) {
+      const booking = state.bookings.find((item) => item.id === bookingId);
+      if (!booking) throw new ApiError('not_found', 'Reserva não encontrada.');
+      if (booking.partnerConfirmedAt) {
+        throw new ApiError('not_found', 'Esta presença já foi confirmada.');
+      }
+      if (booking.status !== 'checked_in') {
+        throw new ApiError('not_found', 'Esta reserva ainda não teve check-in.');
+      }
+      if (!booking.checkIn || !isTicketValid(booking.checkIn)) {
+        throw new ApiError('not_found', 'O código expirou. Peça um novo ao responsável.');
+      }
+      if (booking.checkIn.code !== code.replace(/\s/g, '')) {
+        throw new ApiError('not_found', 'Código inválido para esta reserva.');
+      }
+
+      const confirmed: Booking = {
+        ...booking,
+        status: 'completed',
+        partnerConfirmedAt: new Date().toISOString(),
+        // O código morre ao ser usado: não vale para uma segunda aula.
+        checkIn: null,
+      };
+      state.bookings = state.bookings.map((item) => (item.id === bookingId ? confirmed : item));
+      return delay(toDetails(confirmed));
     },
 
     async create({ activityId, childId }) {
@@ -437,6 +513,9 @@ export const mockApi: KidooApi = {
         checkedInAt: null,
         coinCost: activity.coinCost,
         payment,
+        checkIn: null,
+        partnerConfirmedAt: null,
+        reviewId: null,
       };
       state.bookings = [...state.bookings, booking];
       return delay(booking);
@@ -523,5 +602,6 @@ export function resetMockState(): void {
   state.children = [];
   state.bookings = [];
   state.bonusGrants = [];
+  state.reviews = [];
   state.subscription = null;
 }
