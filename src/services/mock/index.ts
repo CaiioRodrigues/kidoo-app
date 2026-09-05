@@ -1,4 +1,11 @@
 import { ACTIVITIES, CATEGORIES, PLANS } from './data';
+import {
+  bonusForLevel,
+  buildWallet,
+  consumeBonus,
+  grantExpiryFrom,
+  splitPayment,
+} from '@/lib/bonus';
 import { daysUntilReset, startSubscription, withCurrentCycle } from '@/lib/subscription';
 
 import { XP_PER_CHECK_IN, XP_PER_LEVEL, buildAchievements, levelFromXp } from './journey';
@@ -8,8 +15,10 @@ import type {
   Activity,
   ActivityCategoryId,
   ActivityTally,
+  BonusGrant,
   Booking,
   BookingDetails,
+  CheckInResult,
   Child,
   Session,
   SubscriptionState,
@@ -37,6 +46,7 @@ type MockState = {
   session: Session | null;
   children: Child[];
   bookings: Booking[];
+  bonusGrants: BonusGrant[];
   subscription: SubscriptionState | null;
 };
 
@@ -44,8 +54,33 @@ const state: MockState = {
   session: null,
   children: [],
   bookings: [],
+  bonusGrants: [],
   subscription: null,
 };
+
+/** Credita os bônus de todos os níveis cruzados entre `from` e `to`. */
+function grantLevelBonus(childId: string, from: number, to: number, at: Date): number {
+  let total = 0;
+
+  for (let level = from + 1; level <= to; level += 1) {
+    const amount = bonusForLevel(level);
+    if (amount <= 0) continue;
+    total += amount;
+    state.bonusGrants = [
+      ...state.bonusGrants,
+      {
+        id: randomId('bonus'),
+        childId,
+        amount,
+        level,
+        grantedAt: at.toISOString(),
+        expiresAt: grantExpiryFrom(at),
+      },
+    ];
+  }
+
+  return total;
+}
 
 function issueSession(name: string, email: string): Session {
   const guardian = {
@@ -144,6 +179,7 @@ function seedDemoHistory(child: Child): void {
         scheduledAt: when.toISOString(),
         checkedInAt: when.toISOString(),
         coinCost: activity.coinCost,
+        payment: { fromBonus: 0, fromSubscription: activity.coinCost, total: activity.coinCost },
       },
     ];
   }
@@ -209,6 +245,15 @@ export const mockApi: KidooApi = {
         ).length,
       };
       state.children = state.children.map((item) => (item.id === child.id ? child : item));
+
+      // Demo: os bônus dos níveis já alcançados pelo histórico semeado, datados
+      // no passado para que a validade de 30 dias fique visível na carteira.
+      const level = child.level;
+      for (let reached = 2; reached <= level; reached += 1) {
+        const grantedAt = new Date();
+        grantedAt.setDate(grantedAt.getDate() - (level - reached + 1) * 9);
+        grantLevelBonus(child.id, reached - 1, reached, grantedAt);
+      }
 
       return delay(child);
     },
@@ -297,24 +342,39 @@ export const mockApi: KidooApi = {
 
       state.bookings = state.bookings.map((item) => (item.id === bookingId ? checkedIn : item));
 
-      // Check-in credita XP e pode desbloquear conquistas.
+      // Check-in credita XP, pode desbloquear conquistas e, ao subir de nível,
+      // gera Kidoo Bônus. Repetir o check-in não credita nada de novo.
+      let levelUp: CheckInResult['levelUp'] = null;
+      let xpEarned = 0;
+
       if (booking.status !== 'checked_in') {
+        const now = new Date();
         const { total, byCategory } = attendanceOf(checkedIn.childId);
+        const before = state.children.find((child) => child.id === checkedIn.childId);
+        const levelBefore = before ? levelFromXp(before.xp).level : 1;
+        const xp = (before?.xp ?? 0) + XP_PER_CHECK_IN;
+        const levelAfter = levelFromXp(xp).level;
+        xpEarned = XP_PER_CHECK_IN;
+
+        if (levelAfter > levelBefore) {
+          const bonusEarned = grantLevelBonus(checkedIn.childId, levelBefore, levelAfter, now);
+          levelUp = { from: levelBefore, to: levelAfter, bonusEarned };
+        }
+
         state.children = state.children.map((child) => {
           if (child.id !== checkedIn.childId) return child;
-          const xp = child.xp + XP_PER_CHECK_IN;
           return {
             ...child,
             xp,
-            level: levelFromXp(xp).level,
-            achievements: buildAchievements(total, byCategory, new Date().toISOString()).filter(
+            level: levelAfter,
+            achievements: buildAchievements(total, byCategory, now.toISOString()).filter(
               (achievement) => achievement.unlockedAt !== null,
             ).length,
           };
         });
       }
 
-      return delay(toDetails(checkedIn));
+      return delay({ booking: toDetails(checkedIn), xpEarned, levelUp });
     },
 
     async create({ activityId, childId }) {
@@ -325,8 +385,13 @@ export const mockApi: KidooApi = {
       // Aplica a virada de semana antes de debitar: uma reserva feita depois da
       // segunda-feira usa a cota nova, não a que já expirou.
       const subscription = state.subscription ? withCurrentCycle(state.subscription) : null;
+
+      // O bônus entra primeiro porque expira; a cota semanal cobre o resto.
+      const wallet = buildWallet(childId, state.bonusGrants);
+      const payment = splitPayment(activity.coinCost, wallet.balance);
+
       if (subscription) {
-        if (subscription.coinsRemaining < activity.coinCost) {
+        if (subscription.coinsRemaining < payment.fromSubscription) {
           const days = daysUntilReset(subscription);
           throw new ApiError(
             'insufficient_coins',
@@ -337,8 +402,12 @@ export const mockApi: KidooApi = {
         }
         state.subscription = {
           ...subscription,
-          coinsRemaining: subscription.coinsRemaining - activity.coinCost,
+          coinsRemaining: subscription.coinsRemaining - payment.fromSubscription,
         };
+      }
+
+      if (payment.fromBonus > 0) {
+        state.bonusGrants = consumeBonus(state.bonusGrants, childId, payment.fromBonus);
       }
 
       const booking: Booking = {
@@ -349,6 +418,7 @@ export const mockApi: KidooApi = {
         scheduledAt: activity.nextSessionAt,
         checkedInAt: null,
         coinCost: activity.coinCost,
+        payment,
       };
       state.bookings = [...state.bookings, booking];
       return delay(booking);
@@ -388,6 +458,7 @@ export const mockApi: KidooApi = {
         weeklyActivity: weeklyActivityOf(childId),
         totalActivities: total,
         totalCategories: byCategory.size,
+        bonus: buildWallet(childId, state.bonusGrants),
       });
     },
   },
@@ -433,5 +504,6 @@ export function resetMockState(): void {
   state.session = null;
   state.children = [];
   state.bookings = [];
+  state.bonusGrants = [];
   state.subscription = null;
 }

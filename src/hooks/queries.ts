@@ -136,8 +136,8 @@ export function useCheckIn() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (bookingId: string) => api.bookings.checkIn(bookingId),
-    onSuccess: (booking) => {
-      // Check-in mexe em reserva, XP da criança e jornada.
+    onSuccess: ({ booking }) => {
+      // Check-in mexe em reserva, XP e nível da criança, carteira de bônus e jornada.
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });
       void queryClient.invalidateQueries({ queryKey: queryKeys.booking(booking.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.children });

@@ -40,7 +40,7 @@ export default function SignInScreen() {
   }, [email, password, router, signIn]);
 
   return (
-    <Screen>
+    <Screen scroll contentContainerStyle={styles.scroll}>
       <HeaderBar />
       <KeyboardAvoidingView
         style={styles.flex}
@@ -106,6 +106,9 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
+  // flexGrow mantém o `marginTop: 'auto'` do bloco de botões funcionando
+  // quando sobra espaço, e libera a rolagem quando falta.
+  scroll: { flexGrow: 1 },
   flex: { flex: 1 },
   content: { flex: 1, gap: spacing.xxl, paddingTop: spacing.base },
   intro: { gap: spacing.sm },

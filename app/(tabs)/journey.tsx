@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AchievementBadge, EvolutionChart } from '@/features/journey';
+import { AchievementBadge, BonusWalletCard, EvolutionChart } from '@/features/journey';
 import { Avatar, Badge, Card, ComingSoon, ProgressBar, Screen, Text } from '@/components/ui';
 import { useChildren, useJourney } from '@/hooks/queries';
 import { useOnboardingStore } from '@/stores/onboarding-store';
@@ -81,6 +81,11 @@ export default function JourneyScreen() {
           label={`Progresso do nível ${journey.level}`}
         />
       </Card>
+
+      <Text variant="subheading" style={styles.sectionTitle}>
+        Moedas bônus
+      </Text>
+      <BonusWalletCard wallet={journey.bonus} />
 
       <Text variant="subheading" style={styles.sectionTitle}>
         Minhas conquistas

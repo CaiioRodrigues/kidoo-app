@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge, Button, Card, Text } from '@/components/ui';
@@ -80,7 +80,11 @@ export default function PlanScreen() {
         </View>
       </SafeAreaView>
 
-      <SafeAreaView edges={['bottom']} style={styles.body}>
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.bodyContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.plans}>
           {plans.map((plan) => (
             <PlanCard
@@ -111,13 +115,15 @@ export default function PlanScreen() {
             {error}
           </Text>
         ) : null}
+      </ScrollView>
 
+      {/* Rodapé fixo: o CTA nunca sai da tela, por menor que ela seja. */}
+      <SafeAreaView edges={['bottom']} style={styles.footer}>
         <Button
           title="Escolher plano"
           loading={submitting}
           disabled={!activePlanId}
           onPress={() => void handleConfirm()}
-          style={styles.cta}
         />
         <Text variant="caption" color={colors.textFaint} center>
           A cobrança só acontece após a confirmação no próximo passo.
@@ -200,12 +206,21 @@ const styles = StyleSheet.create({
   headerCenter: { alignItems: 'center', gap: spacing.xs },
   crown: { fontSize: 24 },
   headerBadge: { marginTop: spacing.md },
-  body: {
-    flex: 1,
+  body: { flex: 1 },
+  bodyContent: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.base,
+    paddingBottom: spacing.lg,
     gap: spacing.base,
+  },
+  footer: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   plans: { gap: spacing.md },
   planCard: { gap: spacing.sm, borderColor: colors.border },
@@ -230,5 +245,4 @@ const styles = StyleSheet.create({
   },
   perkLabel: { flexShrink: 1 },
   error: { textAlign: 'center' },
-  cta: { marginTop: 'auto' },
 });

@@ -192,6 +192,32 @@ A virada de semana é aplicada na leitura e antes de cada débito
 (`src/lib/subscription.ts`), então uma reserva feita depois da segunda usa a
 cota nova mesmo que o app tenha ficado aberto desde a semana anterior.
 
+### Moedas bônus (Kidoo Bônus)
+
+Segunda moeda, **diferente dos Kidoo Coins da assinatura**: não vem do plano,
+não reseta toda semana, e **cada lote vale 30 dias** a partir do dia em que foi
+ganho. Por isso é guardada como lotes datados, e não como um saldo solto — sem
+isso não há como saber o que vence quando.
+
+Ganha ao subir de nível, com recompensa crescente mas contida:
+
+| Nível alcançado | Bônus    |
+| --------------- | -------- |
+| 2 e 3           | 1 moeda  |
+| 4 a 6           | 2 moedas |
+| 7 a 9           | 3 moedas |
+| 10 em diante    | 4 moedas |
+
+Do nível 2 ao 10 são 21 moedas acumuladas. Com o custo médio de 2,83 coins por
+atividade, isso equivale a cerca de 7 aulas de presente ao longo de ~23 aulas
+feitas — um agrado por frequência, não um substituto da assinatura.
+
+**Ao reservar, o bônus é gasto primeiro**, e dentro dele os lotes que vencem
+antes — justamente porque expiram. A cota semanal cobre o restante. A tela de
+confirmação mostra a divisão, e a Jornada avisa o que está perto de vencer.
+
+Regras em `src/lib/bonus.ts`.
+
 ### Gamificação
 
 - 100 XP por check-in; 250 XP fecham um nível

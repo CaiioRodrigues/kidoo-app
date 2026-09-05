@@ -7,8 +7,15 @@ import { HeaderBar } from '@/components/navigation';
 import { Avatar, Button, Card, CoinBadge, Screen, Text } from '@/components/ui';
 import { formatAge, formatDaysUntil, formatSessionTime } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
+import { splitPayment } from '@/lib/bonus';
 import { toUserMessage } from '@/services';
-import { useActivity, useChildren, useCreateBooking, useSubscription } from '@/hooks/queries';
+import {
+  useActivity,
+  useChildren,
+  useCreateBooking,
+  useJourney,
+  useSubscription,
+} from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { colors, palette, radius, spacing } from '@/theme';
@@ -69,8 +76,13 @@ export default function ConfirmBookingScreen() {
           }
         : null;
 
+  const { data: journey } = useJourney(child?.id ?? null);
+  const bonusBalance = journey?.bonus.balance ?? 0;
+
+  // As moedas bônus entram antes da cota semanal, porque expiram.
+  const payment = activity ? splitPayment(activity.coinCost, bonusBalance) : null;
   const coinsAfter =
-    subscription && activity ? subscription.coinsRemaining - activity.coinCost : null;
+    subscription && payment ? subscription.coinsRemaining - payment.fromSubscription : null;
   const notEnoughCoins = coinsAfter !== null && coinsAfter < 0;
 
   const handleConfirm = useCallback(async () => {
@@ -147,6 +159,14 @@ export default function ConfirmBookingScreen() {
 
       <View style={styles.coinsRow}>
         <CoinBadge amount={activity.coinCost} />
+        {payment && payment.fromBonus > 0 ? (
+          <Text variant="caption" color={colors.textMuted} center style={styles.split}>
+            {payment.fromBonus === 1 ? '1 moeda bônus' : `${payment.fromBonus} moedas bônus`}
+            {payment.fromSubscription > 0
+              ? ` + ${payment.fromSubscription} da assinatura`
+              : ' — esta aula sai de graça!'}
+          </Text>
+        ) : null}
       </View>
 
       <Card background={palette.purpleTint} elevation="none" style={styles.noticeCard}>
@@ -245,7 +265,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primaryTint,
   },
-  coinsRow: { alignItems: 'center', marginTop: spacing.lg },
+  coinsRow: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
+  split: { paddingHorizontal: spacing.base },
   noticeCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
