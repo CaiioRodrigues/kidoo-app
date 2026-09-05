@@ -28,4 +28,10 @@ module.exports = defineConfig([
       ],
     },
   },
+  {
+    // Scripts de linha de comando existem para imprimir na saída padrão. A
+    // regra de console vale para código do app, onde log vaza PII no aparelho.
+    files: ['scripts/**/*.mjs', 'scripts/**/*.js', 'plugins/**/*.js'],
+    rules: { 'no-console': 'off' },
+  },
 ]);

@@ -22,11 +22,11 @@
         "NSCameraUsageDescription": "O Kidoo usa a câmera apenas para você adicionar a foto do perfil da criança. A imagem fica no dispositivo até você confirmar o envio.",
         "NSPhotoLibraryUsageDescription": "O Kidoo acessa suas fotos apenas para você escolher a foto de perfil da criança.",
         "NSLocationWhenInUseUsageDescription": "Usamos sua localização apenas para mostrar atividades perto de você. Você pode escolher a cidade manualmente."
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.kidoo.app",
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#6A3FC6",
@@ -39,7 +39,8 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
@@ -70,7 +71,8 @@
         {
           "fonts": []
         }
-      ]
+      ],
+      "./plugins/with-versioned-apk"
     ],
     "experiments": {
       "typedRoutes": true,

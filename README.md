@@ -75,6 +75,44 @@ Para gerar binários, use EAS Build (`eas build -p android|ios`). As pastas
 
 ---
 
+## Identidade do app
+
+O ícone usa a assinatura da marca: os dois "o" sorridentes sobre o roxo Kidoo.
+O wordmark inteiro fica ilegível num ícone de 48px; os dois rostinhos
+continuam reconhecíveis e amigáveis em tamanho pequeno.
+
+Os arquivos em `assets/` são gerados a partir da mesma geometria, com respiro
+calculado para cada destino: 70% de largura no ícone do iOS (que arredonda os
+cantos) e 62% no foreground adaptativo do Android (que pode recortar em
+círculo ou squircle). O monocromático usa silhueta sólida com o sorriso
+vazado, porque o Android tematiza pelo canal alfa.
+
+## Versionamento
+
+`app.json` guarda os três números que precisam andar juntos: `version`
+(1.0.0), `android.versionCode` e `ios.buildNumber`.
+
+```bash
+npm run version:patch   # 1.0.0 -> 1.0.1, versionCode 1 -> 2
+npm run version:minor
+npm run version:major
+```
+
+O erro fácil é subir a versão e esquecer o `versionCode`: as lojas recusam um
+envio cujo número de build não cresceu. O script move os três de uma vez.
+
+O APK sai com a versão no nome, via o config plugin
+`plugins/with-versioned-apk.js`:
+
+```
+kidoo-1.0.0-1-release.apk
+```
+
+Sem isso o Gradle gera sempre `app-release.apk`, e dois builds de versões
+diferentes ficam indistinguíveis no disco. Vale para build local; no EAS Build
+o artefato é nomeado pelo serviço, e a rastreabilidade vem do `versionCode`,
+que o perfil de produção já incrementa sozinho.
+
 ## Arquitetura
 
 ```
