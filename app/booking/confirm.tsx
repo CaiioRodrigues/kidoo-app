@@ -5,7 +5,8 @@ import { StyleSheet, View } from 'react-native';
 
 import { HeaderBar } from '@/components/navigation';
 import { Avatar, Button, Card, CoinBadge, Screen, Text } from '@/components/ui';
-import { formatAge, formatSessionTime } from '@/lib/format';
+import { formatAge, formatDaysUntil, formatSessionTime } from '@/lib/format';
+import { daysUntilReset } from '@/lib/subscription';
 import { toUserMessage } from '@/services';
 import { useActivity, useChildren, useCreateBooking, useSubscription } from '@/hooks/queries';
 import { useOnboardingStore } from '@/stores/onboarding-store';
@@ -126,11 +127,13 @@ export default function ConfirmBookingScreen() {
         style={styles.cta}
       />
 
-      {coinsAfter !== null ? (
+      {coinsAfter !== null && subscription ? (
         <Text variant="caption" color={notEnoughCoins ? colors.danger : colors.textFaint} center>
           {notEnoughCoins
-            ? 'Kidoo Coins insuficientes para esta reserva neste ciclo.'
-            : `Você ainda terá ${coinsAfter} coins após esta reserva.`}
+            ? `Seus coins desta semana acabaram. A cota volta ao cheio ${formatDaysUntil(
+                daysUntilReset(subscription),
+              )}.`
+            : `Você ainda terá ${coinsAfter} de ${subscription.coinsPerWeek} coins nesta semana.`}
         </Text>
       ) : null}
     </Screen>

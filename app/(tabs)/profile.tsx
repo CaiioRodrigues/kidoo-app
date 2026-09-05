@@ -4,7 +4,8 @@ import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar, Button, Card, Divider, Screen, Text } from '@/components/ui';
-import { formatAge } from '@/lib/format';
+import { formatAge, formatDaysUntil } from '@/lib/format';
+import { daysUntilReset } from '@/lib/subscription';
 import { useChildren, useSubscription } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { colors, spacing } from '@/theme';
@@ -57,7 +58,8 @@ export default function ProfileScreen() {
             {subscription.planId}
           </Text>
           <Text variant="caption" color={colors.textMuted}>
-            {subscription.coinsRemaining} Kidoo Coins restantes neste ciclo
+            {subscription.coinsRemaining} de {subscription.coinsPerWeek} coins nesta semana · volta
+            ao cheio {formatDaysUntil(daysUntilReset(subscription))}
           </Text>
         </Card>
       ) : null}

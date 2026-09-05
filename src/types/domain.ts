@@ -43,12 +43,28 @@ export type PlanId = 'start' | 'plus' | 'max';
 export type Plan = {
   id: PlanId;
   name: string;
+  /** Cobrança é mensal. */
   priceCents: number;
-  coins: number;
+  /** Cota de Kidoo Coins liberada a cada semana. */
+  coinsPerWeek: number;
+  /** Quantas atividades a cota costuma render, dado o custo médio. */
+  activitiesPerWeek: number;
   tagline: string;
   highlighted: boolean;
   perks: string[];
 };
+
+/**
+ * Faixas de custo de uma atividade, em Kidoo Coins.
+ * O custo médio do catálogo é o que calibra a cota semanal dos planos.
+ */
+export const COIN_TIERS = {
+  basico: 2,
+  padrao: 3,
+  premium: 4,
+} as const;
+
+export type CoinTier = keyof typeof COIN_TIERS;
 
 export type Partner = {
   id: Uuid;
@@ -136,6 +152,17 @@ export type Session = {
 
 export type SubscriptionState = {
   planId: PlanId;
+  /** Cota cheia da semana. */
+  coinsPerWeek: number;
+  /** Quanto ainda resta na semana corrente. */
   coinsRemaining: number;
+  /** Início da semana vigente (segunda-feira). */
+  cycleStartsAt: IsoDateTime;
+  /**
+   * Quando a cota volta ao cheio (próxima segunda). Coins não acumulam:
+   * o que não for usado na semana é perdido na virada.
+   */
+  cycleResetsAt: IsoDateTime;
+  /** Próxima cobrança mensal. */
   renewsAt: IsoDateTime;
 };

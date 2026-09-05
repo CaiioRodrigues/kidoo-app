@@ -9,6 +9,8 @@ import { useCategories, useChildren, useRecommended, useSubscription } from '@/h
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { colors, palette, radius, spacing } from '@/theme';
+import { daysUntilReset } from '@/lib/subscription';
+import { formatDaysUntil } from '@/lib/format';
 import type { Activity } from '@/types/domain';
 
 const XP_PER_LEVEL = 1000;
@@ -164,9 +166,21 @@ export default function HomeScreen() {
       {subscription ? (
         <Card style={styles.coinsCard} background={palette.yellowSoft} elevation="none">
           <Text style={styles.coinEmoji}>🪙</Text>
-          <Text variant="caption" color={colors.text} style={styles.flex}>
-            Você tem {subscription.coinsRemaining} Kidoo Coins disponíveis neste ciclo.
-          </Text>
+          <View style={styles.flex}>
+            <Text variant="label" color={colors.text}>
+              {subscription.coinsRemaining} de {subscription.coinsPerWeek} coins nesta semana
+            </Text>
+            <Text variant="caption" color={colors.textMuted}>
+              A cota volta ao cheio {formatDaysUntil(daysUntilReset(subscription))}.
+            </Text>
+            <ProgressBar
+              value={subscription.coinsRemaining}
+              max={subscription.coinsPerWeek}
+              color={colors.accentYellow}
+              height={6}
+              label="Coins restantes na semana"
+            />
+          </View>
         </Card>
       ) : null}
     </Screen>
@@ -249,7 +263,7 @@ const styles = StyleSheet.create({
   journeyInfo: { flex: 1, gap: spacing.xs },
   coinsCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
     marginHorizontal: spacing.xl,
     marginTop: spacing.base,

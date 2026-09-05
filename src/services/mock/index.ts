@@ -1,4 +1,6 @@
 import { ACTIVITIES, CATEGORIES, PLANS } from './data';
+import { daysUntilReset, startSubscription, withCurrentCycle } from '@/lib/subscription';
+
 import { XP_PER_CHECK_IN, XP_PER_LEVEL, buildAchievements, levelFromXp } from './journey';
 import { ApiError } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
@@ -251,16 +253,14 @@ export const mockApi: KidooApi = {
       const plan = PLANS.find((item) => item.id === planId);
       if (!plan) throw new ApiError('not_found', 'Plano indisponível.');
 
-      const renewsAt = new Date();
-      renewsAt.setMonth(renewsAt.getMonth() + 1);
-      state.subscription = {
-        planId: plan.id,
-        coinsRemaining: plan.coins,
-        renewsAt: renewsAt.toISOString(),
-      };
-      return delay(state.subscription);
+      const subscription = startSubscription(plan);
+      state.subscription = subscription;
+      return delay(subscription);
     },
     async current() {
+      if (!state.subscription) return delay(null, 100);
+      // Aplica a virada de semana antes de qualquer leitura.
+      state.subscription = withCurrentCycle(state.subscription);
       return delay(state.subscription, 100);
     },
   },
@@ -322,14 +322,19 @@ export const mockApi: KidooApi = {
       const activity = ACTIVITIES.find((item) => item.id === activityId);
       if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
 
-      const subscription = state.subscription;
-      if (subscription && subscription.coinsRemaining < activity.coinCost) {
-        throw new ApiError(
-          'insufficient_coins',
-          'Você não tem Kidoo Coins suficientes para esta reserva.',
-        );
-      }
+      // Aplica a virada de semana antes de debitar: uma reserva feita depois da
+      // segunda-feira usa a cota nova, não a que já expirou.
+      const subscription = state.subscription ? withCurrentCycle(state.subscription) : null;
       if (subscription) {
+        if (subscription.coinsRemaining < activity.coinCost) {
+          const days = daysUntilReset(subscription);
+          throw new ApiError(
+            'insufficient_coins',
+            days <= 1
+              ? 'Seus Kidoo Coins desta semana acabaram. A cota volta ao cheio amanhã.'
+              : `Seus Kidoo Coins desta semana acabaram. A cota volta ao cheio em ${days} dias.`,
+          );
+        }
         state.subscription = {
           ...subscription,
           coinsRemaining: subscription.coinsRemaining - activity.coinCost,
