@@ -64,6 +64,11 @@ export type KidooApi = {
      * É o que transforma "o app diz que veio" em presença confirmada.
      */
     confirmByPartner(input: { bookingId: string; code: string }): Promise<BookingDetails>;
+    /**
+     * Cancela a reserva e devolve os coins. Só antes do prazo mínimo e antes
+     * do check-in — a regra vive no serviço, não na tela.
+     */
+    cancel(bookingId: string): Promise<BookingDetails>;
   };
   journey: {
     get(childId: string): Promise<Journey>;

@@ -1,22 +1,8 @@
 import type { Achievement, ActivityCategoryId } from '@/types/domain';
 
-/** XP creditado a cada check-in confirmado. */
-export const XP_PER_CHECK_IN = 100;
-
-/** Quanto XP fecha um nível. */
-export const XP_PER_LEVEL = 250;
-
-const LEVEL_NAMES = ['Iniciante', 'Curioso', 'Aventureiro', 'Explorador', 'Campeão'] as const;
-
-export function levelFromXp(xp: number): { level: number; levelName: string; xpIntoLevel: number } {
-  const level = Math.floor(xp / XP_PER_LEVEL) + 1;
-  const nameIndex = Math.min(level - 1, LEVEL_NAMES.length - 1);
-  return {
-    level,
-    levelName: LEVEL_NAMES[nameIndex] ?? 'Campeão',
-    xpIntoLevel: xp % XP_PER_LEVEL,
-  };
-}
+// As regras de nível e recompensa vivem em @/lib/levels: a UI também precisa
+// delas para a tela de níveis, então não podem ficar dentro do mock.
+export { XP_PER_CHECK_IN, MAX_LEVEL, levelFromXp, bonusForLevel } from '@/lib/levels';
 
 type AchievementRule = {
   id: string;

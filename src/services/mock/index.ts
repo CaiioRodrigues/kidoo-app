@@ -1,16 +1,19 @@
 import { ACTIVITIES, CATEGORIES, PLANS } from './data';
 import { REVIEWS, summarize } from './reviews';
 import { isTicketValid, issueCheckInTicket } from '@/lib/check-in';
+import { canCancel, cancellationMessage } from '@/lib/cancellation';
 import {
-  bonusForLevel,
+  bonusLotsFor,
   buildWallet,
   consumeBonus,
   grantExpiryFrom,
+  restoreBonus,
   splitPayment,
 } from '@/lib/bonus';
+import { MAX_LEVEL, XP_PER_CHECK_IN, bonusForLevel, levelFromXp } from '@/lib/levels';
 import { daysUntilReset, startSubscription, withCurrentCycle } from '@/lib/subscription';
 
-import { XP_PER_CHECK_IN, XP_PER_LEVEL, buildAchievements, levelFromXp } from './journey';
+import { buildAchievements } from './journey';
 import { ApiError } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
 import type {
@@ -185,7 +188,12 @@ function seedDemoHistory(child: Child): void {
         scheduledAt: when.toISOString(),
         checkedInAt: when.toISOString(),
         coinCost: activity.coinCost,
-        payment: { fromBonus: 0, fromSubscription: activity.coinCost, total: activity.coinCost },
+        payment: {
+          fromBonus: 0,
+          fromSubscription: activity.coinCost,
+          total: activity.coinCost,
+          bonusLots: [],
+        },
         checkIn: null,
         partnerConfirmedAt: when.toISOString(),
         reviewId: null,
@@ -471,6 +479,40 @@ export const mockApi: KidooApi = {
       return delay(toDetails(confirmed));
     },
 
+    async cancel(bookingId) {
+      requireSession();
+      const booking = state.bookings.find((item) => item.id === bookingId);
+      if (!booking) throw new ApiError('not_found', 'Reserva não encontrada.');
+
+      const check = canCancel(booking);
+      if (!check.allowed) throw new ApiError('not_found', cancellationMessage(check));
+
+      // Devolve exatamente o que foi cobrado: a cota semanal recebe de volta a
+      // parte da assinatura, e os lotes de bônus voltam com a validade
+      // original — sem esticar o prazo de nada.
+      const subscription = state.subscription ? withCurrentCycle(state.subscription) : null;
+      if (subscription && booking.payment.fromSubscription > 0) {
+        state.subscription = {
+          ...subscription,
+          coinsRemaining: Math.min(
+            subscription.coinsPerWeek,
+            subscription.coinsRemaining + booking.payment.fromSubscription,
+          ),
+        };
+      }
+      if (booking.payment.bonusLots.length > 0) {
+        state.bonusGrants = restoreBonus(
+          state.bonusGrants,
+          booking.childId,
+          booking.payment.bonusLots,
+        );
+      }
+
+      const cancelled: Booking = { ...booking, status: 'cancelled', checkIn: null };
+      state.bookings = state.bookings.map((item) => (item.id === bookingId ? cancelled : item));
+      return delay(toDetails(cancelled));
+    },
+
     async create({ activityId, childId }) {
       requireSession();
       const activity = ACTIVITIES.find((item) => item.id === activityId);
@@ -482,7 +524,12 @@ export const mockApi: KidooApi = {
 
       // O bônus entra primeiro porque expira; a cota semanal cobre o resto.
       const wallet = buildWallet(childId, state.bonusGrants);
-      const payment = splitPayment(activity.coinCost, wallet.balance);
+      const lots = bonusLotsFor(
+        state.bonusGrants,
+        childId,
+        Math.min(wallet.balance, activity.coinCost),
+      );
+      const payment = splitPayment(activity.coinCost, wallet.balance, lots);
 
       if (subscription) {
         if (subscription.coinsRemaining < payment.fromSubscription) {
@@ -529,7 +576,7 @@ export const mockApi: KidooApi = {
       if (!child) throw new ApiError('not_found', 'Criança não encontrada.');
 
       const { total, byCategory } = attendanceOf(childId);
-      const { level, levelName, xpIntoLevel } = levelFromXp(child.xp);
+      const { level, levelName, xpIntoLevel, xpForLevel, isMaxLevel } = levelFromXp(child.xp);
 
       const activityTally: ActivityTally[] = [...byCategory.entries()]
         .map(([category, count]) => {
@@ -549,7 +596,10 @@ export const mockApi: KidooApi = {
         level,
         levelName,
         xpIntoLevel,
-        xpPerLevel: XP_PER_LEVEL,
+        xpForLevel,
+        maxLevel: MAX_LEVEL,
+        isMaxLevel,
+        nextLevelBonus: isMaxLevel ? 0 : bonusForLevel(level + 1),
         achievements: buildAchievements(total, byCategory, new Date().toISOString()),
         activityTally,
         weeklyActivity: weeklyActivityOf(childId),

@@ -1,5 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AchievementBadge, BonusWalletCard, EvolutionChart } from '@/features/journey';
 import { Avatar, Badge, Card, ComingSoon, ProgressBar, Screen, Text } from '@/components/ui';
@@ -9,6 +11,7 @@ import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalet
 
 /** Tela 10 — Jornada da criança. */
 export default function JourneyScreen() {
+  const router = useRouter();
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const activeChildId = useOnboardingStore((state) => state.activeChildId);
@@ -44,7 +47,7 @@ export default function JourneyScreen() {
   }
 
   const firstName = child.name.split(' ')[0] ?? child.name;
-  const xpToNextLevel = journey.xpPerLevel - journey.xpIntoLevel;
+  const xpToNextLevel = journey.xpForLevel - journey.xpIntoLevel;
 
   return (
     <Screen scroll edges={['top']} contentContainerStyle={styles.scroll}>
@@ -68,21 +71,42 @@ export default function JourneyScreen() {
         </View>
       </Card>
 
-      <Card bordered elevation="none" style={styles.levelCard}>
-        <View style={styles.levelRow}>
-          <Text variant="label" color={colors.textMuted}>
-            Nível {journey.level}
-          </Text>
-          <Text variant="caption" color={colors.textFaint}>
-            {xpToNextLevel} XP para o próximo nível
-          </Text>
-        </View>
-        <ProgressBar
-          value={journey.xpIntoLevel}
-          max={journey.xpPerLevel}
-          label={`Progresso do nível ${journey.level}`}
-        />
-      </Card>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Ver todos os níveis e recompensas"
+        onPress={() => router.push('/journey/levels')}
+      >
+        <Card bordered elevation="none" style={styles.levelCard}>
+          <View style={styles.levelRow}>
+            <Text variant="label" color={colors.textMuted}>
+              Nível {journey.level} de {journey.maxLevel}
+            </Text>
+            <View style={styles.levelLink}>
+              <Text variant="caption" color={colors.primary}>
+                {journey.isMaxLevel ? 'Nível máximo' : `faltam ${xpToNextLevel} XP`}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+            </View>
+          </View>
+
+          <ProgressBar
+            value={journey.isMaxLevel ? 1 : journey.xpIntoLevel}
+            max={journey.isMaxLevel ? 1 : journey.xpForLevel}
+            label={`Progresso do nível ${journey.level}`}
+          />
+
+          {journey.isMaxLevel ? (
+            <Text variant="caption" color={colors.textMuted}>
+              Você chegou ao topo por enquanto. Novos níveis vêm por aí!
+            </Text>
+          ) : (
+            <Text variant="caption" color={colors.textMuted}>
+              No nível {journey.level + 1} você ganha {journey.nextLevelBonus}
+              {journey.nextLevelBonus === 1 ? ' moeda bônus' : ' moedas bônus'}.
+            </Text>
+          )}
+        </Card>
+      </Pressable>
 
       <Text variant="subheading" style={styles.sectionTitle}>
         Moedas bônus
@@ -171,6 +195,7 @@ const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
     xpEmoji: { fontSize: 16 },
     levelCard: { gap: spacing.sm, marginTop: spacing.md },
     levelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    levelLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xxs },
     sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md },
     achievements: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
     achievementSlot: { width: '23%', flexGrow: 1, flexBasis: '23%' },
