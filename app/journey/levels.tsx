@@ -34,7 +34,9 @@ export default function LevelsScreen() {
   const activitiesToNext = Math.ceil(xpToNext / XP_PER_CHECK_IN);
 
   return (
-    <Screen padded={false} edges={['top']}>
+    // Rota de pilha, sem barra de abas embaixo: sem a borda inferior, o fim da
+    // lista fica atrás dos botões do sistema.
+    <Screen padded={false} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <HeaderBar title="Níveis e recompensas" />
       </View>

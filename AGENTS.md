@@ -21,6 +21,11 @@ dentro de `node_modules/` (fonte casada com a versão instalada).
 - **Nunca `console.*` direto** em código de produto: use `src/lib/logger.ts`,
   que redige PII.
 - **Sem segredos no bundle.** `EXPO_PUBLIC_*` é público por definição.
+- **Nada colado no rodapé sem área segura.** O Android 16 torna edge-to-edge
+  obrigatório: o app desenha atrás da barra do sistema. Barra de abas, rodapés
+  fixos e Modais precisam somar `useSafeAreaInsets().bottom`, senão os toques
+  disputam espaço com os botões do celular. Altura fixa em `tabBarStyle`
+  anula o cálculo automático do React Navigation.
 
 ## Antes de commitar
 

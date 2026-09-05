@@ -1,11 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fontFamily, useTheme } from '@/theme';
 
+/** Altura da barra sem contar a área do sistema. */
+const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 52 : 60;
+
 export default function TabsLayout() {
   const { colors } = useTheme();
+  // O Android 16 torna edge-to-edge obrigatório: o app desenha atrás da barra
+  // de navegação do sistema. Sem somar o inset aqui, a barra de abas fica por
+  // baixo dos botões do celular e vira uma disputa de toque.
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -16,7 +24,8 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
-          height: Platform.OS === 'ios' ? 88 : 64,
+          height: TAB_BAR_HEIGHT + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 6,
         },
       }}
