@@ -12,19 +12,19 @@ type Step = { title: string; text: string };
 const STEPS: Step[] = [
   {
     title: 'Oi! Eu sou o Kiddo 👋',
-    text: 'Em trinta segundos eu te mostro como o Kidoo funciona. Vamos lá?',
-  },
-  {
-    title: 'Atividades perto de casa',
-    text: 'A gente sugere aulas na idade certa do seu pequeno, com parceiros verificados e a distância de cada um.',
+    text: 'Aqui você encontra aulas perto de casa, na idade certa do seu pequeno, com parceiros verificados.',
   },
   {
     title: 'Kidoo Coins',
     text: 'Cada reserva usa coins da sua assinatura. Eles voltam ao cheio toda segunda-feira, então dá para manter uma rotina.',
   },
   {
-    title: 'A jornada do seu pequeno',
-    text: 'Depois da aula, faça o check-in. Ele ganha XP, sobe de nível e destrava moedas bônus para usar em novas aulas.',
+    title: 'Na hora da aula',
+    text: 'Faça o check-in no app e mostre o código ao parceiro. É ele que confirma que o seu pequeno chegou.',
+  },
+  {
+    title: 'A jornada dele',
+    text: 'Cada aula rende XP. Ele sobe de nível e destrava moedas bônus para usar em novas atividades.',
   },
 ];
 

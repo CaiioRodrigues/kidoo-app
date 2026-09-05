@@ -340,6 +340,16 @@ A preferência de "já vi" é persistida, e enquanto ela não chega do
 armazenamento nada é exibido — assim quem já viu não vê o tutorial piscar a
 cada abertura.
 
+Quatro passos é o teto útil: tutorial longo tem queda forte de conclusão, e
+quem pula não vê justamente o que importa. Por isso o conteúdo é enxuto e a
+instrução mais incomum do app — mostrar o código ao parceiro — aparece
+**também** como dica contextual.
+
+**Dicas contextuais** (`useOneTimeHint`) aparecem uma única vez, na primeira
+vez que a pessoa chega à tela, ao lado do que explicam. Instrução no momento
+em que é necessária gruda muito mais do que a mesma frase decorada dias antes
+num carrossel de abertura. Diferente do tutorial, elas não bloqueiam a tela.
+
 ### Cancelamento
 
 Cancelar é permitido até **6 horas antes** da aula, e só antes do check-in

@@ -13,6 +13,8 @@ const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 export const PreferenceKeys = {
   themeMode: 'kidoo.pref.themeMode',
   tutorialSeen: 'kidoo.pref.tutorialSeen',
+  /** Dica contextual da tela de check-in, mostrada uma vez. */
+  hintCheckIn: 'kidoo.pref.hint.checkIn',
 } as const;
 
 type PreferenceKey = (typeof PreferenceKeys)[keyof typeof PreferenceKeys];
