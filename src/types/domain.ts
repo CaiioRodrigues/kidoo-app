@@ -124,6 +124,14 @@ export type CoinPayment = {
   fromBonus: number;
   fromSubscription: number;
   total: number;
+  /**
+   * Lotes de bônus consumidos, com a validade original.
+   *
+   * Sem isso, cancelar devolveria bônus como moeda nova de 30 dias — bastaria
+   * reservar e cancelar para renovar a validade indefinidamente. Guardando a
+   * data original, a devolução é exata e não dá para esticar o prazo.
+   */
+  bonusLots: { amount: number; expiresAt: IsoDateTime; level: number }[];
 };
 
 /** Comentário de um responsável sobre uma atividade. */
@@ -225,8 +233,13 @@ export type Journey = {
   levelName: string;
   /** XP acumulado dentro do nível atual. */
   xpIntoLevel: number;
-  /** XP necessário para completar o nível atual. */
-  xpPerLevel: number;
+  /** XP que o nível atual exige por inteiro. Zero no nível máximo. */
+  xpForLevel: number;
+  /** Teto de níveis vigente. */
+  maxLevel: number;
+  isMaxLevel: boolean;
+  /** Kidoo Bônus que o próximo nível concede. Zero se já está no teto. */
+  nextLevelBonus: number;
   achievements: Achievement[];
   activityTally: ActivityTally[];
   /** Aulas por semana, da mais antiga para a mais recente. */

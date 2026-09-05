@@ -74,6 +74,7 @@ function ThemedApp() {
               options={{ animation: 'fade', gestureEnabled: false }}
             />
             <Stack.Screen name="booking/[id]/review" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="journey/levels" />
           </Stack>
         </QueryClientProvider>
       </SafeAreaProvider>

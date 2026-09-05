@@ -1,16 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Share, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 
 import { HeaderBar } from '@/components/navigation';
 import { Avatar, Button, Card, Screen, Text } from '@/components/ui';
 import { CheckInTicketCard } from '@/features/check-in';
+import { AchievementCard, shareAchievement, type AchievementShare } from '@/features/share';
+import { levelName } from '@/lib/levels';
 import { formatSessionTime } from '@/lib/format';
-import { logger } from '@/lib/logger';
+import { canCancel, cancellationMessage, formatDeadline } from '@/lib/cancellation';
 import { toUserMessage } from '@/services';
-import { useBooking, useCheckIn, useConfirmByPartner } from '@/hooks/queries';
+import { useBooking, useCancelBooking, useCheckIn, useConfirmByPartner } from '@/hooks/queries';
 import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const CONFETTI = ['🎉', '⭐', '🎈', '✨', '🎊', '💜'];
@@ -27,6 +29,8 @@ export default function CheckInScreen() {
 
   const result = checkIn.data ?? null;
   const confirmPartner = useConfirmByPartner();
+  const cancelBooking = useCancelBooking();
+  const cardRef = useRef<View>(null);
   const done = booking?.status === 'checked_in' || booking?.status === 'completed';
   const confirmed = booking?.status === 'completed' && booking.partnerConfirmedAt !== null;
   const ticket = result?.ticket ?? booking?.checkIn ?? null;
@@ -42,17 +46,49 @@ export default function CheckInScreen() {
     }
   }, [booking, checkIn]);
 
+  const cancellation = booking ? canCancel(booking) : null;
+
+  const handleCancel = useCallback(() => {
+    if (!booking || !cancellation?.allowed) return;
+    Alert.alert(
+      'Cancelar reserva?',
+      'Os Kidoo Coins voltam para a sua conta. As moedas bônus voltam com a validade original.',
+      [
+        { text: 'Manter reserva', style: 'cancel' },
+        {
+          text: 'Cancelar reserva',
+          style: 'destructive',
+          onPress: () => {
+            void cancelBooking
+              .mutateAsync(booking.id)
+              .then(() => router.replace('/(tabs)/bookings'))
+              .catch((caught: unknown) => setError(toUserMessage(caught)));
+          },
+        },
+      ],
+    );
+  }, [booking, cancelBooking, cancellation, router]);
+
+  // Memoizado para não recriar o objeto a cada render e invalidar o callback.
+  const shareData = useMemo<AchievementShare | null>(
+    () =>
+      booking
+        ? {
+            booking,
+            xpEarned: result?.xpEarned ?? 0,
+            levelUp: result?.levelUp
+              ? { to: result.levelUp.to, bonusEarned: result.levelUp.bonusEarned }
+              : null,
+            levelName: levelName(result?.levelUp?.to ?? booking.child.level),
+          }
+        : null,
+    [booking, result],
+  );
+
   const handleShare = useCallback(async () => {
-    if (!booking) return;
-    try {
-      // Compartilha só o nome da atividade — nada que identifique a criança.
-      await Share.share({
-        message: `${firstName} participou de ${booking.activity.title} no Kidoo! 🎉`,
-      });
-    } catch (caught) {
-      logger.warn('Compartilhamento cancelado ou indisponível', caught);
-    }
-  }, [booking, firstName]);
+    if (!shareData) return;
+    await shareAchievement(cardRef, shareData);
+  }, [shareData]);
 
   if (isPending || !booking) {
     return (
@@ -197,6 +233,25 @@ export default function CheckInScreen() {
               variant="secondary"
               onPress={() => router.replace('/(tabs)/bookings')}
             />
+
+            {cancellation?.allowed ? (
+              <>
+                <Button
+                  title="Cancelar reserva"
+                  variant="ghost"
+                  size="md"
+                  loading={cancelBooking.isPending}
+                  onPress={handleCancel}
+                />
+                <Text variant="caption" color={colors.textFaint} center>
+                  {formatDeadline(booking.scheduledAt)}.
+                </Text>
+              </>
+            ) : cancellation && cancellation.reason === 'too_late' ? (
+              <Text variant="caption" color={colors.textFaint} center>
+                {cancellationMessage(cancellation)}
+              </Text>
+            ) : null}
           </>
         )}
       </View>
@@ -215,6 +270,13 @@ export default function CheckInScreen() {
             </Text>
           </View>
         </Card>
+      ) : null}
+
+      {done && shareData ? (
+        // Renderizado fora da área visível: existe só para virar imagem.
+        <View style={styles.offscreen} pointerEvents="none">
+          <AchievementCard ref={cardRef} data={shareData} />
+        </View>
       ) : null}
 
       {done ? (
@@ -275,6 +337,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     levelUpEmoji: { fontSize: 30 },
     ticket: { marginTop: spacing.xl },
+    offscreen: { position: 'absolute', left: -9999, top: 0 },
     confirmedCard: {
       flexDirection: 'row',
       alignItems: 'center',

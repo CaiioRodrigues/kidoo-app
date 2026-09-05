@@ -306,11 +306,46 @@ Regras em `src/lib/bonus.ts`.
 
 ### Gamificação
 
-- 100 XP por check-in; 250 XP fecham um nível
-- Níveis: Iniciante, Curioso, Aventureiro, Explorador, Campeão
-- Conquistas por regra (`src/services/mock/journey.ts`): primeira aula,
-  3 aulas de futebol, 2 de natação, 3 modalidades diferentes
+- 100 XP por check-in
+- O custo do nível **cresce**: `150 + (nível − 1) × 80`. O primeiro nível sai em
+  2 aulas, para engatar rápido; o vigésimo quarto exige 20
+- Chegar ao **nível 25** (teto inicial) pede 25.680 XP ≈ **257 aulas**, algo
+  como 15 meses a 4 aulas por semana. Antes eram 250 XP fixos por nível, o que
+  fechava o nível 25 em 60 aulas — curto demais para ser um objetivo
+- Faixas: Iniciante, Curioso, Aventureiro, Explorador, Campeão e Lenda Kidoo
+- Conquistas por regra: primeira aula, 3 de futebol, 2 de natação,
+  3 modalidades diferentes
 - Check-in é idempotente: repetir não credita XP duas vezes
+
+A tela **Níveis e recompensas** (`app/journey/levels.tsx`) responde à pergunta
+"o que eu ganho no próximo nível?" — por isso o próximo nível aparece
+destacado no topo, e não como mais uma linha no meio da tabela.
+
+Curva e recompensas ficam em `src/lib/levels.ts`, num lugar só.
+
+### Cancelamento
+
+Cancelar é permitido até **6 horas antes** da aula, e só antes do check-in
+(`src/lib/cancellation.ts`). O prazo protege o parceiro, que reservou vaga,
+professor e equipamento.
+
+A devolução é exata: a parte paga pela assinatura volta para a cota semanal, e
+os lotes de bônus voltam **com a validade original**. Sem guardar essa data, o
+cancelamento devolveria moeda nova de 30 dias, e bastaria reservar e cancelar
+para renovar o prazo indefinidamente.
+
+### Compartilhar conquista
+
+O check-in gera um cartão da conquista, capturado como imagem e compartilhado
+com o texto. O cartão usa cores fixas de propósito: a imagem sai do app e vai
+para grupos e redes, então não deve herdar o tema escuro de quem compartilhou.
+
+A mensagem cita apenas o primeiro nome da criança e a atividade — **nunca**
+sobrenome, idade, local ou horário. Horário somado a local diria a estranhos
+onde a criança está.
+
+Quando o aparelho não permite compartilhar arquivo, cai para texto puro: é
+melhor compartilhar algo do que falhar.
 
 **Próxima fase:** backend real, pagamento da assinatura, push notifications e
 testes (unitários com Jest + E2E com Maestro).
