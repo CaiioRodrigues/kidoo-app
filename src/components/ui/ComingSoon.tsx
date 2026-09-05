@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from './Text';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 /** Placeholder das telas ainda não implementadas desta fase. */
 export function ComingSoon({
@@ -14,6 +14,8 @@ export function ComingSoon({
   title: string;
   description: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.container}>
       <View style={styles.iconWrapper}>
@@ -29,21 +31,22 @@ export function ComingSoon({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  iconWrapper: {
-    width: 82,
-    height: 82,
-    borderRadius: radius.xxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryTint,
-    marginBottom: spacing.xs,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.xl,
+    },
+    iconWrapper: {
+      width: 82,
+      height: 82,
+      borderRadius: radius.xxl,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primaryTint,
+      marginBottom: spacing.xs,
+    },
+  });

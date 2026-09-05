@@ -1,9 +1,7 @@
-import { colors } from './colors';
 import { radius, spacing } from './layout';
 import { shadows } from './shadows';
 import { textVariants } from './typography';
 
-export { colors, palette, type ColorToken } from './colors';
 export { fontFamily, textVariants, type TextVariant, type FontFamilyToken } from './typography';
 export {
   spacing,
@@ -15,6 +13,27 @@ export {
 } from './layout';
 export { shadows, type ShadowToken } from './shadows';
 export { appFonts } from './fonts';
+export {
+  brand,
+  lightColors,
+  darkColors,
+  lightPalette,
+  darkPalette,
+  type ThemeColors,
+  type ThemePalette,
+} from './palettes';
+export {
+  ThemeProvider,
+  useTheme,
+  useStyles,
+  useSystemUiSync,
+  type ThemeMode,
+} from './ThemeProvider';
 
-export const theme = { colors, spacing, radius, shadows, textVariants } as const;
+/**
+ * Tokens que não dependem do tema. Cor sai exclusivamente de `useTheme()` —
+ * não há export estático de cor de propósito: sem isso, um componente poderia
+ * silenciosamente ficar preso no tema claro.
+ */
+export const theme = { spacing, radius, shadows, textVariants } as const;
 export type Theme = typeof theme;

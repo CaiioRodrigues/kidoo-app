@@ -6,10 +6,12 @@ import { HeaderBar } from '@/components/navigation';
 import { Button, Card, Screen, SelectableCard, StepIndicator, Text } from '@/components/ui';
 import { useCategories } from '@/hooks/queries';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 
 /** Tela 3 (etapa 2) — Quais atividades ele mais gosta? */
 export default function InterestsScreen() {
+  const { colors, palette } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const { data: categories = [], isPending } = useCategories();
   const interests = useOnboardingStore((state) => state.draft.interests);
@@ -84,36 +86,42 @@ export default function InterestsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { paddingBottom: spacing.xxl },
-  intro: { flexDirection: 'row', alignItems: 'center', gap: spacing.base, paddingTop: spacing.sm },
-  introText: { flex: 1, gap: spacing.sm },
-  introArt: {
-    width: 88,
-    height: 88,
-    borderRadius: radius.xxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.pinkSoft,
-  },
-  introEmoji: { fontSize: 40, lineHeight: 48 },
-  loading: { marginTop: spacing.xxl },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-  // 3 colunas: cada item ocupa ~1/3 descontando os dois gaps.
-  gridItem: { width: '31%', flexGrow: 1, flexBasis: '31%' },
-  tip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-  tipEmoji: { fontSize: 22 },
-  tipText: { flex: 1 },
-  error: { marginTop: spacing.md },
-  cta: { marginTop: spacing.xl },
-});
+const makeStyles = (_colors: ThemeColors, palette: ThemePalette) =>
+  StyleSheet.create({
+    scroll: { paddingBottom: spacing.xxl },
+    intro: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.base,
+      paddingTop: spacing.sm,
+    },
+    introText: { flex: 1, gap: spacing.sm },
+    introArt: {
+      width: 88,
+      height: 88,
+      borderRadius: radius.xxl,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.pinkSoft,
+    },
+    introEmoji: { fontSize: 40, lineHeight: 48 },
+    loading: { marginTop: spacing.xxl },
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.md,
+      marginTop: spacing.xl,
+    },
+    // 3 colunas: cada item ocupa ~1/3 descontando os dois gaps.
+    gridItem: { width: '31%', flexGrow: 1, flexBasis: '31%' },
+    tip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.xl,
+    },
+    tipEmoji: { fontSize: 22 },
+    tipText: { flex: 1 },
+    error: { marginTop: spacing.md },
+    cta: { marginTop: spacing.xl },
+  });

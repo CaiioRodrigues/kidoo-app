@@ -5,11 +5,12 @@ import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityListItem } from '@/features/activities';
 import { Chip, Divider, Input, Screen, Text } from '@/components/ui';
 import { useActivities, useCategories } from '@/hooks/queries';
-import { colors, spacing } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 import type { Activity, ActivityCategoryId } from '@/types/domain';
 
 /** Tela 6 — Explorar atividades. */
 export default function ExploreScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ category?: string }>();
 

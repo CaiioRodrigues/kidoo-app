@@ -6,7 +6,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { KidooLogo, Sparkles } from '@/components/brand';
 import { Text } from '@/components/ui';
 import { useAuthStore } from '@/stores/auth-store';
-import { colors, palette, spacing } from '@/theme';
+import { spacing, useStyles, type ThemeColors, type ThemePalette } from '@/theme';
 
 /** Tempo da abertura da marca. Curto o bastante para não atrapalhar o uso. */
 const BRAND_HOLD_MS = 1200;
@@ -17,6 +17,7 @@ const BRAND_HOLD_MS = 1200;
  * continuação animada da marca e decide para onde o usuário vai.
  */
 export default function SplashRoute() {
+  const styles = useStyles(makeStyles);
   const status = useAuthStore((state) => state.status);
   const [holdFinished, setHoldFinished] = useState(false);
 
@@ -51,30 +52,31 @@ export default function SplashRoute() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  center: { alignItems: 'center', gap: spacing.md },
-  sparkles: { marginBottom: spacing.xs },
-  tagline: { letterSpacing: 2, marginTop: spacing.xs },
-  blob: { position: 'absolute', borderRadius: 999, opacity: 0.35 },
-  blobTop: {
-    width: 260,
-    height: 260,
-    top: -90,
-    right: -70,
-    backgroundColor: palette.purpleDark,
-  },
-  blobBottom: {
-    width: 320,
-    height: 320,
-    bottom: -120,
-    left: -110,
-    backgroundColor: palette.purpleDark,
-  },
-});
+const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    center: { alignItems: 'center', gap: spacing.md },
+    sparkles: { marginBottom: spacing.xs },
+    tagline: { letterSpacing: 2, marginTop: spacing.xs },
+    blob: { position: 'absolute', borderRadius: 999, opacity: 0.35 },
+    blobTop: {
+      width: 260,
+      height: 260,
+      top: -90,
+      right: -70,
+      backgroundColor: palette.purpleDark,
+    },
+    blobBottom: {
+      width: 320,
+      height: 320,
+      bottom: -120,
+      left: -110,
+      backgroundColor: palette.purpleDark,
+    },
+  });

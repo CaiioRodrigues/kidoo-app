@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Text as RNText, StyleSheet, type TextProps as RNTextProps } from 'react-native';
 
-import { colors, textVariants, type TextVariant } from '@/theme';
+import { textVariants, useTheme, type TextVariant } from '@/theme';
 
 export type AppTextProps = RNTextProps & {
   variant?: TextVariant;
@@ -15,17 +15,21 @@ export type AppTextProps = RNTextProps & {
  */
 function AppTextBase({
   variant = 'body',
-  color = colors.text,
+  color,
   center = false,
   style,
   // Respeita o tamanho de fonte do sistema, mas com teto para não quebrar layout.
   maxFontSizeMultiplier = 1.4,
   ...rest
 }: AppTextProps) {
+  const { colors } = useTheme();
+  // A cor padrão vem do tema ativo, então resolve aqui e não na assinatura.
+  const tone = color ?? colors.text;
+
   return (
     <RNText
       maxFontSizeMultiplier={maxFontSizeMultiplier}
-      style={[textVariants[variant], { color }, center && styles.center, style]}
+      style={[textVariants[variant], { color: tone }, center && styles.center, style]}
       {...rest}
     />
   );

@@ -10,12 +10,14 @@ import { formatSessionTime } from '@/lib/format';
 import { logger } from '@/lib/logger';
 import { toUserMessage } from '@/services';
 import { useBooking, useCheckIn } from '@/hooks/queries';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const CONFETTI = ['🎉', '⭐', '🎈', '✨', '🎊', '💜'];
 
 /** Tela 9 — Check-in realizado. */
 export default function CheckInScreen() {
+  const { colors, palette } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: booking, isPending } = useBooking(id ?? '');
@@ -189,51 +191,52 @@ export default function CheckInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { paddingBottom: spacing.xxl },
-  hero: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.base },
-  confettiRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.xs },
-  confetti: { fontSize: 20 },
-  avatarWrapper: { marginBottom: spacing.md },
-  checkBadge: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.success,
-    borderWidth: 4,
-    borderColor: colors.background,
-  },
-  title: { marginTop: spacing.xs },
-  detailsCard: { gap: spacing.md, marginTop: spacing.xxl },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  detailIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryTint,
-  },
-  error: { marginTop: spacing.md },
-  actions: { gap: spacing.md, marginTop: spacing.xl },
-  levelUpCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-  levelUpEmoji: { fontSize: 30 },
-  mascotCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-  mascot: { fontSize: 30 },
-  flex: { flex: 1 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    scroll: { paddingBottom: spacing.xxl },
+    hero: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.base },
+    confettiRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.xs },
+    confetti: { fontSize: 20 },
+    avatarWrapper: { marginBottom: spacing.md },
+    checkBadge: {
+      position: 'absolute',
+      right: -2,
+      bottom: -2,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.success,
+      borderWidth: 4,
+      borderColor: colors.background,
+    },
+    title: { marginTop: spacing.xs },
+    detailsCard: { gap: spacing.md, marginTop: spacing.xxl },
+    detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    detailIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primaryTint,
+    },
+    error: { marginTop: spacing.md },
+    actions: { gap: spacing.md, marginTop: spacing.xl },
+    levelUpCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.xl,
+    },
+    levelUpEmoji: { fontSize: 30 },
+    mascotCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.xl,
+    },
+    mascot: { fontSize: 30 },
+    flex: { flex: 1 },
+  });

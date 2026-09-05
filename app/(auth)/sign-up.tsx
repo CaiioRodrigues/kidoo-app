@@ -8,9 +8,11 @@ import { Button, Input, Screen, Text } from '@/components/ui';
 import { fieldErrors, signUpSchema } from '@/lib/validation';
 import { toUserMessage } from '@/services';
 import { useAuthStore } from '@/stores/auth-store';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 export default function SignUpScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const signUp = useAuthStore((state) => state.signUp);
 
@@ -135,22 +137,28 @@ export default function SignUpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { paddingBottom: spacing.xxl },
-  intro: { gap: spacing.sm, paddingTop: spacing.base },
-  form: { gap: spacing.base, marginTop: spacing.xxl },
-  terms: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginTop: spacing.xs },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: radius.sm,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  termsText: { flex: 1 },
-  actions: { gap: spacing.sm, marginTop: spacing.xxl },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    scroll: { paddingBottom: spacing.xxl },
+    intro: { gap: spacing.sm, paddingTop: spacing.base },
+    form: { gap: spacing.base, marginTop: spacing.xxl },
+    terms: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+      marginTop: spacing.xs,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: radius.sm,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 1,
+    },
+    checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+    termsText: { flex: 1 },
+    actions: { gap: spacing.sm, marginTop: spacing.xxl },
+  });

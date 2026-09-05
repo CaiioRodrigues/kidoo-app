@@ -1,11 +1,13 @@
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Achievement } from '@/types/domain';
 
 /** Conquista bloqueada aparece esmaecida — mostra o que ainda dá para buscar. */
 export function AchievementBadge({ achievement }: { achievement: Achievement }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const unlocked = achievement.unlockedAt !== null;
 
   return (
@@ -26,19 +28,20 @@ export function AchievementBadge({ achievement }: { achievement: Achievement }) 
   );
 }
 
-const styles = StyleSheet.create({
-  badge: {
-    flex: 1,
-    minHeight: 92,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    padding: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-  },
-  unlocked: { backgroundColor: colors.primaryTint, borderColor: colors.primarySoft },
-  locked: { backgroundColor: colors.backgroundMuted, borderColor: colors.border },
-  emoji: { fontSize: 26, lineHeight: 32 },
-  dimmed: { opacity: 0.35 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    badge: {
+      flex: 1,
+      minHeight: 92,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      padding: spacing.sm,
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+    },
+    unlocked: { backgroundColor: colors.primaryTint, borderColor: colors.primarySoft },
+    locked: { backgroundColor: colors.backgroundMuted, borderColor: colors.border },
+    emoji: { fontSize: 26, lineHeight: 32 },
+    dimmed: { opacity: 0.35 },
+  });

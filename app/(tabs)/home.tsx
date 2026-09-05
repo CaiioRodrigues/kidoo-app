@@ -8,7 +8,7 @@ import { Avatar, Button, Card, Chip, Input, ProgressBar, Screen, Text } from '@/
 import { useCategories, useChildren, useRecommended, useSubscription } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import { daysUntilReset } from '@/lib/subscription';
 import { formatDaysUntil } from '@/lib/format';
 import type { Activity } from '@/types/domain';
@@ -17,6 +17,8 @@ const XP_PER_LEVEL = 1000;
 
 /** Tela 5 — Home. */
 export default function HomeScreen() {
+  const { colors, palette } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const guardian = useAuthStore((state) => state.session?.guardian ?? null);
   const activeChildId = useOnboardingStore((state) => state.activeChildId);
@@ -219,6 +221,8 @@ function SectionHeader({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.sectionHeader}>
       <Text variant="subheading" numberOfLines={1} style={styles.flex}>
@@ -238,67 +242,68 @@ function SectionHeader({
 const keyExtractor = (activity: Activity) => activity.id;
 const CarouselSeparator = () => <View style={{ width: spacing.md }} />;
 
-const styles = StyleSheet.create({
-  scroll: { paddingBottom: spacing.xxl },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.base,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-  },
-  greeting: { flex: 1, gap: spacing.xxs },
-  filters: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    marginTop: spacing.base,
-  },
-  searchWrapper: { paddingHorizontal: spacing.xl, marginTop: spacing.base },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.xl,
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
-  },
-  sidePadding: { paddingHorizontal: spacing.xl },
-  carousel: { paddingHorizontal: spacing.xl },
-  categories: { paddingHorizontal: spacing.xl, gap: spacing.md },
-  categoryTile: {
-    width: 76,
-    height: 76,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.backgroundMuted,
-  },
-  categoryEmoji: { fontSize: 24, lineHeight: 30 },
-  pressed: { opacity: 0.7 },
-  setupCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginHorizontal: spacing.xl,
-    marginTop: spacing.lg,
-  },
-  setupEmoji: { fontSize: 26 },
-  journeyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.base,
-    marginHorizontal: spacing.xl,
-  },
-  journeyInfo: { flex: 1, gap: spacing.xs },
-  coinsCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    marginHorizontal: spacing.xl,
-    marginTop: spacing.base,
-  },
-  coinEmoji: { fontSize: 20 },
-  flex: { flex: 1 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    scroll: { paddingBottom: spacing.xxl },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.base,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.md,
+    },
+    greeting: { flex: 1, gap: spacing.xxs },
+    filters: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.xl,
+      marginTop: spacing.base,
+    },
+    searchWrapper: { paddingHorizontal: spacing.xl, marginTop: spacing.base },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.xl,
+      marginTop: spacing.xl,
+      marginBottom: spacing.md,
+    },
+    sidePadding: { paddingHorizontal: spacing.xl },
+    carousel: { paddingHorizontal: spacing.xl },
+    categories: { paddingHorizontal: spacing.xl, gap: spacing.md },
+    categoryTile: {
+      width: 76,
+      height: 76,
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      backgroundColor: colors.backgroundMuted,
+    },
+    categoryEmoji: { fontSize: 24, lineHeight: 30 },
+    pressed: { opacity: 0.7 },
+    setupCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginHorizontal: spacing.xl,
+      marginTop: spacing.lg,
+    },
+    setupEmoji: { fontSize: 26 },
+    journeyCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.base,
+      marginHorizontal: spacing.xl,
+    },
+    journeyInfo: { flex: 1, gap: spacing.xs },
+    coinsCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+      marginHorizontal: spacing.xl,
+      marginTop: spacing.base,
+    },
+    coinEmoji: { fontSize: 20 },
+    flex: { flex: 1 },
+  });

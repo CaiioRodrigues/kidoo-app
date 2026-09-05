@@ -1,12 +1,12 @@
 import { StyleSheet, View } from 'react-native';
 
-import { colors, radius } from '@/theme';
+import { radius, useTheme } from '@/theme';
 
 export function ProgressBar({
   value,
   max = 100,
-  color = colors.primary,
-  track = colors.border,
+  color,
+  track,
   height = 10,
   label,
 }: {
@@ -17,11 +17,14 @@ export function ProgressBar({
   height?: number;
   label?: string;
 }) {
+  const { colors } = useTheme();
+  const fill = color ?? colors.primary;
+  const trackColor = track ?? colors.border;
   const ratio = max <= 0 ? 0 : Math.min(Math.max(value / max, 0), 1);
 
   return (
     <View
-      style={[styles.track, { backgroundColor: track, height, borderRadius: height / 2 }]}
+      style={[styles.track, { backgroundColor: trackColor, height, borderRadius: height / 2 }]}
       accessibilityRole="progressbar"
       accessibilityLabel={label}
       accessibilityValue={{ min: 0, max, now: value }}
@@ -29,7 +32,7 @@ export function ProgressBar({
       <View
         style={[
           styles.fill,
-          { backgroundColor: color, width: `${ratio * 100}%`, borderRadius: height / 2 },
+          { backgroundColor: fill, width: `${ratio * 100}%`, borderRadius: height / 2 },
         ]}
       />
     </View>

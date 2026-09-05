@@ -9,6 +9,8 @@ import type {
   Journey,
   Plan,
   PlanId,
+  RatingSummary,
+  Review,
   Session,
   SubscriptionState,
 } from '@/types/domain';
@@ -41,6 +43,8 @@ export type KidooApi = {
     activities(filters?: ActivityFilters): Promise<Activity[]>;
     activity(id: string): Promise<Activity>;
     recommended(childId: string): Promise<Activity[]>;
+    /** Comentários da atividade, mais recentes primeiro, com o resumo das notas. */
+    reviews(activityId: string): Promise<{ summary: RatingSummary; reviews: Review[] }>;
   };
   plans: {
     list(): Promise<Plan[]>;

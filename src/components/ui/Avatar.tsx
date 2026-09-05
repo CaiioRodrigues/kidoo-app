@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from './Text';
-import { colors, radius } from '@/theme';
+import { radius, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const BLURHASH = 'L6PZfSjE.AyE_3t7t7R**0o#DgR4';
 
@@ -27,6 +27,8 @@ export function Avatar({
   size?: number;
   ring?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const dimension = { width: size, height: size, borderRadius: size / 2 };
 
   return (
@@ -56,13 +58,14 @@ export function Avatar({
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.pill,
-    overflow: 'hidden',
-  },
-  image: { backgroundColor: colors.primarySoft },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    wrapper: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primarySoft,
+      borderRadius: radius.pill,
+      overflow: 'hidden',
+    },
+    image: { backgroundColor: colors.primarySoft },
+  });

@@ -1,9 +1,10 @@
 import { StyleSheet, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, type ThemeColors } from '@/theme';
 
 /** Barra de progresso segmentada do onboarding (topo das telas 3 e 4). */
 export function StepIndicator({ total, current }: { total: number; current: number }) {
+  const styles = useStyles(makeStyles);
   return (
     <View
       style={styles.row}
@@ -21,9 +22,10 @@ export function StepIndicator({ total, current }: { total: number; current: numb
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.sm, flex: 1 },
-  segment: { flex: 1, height: 5, borderRadius: radius.pill },
-  filled: { backgroundColor: colors.primary },
-  empty: { backgroundColor: colors.border },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    row: { flexDirection: 'row', gap: spacing.sm, flex: 1 },
+    segment: { flex: 1, height: 5, borderRadius: radius.pill },
+    filled: { backgroundColor: colors.primary },
+    empty: { backgroundColor: colors.border },
+  });

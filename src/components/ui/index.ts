@@ -12,3 +12,4 @@ export { Screen } from './Screen';
 export { SelectableCard } from './SelectableCard';
 export { StepIndicator } from './StepIndicator';
 export { Text, type AppTextProps } from './Text';
+export { ThemePicker } from './ThemePicker';

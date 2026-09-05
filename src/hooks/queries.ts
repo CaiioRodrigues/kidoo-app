@@ -14,6 +14,7 @@ export const queryKeys = {
   bookings: ['bookings'] as const,
   activities: (filters?: ActivityFilters) => ['activities', filters ?? {}] as const,
   activity: (id: string) => ['activity', id] as const,
+  reviews: (activityId: string) => ['reviews', activityId] as const,
   recommended: (childId: string) => ['recommended', childId] as const,
   booking: (id: string) => ['booking', id] as const,
   journey: (childId: string) => ['journey', childId] as const,
@@ -143,5 +144,14 @@ export function useCheckIn() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.children });
       void queryClient.invalidateQueries({ queryKey: queryKeys.journey(booking.childId) });
     },
+  });
+}
+
+export function useReviews(activityId: string) {
+  return useQuery({
+    queryKey: queryKeys.reviews(activityId),
+    queryFn: () => api.catalog.reviews(activityId),
+    enabled: activityId.length > 0,
+    staleTime: 1000 * 60 * 5,
   });
 }

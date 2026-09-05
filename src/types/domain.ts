@@ -126,6 +126,28 @@ export type CoinPayment = {
   total: number;
 };
 
+/** Comentário de um responsável sobre uma atividade. */
+export type Review = {
+  id: Uuid;
+  activityId: Uuid;
+  /** Primeiro nome de quem avaliou — nunca o nome completo nem o da criança. */
+  authorName: string;
+  /** Nota inteira de 1 a 5. */
+  rating: number;
+  comment: string;
+  createdAt: IsoDateTime;
+  /** Quantas pessoas marcaram o comentário como útil. */
+  helpfulCount: number;
+};
+
+/** Resumo das notas de uma atividade, com a distribuição por estrela. */
+export type RatingSummary = {
+  average: number;
+  total: number;
+  /** Quantidade de avaliações por nota, da chave 1 até a 5. */
+  distribution: Record<1 | 2 | 3 | 4 | 5, number>;
+};
+
 export type BookingStatus = 'confirmed' | 'checked_in' | 'cancelled' | 'completed';
 
 export type Booking = {

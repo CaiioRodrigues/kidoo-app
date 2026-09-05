@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { Text } from '@/components/ui';
-import { fontFamily, palette } from '@/theme';
+import { fontFamily, useTheme } from '@/theme';
 
 type Props = {
   size?: number;
@@ -15,6 +15,7 @@ type Props = {
  * (amarelo e rosa), reproduzindo o logotipo do guia de identidade.
  */
 export function KidooLogo({ size = 44, onDark = false }: Props) {
+  const { palette } = useTheme();
   const circle = size * 0.86;
   const smile = circle * 0.44;
 

@@ -3,7 +3,15 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
-import { colors, hitSlop, minTouchTarget, radius, spacing } from '@/theme';
+import {
+  hitSlop,
+  minTouchTarget,
+  radius,
+  spacing,
+  useStyles,
+  useTheme,
+  type ThemeColors,
+} from '@/theme';
 
 type Props = {
   title?: string;
@@ -14,6 +22,8 @@ type Props = {
 };
 
 export function HeaderBar({ title, center, right, onBack }: Props) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
 
   const handleBack = () => {
@@ -47,21 +57,22 @@ export function HeaderBar({ title, center, right, onBack }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.base,
-    paddingVertical: spacing.md,
-  },
-  back: {
-    width: minTouchTarget,
-    height: minTouchTarget,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressed: { opacity: 0.6, backgroundColor: colors.primaryTint },
-  center: { flex: 1 },
-  right: { minWidth: minTouchTarget, alignItems: 'flex-end' },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.base,
+      paddingVertical: spacing.md,
+    },
+    back: {
+      width: minTouchTarget,
+      height: minTouchTarget,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pressed: { opacity: 0.6, backgroundColor: colors.primaryTint },
+    center: { flex: 1 },
+    right: { minWidth: minTouchTarget, alignItems: 'flex-end' },
+  });

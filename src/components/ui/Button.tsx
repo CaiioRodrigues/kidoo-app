@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 import { Text } from './Text';
-import { colors, minTouchTarget, radius, shadows, spacing } from '@/theme';
+import { minTouchTarget, radius, shadows, spacing, useTheme, type ThemeColors } from '@/theme';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
@@ -44,6 +44,7 @@ export function Button({
   onPress,
   ...rest
 }: ButtonProps) {
+  const { colors } = useTheme();
   const isDisabled = disabled || loading;
 
   const handlePress = useCallback<NonNullable<PressableProps['onPress']>>(
@@ -56,7 +57,7 @@ export function Button({
     [haptic, onPress],
   );
 
-  const v = VARIANTS[variant];
+  const v = variantsFor(colors)[variant];
 
   return (
     <Pressable
@@ -92,12 +93,14 @@ export function Button({
   );
 }
 
-const VARIANTS: Record<Variant, { background: string; label: string; border: string }> = {
+const variantsFor = (
+  colors: ThemeColors,
+): Record<Variant, { background: string; label: string; border: string }> => ({
   primary: { background: colors.primary, label: colors.textOnPrimary, border: 'transparent' },
   secondary: { background: colors.background, label: colors.primary, border: colors.border },
   ghost: { background: 'transparent', label: colors.primary, border: 'transparent' },
   danger: { background: colors.danger, label: colors.textOnPrimary, border: 'transparent' },
-};
+});
 
 const styles = StyleSheet.create({
   base: {

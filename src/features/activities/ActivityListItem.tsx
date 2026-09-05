@@ -4,14 +4,17 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CoinBadge, Text } from '@/components/ui';
+import { StarRating } from '@/features/reviews';
 import { formatDistance } from '@/lib/format';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Activity } from '@/types/domain';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
 /** Linha compacta usada na tela Explorar. */
 function ActivityListItemBase({ activity, onPress }: { activity: Activity; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -38,9 +41,9 @@ function ActivityListItemBase({ activity, onPress }: { activity: Activity; onPre
           <Text variant="caption" color={colors.textMuted}>
             {activity.minAge}-{activity.maxAge} anos
           </Text>
-          <Ionicons name="star" size={12} color={colors.accentYellow} />
+          <StarRating rating={activity.rating} size={11} />
           <Text variant="caption" color={colors.textMuted}>
-            {activity.rating.toFixed(1).replace('.', ',')}
+            {activity.rating.toFixed(1).replace('.', ',')} ({activity.reviewCount})
           </Text>
         </View>
         <View style={styles.metaRow}>
@@ -57,23 +60,24 @@ function ActivityListItemBase({ activity, onPress }: { activity: Activity; onPre
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  pressed: { opacity: 0.7 },
-  thumb: {
-    width: 74,
-    height: 74,
-    borderRadius: radius.lg,
-    backgroundColor: colors.backgroundMuted,
-  },
-  info: { flex: 1, gap: spacing.xxs },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  flex: { flex: 1 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+    },
+    pressed: { opacity: 0.7 },
+    thumb: {
+      width: 74,
+      height: 74,
+      borderRadius: radius.lg,
+      backgroundColor: colors.backgroundMuted,
+    },
+    info: { flex: 1, gap: spacing.xxs },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    flex: { flex: 1 },
+  });
 
 export const ActivityListItem = memo(ActivityListItemBase);

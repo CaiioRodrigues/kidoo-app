@@ -4,8 +4,9 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CoinBadge, Text } from '@/components/ui';
+import { StarRating } from '@/features/reviews';
 import { formatDistance, formatSessionTime } from '@/lib/format';
-import { colors, radius, shadows, spacing } from '@/theme';
+import { radius, shadows, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Activity } from '@/types/domain';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
@@ -14,6 +15,8 @@ export const ACTIVITY_CARD_WIDTH = 232;
 
 /** Card horizontal usado no carrossel de recomendados da Home. */
 function ActivityCardBase({ activity, onPress }: { activity: Activity; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -44,9 +47,9 @@ function ActivityCardBase({ activity, onPress }: { activity: Activity; onPress: 
           <Text variant="caption" color={colors.textFaint}>
             •
           </Text>
-          <Ionicons name="star" size={12} color={colors.accentYellow} />
+          <StarRating rating={activity.rating} size={11} />
           <Text variant="caption" color={colors.textMuted}>
-            {activity.rating.toFixed(1).replace('.', ',')}
+            {activity.rating.toFixed(1).replace('.', ',')} ({activity.reviewCount})
           </Text>
         </View>
 
@@ -70,19 +73,20 @@ function ActivityCardBase({ activity, onPress }: { activity: Activity; onPress: 
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    width: ACTIVITY_CARD_WIDTH,
-    borderRadius: radius.xl,
-    backgroundColor: colors.card,
-    overflow: 'hidden',
-    ...shadows.card,
-  },
-  pressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
-  image: { width: '100%', height: 124, backgroundColor: colors.backgroundMuted },
-  content: { padding: spacing.md, gap: spacing.xs },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  flex: { flex: 1 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    card: {
+      width: ACTIVITY_CARD_WIDTH,
+      borderRadius: radius.xl,
+      backgroundColor: colors.card,
+      overflow: 'hidden',
+      ...shadows.card,
+    },
+    pressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
+    image: { width: '100%', height: 124, backgroundColor: colors.backgroundMuted },
+    content: { padding: spacing.md, gap: spacing.xs },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    flex: { flex: 1 },
+  });
 
 export const ActivityCard = memo(ActivityCardBase);

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type ScrollViewProps, type ViewStyle } from 'react-native';
 import { type Edge, SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 type Props = {
   children: ReactNode;
@@ -18,16 +18,19 @@ type Props = {
 export function Screen({
   children,
   scroll = false,
-  background = colors.background,
+  background,
   edges = ['top', 'bottom'],
   padded = true,
   style,
   contentContainerStyle,
 }: Props) {
+  const { colors } = useTheme();
+  // O padrão depende do tema, então resolve aqui e não na assinatura.
+  const surface = background ?? colors.background;
   const padding = padded ? styles.padded : undefined;
 
   return (
-    <SafeAreaView edges={edges} style={[styles.flex, { backgroundColor: background }, style]}>
+    <SafeAreaView edges={edges} style={[styles.flex, { backgroundColor: surface }, style]}>
       {scroll ? (
         <ScrollView
           style={styles.flex}

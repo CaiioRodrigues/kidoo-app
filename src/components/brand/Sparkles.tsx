@@ -1,9 +1,10 @@
 import { StyleSheet, View } from 'react-native';
 
-import { palette } from '@/theme';
+import { useTheme } from '@/theme';
 
 /** Traços decorativos da identidade (os "raios" acima do logo). */
 export function Sparkles({ style }: { style?: object }) {
+  const { palette } = useTheme();
   return (
     <View style={[styles.row, style]} pointerEvents="none">
       <View style={[styles.dash, styles.left, { backgroundColor: palette.yellow }]} />

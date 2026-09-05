@@ -10,11 +10,13 @@ import { formatPrice } from '@/lib/format';
 import { toUserMessage } from '@/services';
 import { useCreateChild, usePlans, useSubscribe } from '@/hooks/queries';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 import type { Plan, PlanId } from '@/types/domain';
 
 /** Tela 4 — Escolha o plano ideal para sua família. */
 export default function PlanScreen() {
+  const { colors, palette } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const { data: plans = [] } = usePlans();
   const draft = useOnboardingStore((state) => state.draft);
@@ -142,6 +144,8 @@ function PlanCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="radio"
@@ -189,6 +193,8 @@ function PlanCard({
 }
 
 function PerkPill({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.perk}>
       <Ionicons name={icon} size={16} color={colors.primary} />
@@ -199,50 +205,51 @@ function PerkPill({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { backgroundColor: colors.primary },
-  headerInner: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, alignItems: 'center' },
-  headerCenter: { alignItems: 'center', gap: spacing.xs },
-  crown: { fontSize: 24 },
-  headerBadge: { marginTop: spacing.md },
-  body: { flex: 1 },
-  bodyContent: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-    gap: spacing.base,
-  },
-  footer: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  plans: { gap: spacing.md },
-  planCard: { gap: spacing.sm, borderColor: colors.border },
-  planCardSelected: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
-  planTag: { marginBottom: spacing.xs },
-  planHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  planPrice: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  planCoins: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  coinEmoji: { fontSize: 14 },
-  cycleCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  cycleEmoji: { fontSize: 20 },
-  cycleText: { flex: 1 },
-  perks: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
-  perk: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: palette.purpleTint,
-  },
-  perkLabel: { flexShrink: 1 },
-  error: { textAlign: 'center' },
-});
+const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { backgroundColor: colors.primary },
+    headerInner: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, alignItems: 'center' },
+    headerCenter: { alignItems: 'center', gap: spacing.xs },
+    crown: { fontSize: 24 },
+    headerBadge: { marginTop: spacing.md },
+    body: { flex: 1 },
+    bodyContent: {
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.xl,
+      paddingBottom: spacing.lg,
+      gap: spacing.base,
+    },
+    footer: {
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+      gap: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    plans: { gap: spacing.md },
+    planCard: { gap: spacing.sm, borderColor: colors.border },
+    planCardSelected: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
+    planTag: { marginBottom: spacing.xs },
+    planHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    planPrice: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    planCoins: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    coinEmoji: { fontSize: 14 },
+    cycleCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    cycleEmoji: { fontSize: 20 },
+    cycleText: { flex: 1 },
+    perks: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
+    perk: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor: palette.purpleTint,
+    },
+    perkLabel: { flexShrink: 1 },
+    error: { textAlign: 'center' },
+  });

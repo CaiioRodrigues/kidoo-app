@@ -9,13 +9,25 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { createQueryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth-store';
-import { appFonts, colors } from '@/theme';
+import { ThemeProvider, appFonts, useSystemUiSync, useTheme } from '@/theme';
 
 // Mantém a splash nativa até fontes e sessão estarem prontas: sem "flash" de
 // layout com fonte de sistema nem tela de login piscando para quem já entrou.
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // O provider precisa envolver quem usa useTheme, por isso a árvore de
+  // providers fica aqui e o conteúdo temático vive em <ThemedApp />.
+  return (
+    <ThemeProvider>
+      <ThemedApp />
+    </ThemeProvider>
+  );
+}
+
+function ThemedApp() {
+  const { colors, isDark } = useTheme();
+  useSystemUiSync();
   // Inicialização preguiçosa: um único QueryClient por montagem do app.
   const [queryClient] = useState(createQueryClient);
   const [fontsLoaded, fontError] = useFonts(appFonts);
@@ -37,10 +49,10 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.background }]}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="dark" />
+          <StatusBar style={isDark ? 'light' : 'dark'} />
           <Stack
             screenOptions={{
               headerShown: false,

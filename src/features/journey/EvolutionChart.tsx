@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useTheme } from '@/theme';
 
 const CHART_HEIGHT = 96;
 
@@ -11,6 +11,7 @@ const CHART_HEIGHT = 96;
  * dependência de charting mantém o bundle menor e o render mais barato.
  */
 export function EvolutionChart({ data }: { data: { label: string; count: number }[] }) {
+  const { colors } = useTheme();
   const max = Math.max(1, ...data.map((item) => item.count));
 
   return (

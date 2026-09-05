@@ -1,18 +1,21 @@
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { Text } from './Text';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 
 type Tone = 'brand' | 'teal' | 'yellow' | 'pink' | 'success' | 'neutral';
 
-const TONES: Record<Tone, { bg: string; fg: string }> = {
+const tonesFor = (
+  colors: ThemeColors,
+  palette: ThemePalette,
+): Record<Tone, { bg: string; fg: string }> => ({
   brand: { bg: palette.purpleSoft, fg: palette.purple },
-  teal: { bg: palette.tealSoft, fg: '#128385' },
+  teal: { bg: palette.tealSoft, fg: palette.tealInk },
   yellow: { bg: palette.yellowSoft, fg: colors.warning },
-  pink: { bg: palette.pinkSoft, fg: '#D93E76' },
+  pink: { bg: palette.pinkSoft, fg: palette.pinkInk },
   success: { bg: colors.successSoft, fg: colors.success },
   neutral: { bg: colors.backgroundMuted, fg: colors.textMuted },
-};
+});
 
 export function Badge({
   label,
@@ -25,7 +28,8 @@ export function Badge({
   left?: React.ReactNode;
   style?: ViewStyle;
 }) {
-  const t = TONES[tone];
+  const { colors, palette } = useTheme();
+  const t = tonesFor(colors, palette)[tone];
   return (
     <View style={[styles.badge, { backgroundColor: t.bg }, style]}>
       {left}

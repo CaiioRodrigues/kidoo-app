@@ -10,7 +10,16 @@ import {
 } from 'react-native';
 
 import { Text } from './Text';
-import { colors, fontFamily, hitSlop, minTouchTarget, radius, spacing } from '@/theme';
+import {
+  fontFamily,
+  hitSlop,
+  minTouchTarget,
+  radius,
+  spacing,
+  useStyles,
+  useTheme,
+  type ThemeColors,
+} from '@/theme';
 
 export type InputProps = Omit<TextInputProps, 'style'> & {
   label?: string;
@@ -39,6 +48,8 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   },
   ref,
 ) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const isPassword = Boolean(secureTextEntry);
@@ -126,29 +137,30 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   );
 });
 
-const styles = StyleSheet.create({
-  container: { gap: spacing.xs },
-  label: { marginLeft: spacing.xxs },
-  field: {
-    minHeight: minTouchTarget + 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.base,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  fieldFocused: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
-  fieldError: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
-  icon: { width: 20 },
-  input: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    color: colors.text,
-    fontFamily: fontFamily.medium,
-    fontSize: 15,
-  },
-  helper: { marginLeft: spacing.xxs },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: { gap: spacing.xs },
+    label: { marginLeft: spacing.xxs },
+    field: {
+      minHeight: minTouchTarget + 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.base,
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    fieldFocused: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
+    fieldError: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
+    icon: { width: 20 },
+    input: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      color: colors.text,
+      fontFamily: fontFamily.medium,
+      fontSize: 15,
+    },
+    helper: { marginLeft: spacing.xxs },
+  });

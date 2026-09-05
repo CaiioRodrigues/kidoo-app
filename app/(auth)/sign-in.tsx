@@ -7,9 +7,10 @@ import { Button, Input, Screen, Text } from '@/components/ui';
 import { fieldErrors, signInSchema } from '@/lib/validation';
 import { toUserMessage } from '@/services';
 import { useAuthStore } from '@/stores/auth-store';
-import { colors, spacing } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 export default function SignInScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const signIn = useAuthStore((state) => state.signIn);
 
