@@ -13,7 +13,7 @@ export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
-    <Screen background={colors.background}>
+    <Screen background={colors.background} scroll contentContainerStyle={styles.scroll}>
       <View style={styles.container}>
         <Animated.View entering={FadeInDown.duration(420)} style={styles.brand}>
           <Sparkles style={styles.sparkles} />
@@ -56,6 +56,7 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  scroll: { flexGrow: 1 },
   container: { flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xxl },
   brand: { alignItems: 'center', gap: spacing.base, marginTop: spacing.xxl },
   sparkles: { marginBottom: spacing.xs },
