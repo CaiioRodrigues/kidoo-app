@@ -22,6 +22,7 @@ export default function CheckInScreen() {
   const checkIn = useCheckIn();
   const [error, setError] = useState<string | null>(null);
 
+  const result = checkIn.data ?? null;
   const done = booking?.status === 'checked_in';
   const firstName = booking?.child.name.split(' ')[0] ?? '';
 
@@ -155,6 +156,22 @@ export default function CheckInScreen() {
         )}
       </View>
 
+      {done && result?.levelUp ? (
+        <Card background={palette.yellowSoft} elevation="none" style={styles.levelUpCard}>
+          <Text style={styles.levelUpEmoji}>🎖️</Text>
+          <View style={styles.flex}>
+            <Text variant="bodyStrong" color={colors.text}>
+              Subiu para o nível {result.levelUp.to}!
+            </Text>
+            <Text variant="caption" color={colors.textMuted}>
+              {result.levelUp.bonusEarned === 1
+                ? 'Você ganhou 1 moeda bônus, válida por 30 dias.'
+                : `Você ganhou ${result.levelUp.bonusEarned} moedas bônus, válidas por 30 dias.`}
+            </Text>
+          </View>
+        </Card>
+      ) : null}
+
       {done ? (
         <Card background={palette.purpleTint} elevation="none" style={styles.mascotCard}>
           <Text style={styles.mascot}>👾</Text>
@@ -163,7 +180,7 @@ export default function CheckInScreen() {
               Boa aula, {firstName}!
             </Text>
             <Text variant="caption" color={colors.textMuted}>
-              Você ganhou 100 XP. Continue assim!
+              {result ? `Você ganhou ${result.xpEarned} XP.` : 'XP creditado.'} Continue assim!
             </Text>
           </View>
         </Card>
@@ -204,6 +221,13 @@ const styles = StyleSheet.create({
   },
   error: { marginTop: spacing.md },
   actions: { gap: spacing.md, marginTop: spacing.xl },
+  levelUpCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xl,
+  },
+  levelUpEmoji: { fontSize: 30 },
   mascotCard: {
     flexDirection: 'row',
     alignItems: 'center',

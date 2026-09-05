@@ -91,6 +91,41 @@ export type Activity = {
   tags: string[];
 };
 
+/**
+ * Kidoo Bônus — moeda de recompensa, ganha ao subir de nível.
+ *
+ * É diferente dos Kidoo Coins da assinatura: não vem do plano, não reseta
+ * toda semana e cada lote vale por 30 dias a partir do dia em que foi ganho.
+ * Por isso é guardada como lotes datados, e não como um saldo solto — sem
+ * isso não há como saber o que vence quando.
+ */
+export type BonusGrant = {
+  id: Uuid;
+  childId: Uuid;
+  amount: number;
+  /** Nível alcançado que gerou o bônus. */
+  level: number;
+  grantedAt: IsoDateTime;
+  expiresAt: IsoDateTime;
+};
+
+export type BonusWallet = {
+  childId: Uuid;
+  /** Soma apenas dos lotes ainda válidos. */
+  balance: number;
+  /** Lotes válidos, do que expira primeiro para o que expira por último. */
+  grants: BonusGrant[];
+  /** Próximo lote a vencer, para avisar antes de o usuário perder. */
+  nextExpiring: { amount: number; expiresAt: IsoDateTime } | null;
+};
+
+/** Como uma reserva foi paga. O bônus sai primeiro, porque expira. */
+export type CoinPayment = {
+  fromBonus: number;
+  fromSubscription: number;
+  total: number;
+};
+
 export type BookingStatus = 'confirmed' | 'checked_in' | 'cancelled' | 'completed';
 
 export type Booking = {
@@ -101,6 +136,7 @@ export type Booking = {
   scheduledAt: IsoDateTime;
   checkedInAt: IsoDateTime | null;
   coinCost: number;
+  payment: CoinPayment;
 };
 
 /** Reserva já resolvida com atividade e criança — o que as telas consomem. */
@@ -125,6 +161,13 @@ export type ActivityTally = {
   count: number;
 };
 
+/** O que o check-in rendeu — a tela de check-in celebra a partir disto. */
+export type CheckInResult = {
+  booking: BookingDetails;
+  xpEarned: number;
+  levelUp: { from: number; to: number; bonusEarned: number } | null;
+};
+
 export type Journey = {
   childId: Uuid;
   xp: number;
@@ -141,6 +184,8 @@ export type Journey = {
   weeklyActivity: { label: string; count: number }[];
   totalActivities: number;
   totalCategories: number;
+  /** Carteira de Kidoo Bônus da criança. */
+  bonus: BonusWallet;
 };
 
 export type Session = {
