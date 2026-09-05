@@ -6,10 +6,11 @@ import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 
 import { HeaderBar } from '@/components/navigation';
 import { Avatar, Button, Card, Screen, Text } from '@/components/ui';
+import { CheckInTicketCard } from '@/features/check-in';
 import { formatSessionTime } from '@/lib/format';
 import { logger } from '@/lib/logger';
 import { toUserMessage } from '@/services';
-import { useBooking, useCheckIn } from '@/hooks/queries';
+import { useBooking, useCheckIn, useConfirmByPartner } from '@/hooks/queries';
 import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const CONFETTI = ['🎉', '⭐', '🎈', '✨', '🎊', '💜'];
@@ -25,7 +26,10 @@ export default function CheckInScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const result = checkIn.data ?? null;
-  const done = booking?.status === 'checked_in';
+  const confirmPartner = useConfirmByPartner();
+  const done = booking?.status === 'checked_in' || booking?.status === 'completed';
+  const confirmed = booking?.status === 'completed' && booking.partnerConfirmedAt !== null;
+  const ticket = result?.ticket ?? booking?.checkIn ?? null;
   const firstName = booking?.child.name.split(' ')[0] ?? '';
 
   const handleCheckIn = useCallback(async () => {
@@ -118,6 +122,21 @@ export default function CheckInScreen() {
         </Text>
       </Card>
 
+      {done && ticket ? (
+        <View style={styles.ticket}>
+          <CheckInTicketCard ticket={ticket} />
+        </View>
+      ) : null}
+
+      {confirmed ? (
+        <Card background={palette.tealSoft} elevation="none" style={styles.confirmedCard}>
+          <Ionicons name="shield-checkmark" size={20} color={colors.success} />
+          <Text variant="label" color={colors.text} style={styles.flex}>
+            Presença confirmada pelo parceiro.
+          </Text>
+        </Card>
+      ) : null}
+
       {error ? (
         <Text variant="caption" color={colors.danger} center style={styles.error}>
           {error}
@@ -137,10 +156,34 @@ export default function CheckInScreen() {
               }
             />
             <Button
-              title="Compartilhar conquista"
+              title="Avaliar o estabelecimento"
               variant="secondary"
+              onPress={() =>
+                router.push({ pathname: '/booking/[id]/review', params: { id: booking.id } })
+              }
+            />
+            <Button
+              title="Compartilhar conquista"
+              variant="ghost"
+              size="md"
               onPress={() => void handleShare()}
             />
+
+            {__DEV__ && ticket && !confirmed ? (
+              // Só em desenvolvimento: sem o app do parceiro, é assim que dá
+              // para exercitar a confirmação de ponta a ponta.
+              <Button
+                title="Simular leitura do parceiro"
+                variant="ghost"
+                size="sm"
+                onPress={() =>
+                  void confirmPartner.mutateAsync({
+                    bookingId: booking.id,
+                    code: ticket.code,
+                  })
+                }
+              />
+            ) : null}
           </>
         ) : (
           <>
@@ -231,6 +274,13 @@ const makeStyles = (colors: ThemeColors) =>
       marginTop: spacing.xl,
     },
     levelUpEmoji: { fontSize: 30 },
+    ticket: { marginTop: spacing.xl },
+    confirmedCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.base,
+    },
     mascotCard: {
       flexDirection: 'row',
       alignItems: 'center',

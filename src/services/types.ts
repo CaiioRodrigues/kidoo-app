@@ -45,6 +45,8 @@ export type KidooApi = {
     recommended(childId: string): Promise<Activity[]>;
     /** Comentários da atividade, mais recentes primeiro, com o resumo das notas. */
     reviews(activityId: string): Promise<{ summary: RatingSummary; reviews: Review[] }>;
+    /** Avaliação do responsável sobre o estabelecimento, após a aula. */
+    submitReview(input: { bookingId: string; rating: number; comment: string }): Promise<Review>;
   };
   plans: {
     list(): Promise<Plan[]>;
@@ -57,6 +59,11 @@ export type KidooApi = {
     create(input: { activityId: string; childId: string }): Promise<Booking>;
     /** Registra a presença, credita XP e, ao subir de nível, Kidoo Bônus. */
     checkIn(bookingId: string): Promise<CheckInResult>;
+    /**
+     * Chamado pelo parceiro ao ler o QR ou digitar o código do responsável.
+     * É o que transforma "o app diz que veio" em presença confirmada.
+     */
+    confirmByPartner(input: { bookingId: string; code: string }): Promise<BookingDetails>;
   };
   journey: {
     get(childId: string): Promise<Journey>;
