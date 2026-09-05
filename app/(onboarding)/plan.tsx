@@ -85,6 +85,14 @@ export default function PlanScreen() {
           ))}
         </View>
 
+        <Card background={palette.yellowSoft} elevation="none" style={styles.cycleCard}>
+          <Text style={styles.cycleEmoji}>🔄</Text>
+          <Text variant="caption" color={colors.text} style={styles.cycleText}>
+            Seus coins voltam ao cheio toda segunda-feira. A cobrança é mensal, mas a cota é semanal
+            — assim dá para manter uma rotina de atividades.
+          </Text>
+        </Card>
+
         <View style={styles.perks}>
           <PerkPill icon="checkmark-circle-outline" label="Acesso a todos os parceiros" />
           <PerkPill icon="refresh-outline" label="Cancelamento fácil" />
@@ -155,12 +163,12 @@ function PlanCard({
         <View style={styles.planCoins}>
           <Text style={styles.coinEmoji}>🪙</Text>
           <Text variant="label" color={colors.warning}>
-            {plan.coins} Kidoo Coins
+            {plan.coinsPerWeek} coins por semana
           </Text>
         </View>
 
         <Text variant="caption" color={colors.textMuted}>
-          {plan.tagline}
+          Cerca de {plan.activitiesPerWeek} atividades por semana · {plan.tagline}
         </Text>
       </Card>
     </Pressable>
@@ -200,6 +208,9 @@ const styles = StyleSheet.create({
   planPrice: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   planCoins: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   coinEmoji: { fontSize: 14 },
+  cycleCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  cycleEmoji: { fontSize: 20 },
+  cycleText: { flex: 1 },
   perks: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
   perk: {
     flexDirection: 'row',

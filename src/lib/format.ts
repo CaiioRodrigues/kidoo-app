@@ -60,3 +60,10 @@ export function isoDateToBr(iso: string): string {
   const [, year, month, day] = match;
   return `${day}/${month}/${year}`;
 }
+
+/** "hoje", "amanhã" ou "em 4 dias" — usado no aviso de reset dos coins. */
+export function formatDaysUntil(days: number): string {
+  if (days <= 0) return 'hoje';
+  if (days === 1) return 'amanhã';
+  return `em ${days} dias`;
+}

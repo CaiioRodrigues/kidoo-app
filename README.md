@@ -168,6 +168,30 @@ As 10 telas do fluxo estão implementadas:
 
 O ciclo fecha: reservar → check-in → XP → conquista → jornada atualizada.
 
+### Economia de Kidoo Coins
+
+A cobrança é **mensal**, mas a cota de coins é **semanal** e volta ao cheio toda
+segunda-feira. Coins **não acumulam**: o que sobra na semana é perdido na virada
+— a ideia é incentivar frequência, não estoque.
+
+Cada atividade custa 2, 3 ou 4 coins conforme a estrutura exigida
+(`COIN_TIERS` em `src/types/domain.ts`). No catálogo atual o custo médio é
+**2,83 coins**, e é ele que calibra a cota de cada plano:
+
+| Plano | Preço/mês | Coins/semana | Atividades/semana | Custo por coin |
+| ----- | --------- | ------------ | ----------------- | -------------- |
+| Start | R$ 79,90  | 8            | ~2,8              | R$ 9,99        |
+| Plus  | R$ 109,90 | 12           | ~4,2              | R$ 9,16        |
+| Max   | R$ 149,90 | 18           | ~6,4              | R$ 8,33        |
+
+O custo por coin cai conforme o plano sobe, então o upgrade sempre compensa.
+Nos extremos, a cota do Plus rende de 3 atividades (só as premium) a 6 (só as
+básicas).
+
+A virada de semana é aplicada na leitura e antes de cada débito
+(`src/lib/subscription.ts`), então uma reserva feita depois da segunda usa a
+cota nova mesmo que o app tenha ficado aberto desde a semana anterior.
+
 ### Gamificação
 
 - 100 XP por check-in; 250 XP fecham um nível
