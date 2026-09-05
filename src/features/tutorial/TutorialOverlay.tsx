@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { Mascot } from './Mascot';
@@ -32,6 +33,9 @@ const STEPS: Step[] = [
 export function TutorialOverlay({ visible, onFinish }: { visible: boolean; onFinish: () => void }) {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
+  // Modal não recebe área segura automaticamente: sem isto, o botão final fica
+  // por baixo dos botões do sistema no Android.
+  const insets = useSafeAreaInsets();
   const [index, setIndex] = useState(0);
 
   const step = STEPS[index] ?? STEPS[0]!;
@@ -51,7 +55,7 @@ export function TutorialOverlay({ visible, onFinish }: { visible: boolean; onFin
         <Animated.View
           entering={FadeIn.duration(260)}
           exiting={FadeOut.duration(160)}
-          style={styles.content}
+          style={[styles.content, { paddingBottom: spacing.lg + insets.bottom }]}
         >
           <Pressable
             accessibilityRole="button"
@@ -98,7 +102,7 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'flex-end',
       padding: spacing.xl,
     },
-    content: { gap: spacing.base, paddingBottom: spacing.xxl },
+    content: { gap: spacing.base },
     // Chip com fundo próprio: texto branco solto sobre a tela clara por baixo
     // ficava ilegível.
     skip: {
