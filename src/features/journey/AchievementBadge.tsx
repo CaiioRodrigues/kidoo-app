@@ -36,7 +36,10 @@ const makeStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.xs,
-      padding: spacing.sm,
+      // Padding lateral estreito: com 4 colunas, "Explorador" quebrava no meio
+      // da palavra por falta de alguns pixels.
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.xxs,
       borderRadius: radius.lg,
       borderWidth: 1.5,
     },
