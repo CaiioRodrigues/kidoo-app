@@ -9,8 +9,17 @@ import { formatAge, formatDaysUntil, formatSessionTime } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
 import { toUserMessage } from '@/services';
 import { useActivity, useChildren, useCreateBooking, useSubscription } from '@/hooks/queries';
+import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { colors, palette, radius, spacing } from '@/theme';
+
+type Blocker = {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  description: string;
+  action: string;
+  href: '/(auth)/sign-up' | '/(onboarding)/child' | '/(onboarding)/plan';
+};
 
 /** Tela 8 — Confirmar reserva. */
 export default function ConfirmBookingScreen() {
@@ -21,6 +30,7 @@ export default function ConfirmBookingScreen() {
   const { data: children = [] } = useChildren();
   const { data: subscription } = useSubscription();
   const activeChildId = useOnboardingStore((state) => state.activeChildId);
+  const authenticated = useAuthStore((state) => state.status === 'authenticated');
   const createBooking = useCreateBooking();
   const [error, setError] = useState<string | null>(null);
 
@@ -28,6 +38,36 @@ export default function ConfirmBookingScreen() {
     () => children.find((item) => item.id === activeChildId) ?? children[0] ?? null,
     [activeChildId, children],
   );
+
+  /**
+   * O que ainda falta para reservar. Cada caso tem uma ação — a tela nunca
+   * apenas informa que não dá; ela leva o usuário ao passo que resolve.
+   */
+  const blocker: Blocker | null = !authenticated
+    ? {
+        icon: 'person-add-outline',
+        title: 'Crie sua conta para reservar',
+        description: 'Leva menos de um minuto e você já sai com a primeira aula marcada.',
+        action: 'Criar conta',
+        href: '/(auth)/sign-up',
+      }
+    : !child
+      ? {
+          icon: 'happy-outline',
+          title: 'Falta cadastrar o seu pequeno',
+          description: 'Precisamos saber a idade da criança para confirmar a turma certa.',
+          action: 'Cadastrar criança',
+          href: '/(onboarding)/child',
+        }
+      : !subscription
+        ? {
+            icon: 'card-outline',
+            title: 'Escolha um plano para reservar',
+            description: 'As reservas usam Kidoo Coins, que vêm com a assinatura.',
+            action: 'Ver planos',
+            href: '/(onboarding)/plan',
+          }
+        : null;
 
   const coinsAfter =
     subscription && activity ? subscription.coinsRemaining - activity.coinCost : null;
@@ -79,14 +119,22 @@ export default function ConfirmBookingScreen() {
             </Text>
           </View>
         </Card>
-      ) : (
-        <Card bordered elevation="none" style={styles.childCard}>
-          <Ionicons name="alert-circle-outline" size={22} color={colors.warning} />
-          <Text variant="caption" color={colors.textMuted} style={styles.flex}>
-            Cadastre uma criança antes de reservar uma atividade.
-          </Text>
+      ) : blocker ? (
+        <Card background={palette.purpleTint} elevation="none" style={styles.blockerCard}>
+          <View style={styles.blockerHeader}>
+            <View style={styles.blockerIcon}>
+              <Ionicons name={blocker.icon} size={20} color={colors.primary} />
+            </View>
+            <View style={styles.flex}>
+              <Text variant="bodyStrong">{blocker.title}</Text>
+              <Text variant="caption" color={colors.textMuted}>
+                {blocker.description}
+              </Text>
+            </View>
+          </View>
+          <Button title={blocker.action} size="md" onPress={() => router.push(blocker.href)} />
         </Card>
-      )}
+      ) : null}
 
       <Card bordered elevation="none" style={styles.detailsCard}>
         <DetailRow icon="football-outline" label={activity.title} sub={activity.partner.name} />
@@ -119,13 +167,15 @@ export default function ConfirmBookingScreen() {
         </Text>
       ) : null}
 
-      <Button
-        title="Confirmar reserva"
-        loading={createBooking.isPending}
-        disabled={!child || notEnoughCoins}
-        onPress={() => void handleConfirm()}
-        style={styles.cta}
-      />
+      {blocker ? null : (
+        <Button
+          title="Confirmar reserva"
+          loading={createBooking.isPending}
+          disabled={notEnoughCoins}
+          onPress={() => void handleConfirm()}
+          style={styles.cta}
+        />
+      )}
 
       {coinsAfter !== null && subscription ? (
         <Text variant="caption" color={notEnoughCoins ? colors.danger : colors.textFaint} center>
@@ -174,6 +224,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.base,
     marginBottom: spacing.md,
+  },
+  blockerCard: { gap: spacing.base, marginBottom: spacing.md },
+  blockerHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  blockerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
   },
   detailsCard: { gap: spacing.base },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

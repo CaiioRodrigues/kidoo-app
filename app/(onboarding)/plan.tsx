@@ -35,17 +35,24 @@ export default function PlanScreen() {
     setError(null);
 
     try {
-      // O cadastro da criança só é enviado agora, ao final do fluxo consentido.
-      const child = await createChild.mutateAsync({
-        name: draft.name,
-        birthDate: draft.birthDate,
-        gender: draft.gender,
-        photoUri: draft.photoUri,
-        interests: draft.interests,
-      });
+      // Esta tela também é usada por quem só quer assinar (já tem criança
+      // cadastrada). Sem rascunho preenchido, não há criança nova para criar.
+      const hasDraft = draft.name.trim().length > 0 && draft.birthDate.length > 0;
+
+      if (hasDraft) {
+        // O cadastro da criança só é enviado agora, ao final do fluxo consentido.
+        const child = await createChild.mutateAsync({
+          name: draft.name,
+          birthDate: draft.birthDate,
+          gender: draft.gender,
+          photoUri: draft.photoUri,
+          interests: draft.interests,
+        });
+        setActiveChild(child.id);
+      }
+
       await subscribe.mutateAsync(activePlanId);
 
-      setActiveChild(child.id);
       reset();
       router.replace('/(tabs)/home');
     } catch (caught) {
