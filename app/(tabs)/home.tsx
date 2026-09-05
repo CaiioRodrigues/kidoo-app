@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ActivityCard } from '@/features/activities';
-import { Avatar, Card, Chip, Input, ProgressBar, Screen, Text } from '@/components/ui';
+import { Avatar, Button, Card, Chip, Input, ProgressBar, Screen, Text } from '@/components/ui';
 import { useCategories, useChildren, useRecommended, useSubscription } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
@@ -32,15 +32,16 @@ export default function HomeScreen() {
 
   const { data: recommended = [], isPending } = useRecommended(activeChild?.id ?? null);
 
-  const firstName = guardian?.name.split(' ')[0] ?? 'por aqui';
+  const firstName = guardian?.name.split(' ')[0];
   const childName = activeChild?.name.split(' ')[0];
+  const authenticated = useAuthStore((state) => state.status === 'authenticated');
 
   return (
     <Screen scroll padded={false} edges={['top']} contentContainerStyle={styles.scroll}>
       <View style={styles.header}>
         <View style={styles.greeting}>
           <Text variant="heading" numberOfLines={1}>
-            Olá, {firstName}! 👋
+            {firstName ? `Olá, ${firstName}! 👋` : 'Olá! 👋'}
           </Text>
           <Text variant="body" color={colors.textMuted} numberOfLines={1}>
             {childName
@@ -82,6 +83,28 @@ export default function HomeScreen() {
           value=""
         />
       </View>
+
+      {activeChild ? null : (
+        <Card style={styles.setupCard} background={palette.purpleTint} elevation="none">
+          <Text style={styles.setupEmoji}>{authenticated ? '🧒' : '✨'}</Text>
+          <View style={styles.flex}>
+            <Text variant="bodyStrong">
+              {authenticated ? 'Cadastre o seu pequeno' : 'Crie sua conta para reservar'}
+            </Text>
+            <Text variant="caption" color={colors.textMuted}>
+              {authenticated
+                ? 'Assim as recomendações ficam na idade certa e você já pode reservar.'
+                : 'Você pode explorar à vontade. Para reservar uma aula, é rapidinho criar a conta.'}
+            </Text>
+          </View>
+          <Button
+            title={authenticated ? 'Cadastrar' : 'Criar conta'}
+            size="sm"
+            fullWidth={false}
+            onPress={() => router.push(authenticated ? '/(onboarding)/child' : '/(auth)/sign-up')}
+          />
+        </Card>
+      )}
 
       <SectionHeader
         title={childName ? `Recomendados para ${childName}` : 'Recomendados para você'}
@@ -254,6 +277,14 @@ const styles = StyleSheet.create({
   },
   categoryEmoji: { fontSize: 24, lineHeight: 30 },
   pressed: { opacity: 0.7 },
+  setupCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.lg,
+  },
+  setupEmoji: { fontSize: 26 },
   journeyCard: {
     flexDirection: 'row',
     alignItems: 'center',
