@@ -9,6 +9,9 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_ENABLE_PARTNER_SIM": "true"
       }
     },
     "preview": {
@@ -19,6 +22,9 @@
       },
       "ios": {
         "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_ENABLE_PARTNER_SIM": "true"
       }
     },
     "production": {

@@ -1,0 +1,117 @@
+import { useCallback, useState } from 'react';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+
+import { Mascot } from './Mascot';
+import { SpeechBubble } from './SpeechBubble';
+import { Button, Text } from '@/components/ui';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+
+type Step = { title: string; text: string };
+
+const STEPS: Step[] = [
+  {
+    title: 'Oi! Eu sou o Kiddo 👋',
+    text: 'Em trinta segundos eu te mostro como o Kidoo funciona. Vamos lá?',
+  },
+  {
+    title: 'Atividades perto de casa',
+    text: 'A gente sugere aulas na idade certa do seu pequeno, com parceiros verificados e a distância de cada um.',
+  },
+  {
+    title: 'Kidoo Coins',
+    text: 'Cada reserva usa coins da sua assinatura. Eles voltam ao cheio toda segunda-feira, então dá para manter uma rotina.',
+  },
+  {
+    title: 'A jornada do seu pequeno',
+    text: 'Depois da aula, faça o check-in. Ele ganha XP, sobe de nível e destrava moedas bônus para usar em novas aulas.',
+  },
+];
+
+/** Tutorial de boas-vindas, apresentado pelo mascote. */
+export function TutorialOverlay({ visible, onFinish }: { visible: boolean; onFinish: () => void }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+  const [index, setIndex] = useState(0);
+
+  const step = STEPS[index] ?? STEPS[0]!;
+  const isLast = index === STEPS.length - 1;
+
+  const next = useCallback(() => {
+    if (isLast) {
+      onFinish();
+      return;
+    }
+    setIndex((current) => current + 1);
+  }, [isLast, onFinish]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onFinish}>
+      <View style={styles.backdrop}>
+        <Animated.View
+          entering={FadeIn.duration(260)}
+          exiting={FadeOut.duration(160)}
+          style={styles.content}
+        >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Pular tutorial"
+            onPress={onFinish}
+            style={styles.skip}
+          >
+            <Text variant="label" color={colors.textOnPrimary}>
+              Pular
+            </Text>
+          </Pressable>
+
+          <Animated.View key={index} entering={FadeInDown.duration(280)} style={styles.bubbleArea}>
+            <SpeechBubble title={step.title} text={step.text} />
+          </Animated.View>
+
+          <View style={styles.mascotRow}>
+            <Mascot size={104} />
+          </View>
+
+          <View style={styles.dots}>
+            {STEPS.map((item, position) => (
+              <View
+                key={item.title}
+                style={[styles.dot, position === index ? styles.dotActive : styles.dotIdle]}
+              />
+            ))}
+          </View>
+
+          <Button title={isLast ? 'Bora começar!' : 'Continuar'} onPress={next} />
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      // Mais escuro que o overlay padrão: o tutorial precisa tirar o foco da
+      // tela de trás, e no tema claro o overlay padrão quase não escurece.
+      backgroundColor: 'rgba(20, 18, 32, 0.72)',
+      justifyContent: 'flex-end',
+      padding: spacing.xl,
+    },
+    content: { gap: spacing.base, paddingBottom: spacing.xxl },
+    // Chip com fundo próprio: texto branco solto sobre a tela clara por baixo
+    // ficava ilegível.
+    skip: {
+      alignSelf: 'flex-end',
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.pill,
+      backgroundColor: 'rgba(255,255,255,0.18)',
+    },
+    bubbleArea: { alignSelf: 'stretch' },
+    mascotRow: { alignItems: 'flex-start', marginTop: -spacing.sm, marginLeft: spacing.base },
+    dots: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm },
+    dot: { height: 6, borderRadius: radius.pill },
+    dotActive: { width: 22, backgroundColor: colors.textOnPrimary },
+    dotIdle: { width: 6, backgroundColor: 'rgba(255,255,255,0.45)' },
+  });

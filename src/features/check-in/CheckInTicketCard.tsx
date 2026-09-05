@@ -53,7 +53,14 @@ export function CheckInTicketCard({ ticket }: { ticket: CheckInTicket }) {
         <Text variant="caption" color={colors.textMuted}>
           ou informe o código
         </Text>
-        <Text style={[styles.code, { color: valid ? colors.text : colors.textFaint }]}>
+        <Text
+          style={[styles.code, { color: valid ? colors.text : colors.textFaint }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          // O código já é grande de propósito. Deixá-lo seguir a fonte do
+          // sistema até 1,4x estourava a largura do cartão.
+          maxFontSizeMultiplier={1.1}
+        >
           {formatCode(ticket.code)}
         </Text>
       </View>
@@ -94,11 +101,17 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       gap: spacing.sm,
     },
-    codeBlock: { alignItems: 'center', gap: spacing.xxs },
+    codeBlock: { alignSelf: 'stretch', alignItems: 'center', gap: spacing.xxs },
     code: {
       fontFamily: fontFamily.extrabold,
       fontSize: 34,
-      letterSpacing: 6,
+      // lineHeight explícito: sem ele o Android corta o topo e a base de fonte
+      // grande e customizada.
+      lineHeight: 46,
+      letterSpacing: 4,
+      textAlign: 'center',
+      alignSelf: 'stretch',
+      paddingHorizontal: spacing.sm,
       color: colors.text,
     },
     expiry: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },

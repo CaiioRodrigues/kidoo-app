@@ -9,6 +9,7 @@ import { Avatar, Button, Card, Screen, Text } from '@/components/ui';
 import { CheckInTicketCard } from '@/features/check-in';
 import { AchievementCard, shareAchievement, type AchievementShare } from '@/features/share';
 import { levelName } from '@/lib/levels';
+import { PARTNER_SIMULATION_ENABLED } from '@/lib/flags';
 import { formatSessionTime } from '@/lib/format';
 import { canCancel, cancellationMessage, formatDeadline } from '@/lib/cancellation';
 import { toUserMessage } from '@/services';
@@ -205,9 +206,10 @@ export default function CheckInScreen() {
               onPress={() => void handleShare()}
             />
 
-            {__DEV__ && ticket && !confirmed ? (
-              // Só em desenvolvimento: sem o app do parceiro, é assim que dá
-              // para exercitar a confirmação de ponta a ponta.
+            {PARTNER_SIMULATION_ENABLED && ticket && !confirmed ? (
+              // Enquanto o app do parceiro não existe, é assim que dá para
+              // exercitar a confirmação de ponta a ponta. Ligado em dev e nas
+              // builds de preview; desligado em produção.
               <Button
                 title="Simular leitura do parceiro"
                 variant="ghost"

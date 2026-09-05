@@ -236,8 +236,15 @@ que valem também no backend real:
   resto no servidor, autenticado.
 
 O código também **morre ao ser usado**, então não vale para uma segunda aula.
-Enquanto não existe o app do parceiro, um botão visível apenas em
-desenvolvimento simula a leitura, para o ciclo ser testável de ponta a ponta.
+
+Enquanto o app do parceiro não existe, um atalho simula a leitura para o ciclo
+ser testável. Ele é controlado por `src/lib/flags.ts` e fica ligado em
+desenvolvimento **e nas builds de preview** (`EXPO_PUBLIC_ENABLE_PARTNER_SIM`,
+definido no perfil `preview` do `eas.json`), e desligado em produção.
+
+`__DEV__` sozinho não bastava: ele é falso em qualquer build de release,
+inclusive no APK de preview que se instala no aparelho para testar — o atalho
+simplesmente não aparecia lá.
 
 ### Avaliações
 
@@ -322,6 +329,16 @@ A tela **Níveis e recompensas** (`app/journey/levels.tsx`) responde à pergunta
 destacado no topo, e não como mais uma linha no meio da tabela.
 
 Curva e recompensas ficam em `src/lib/levels.ts`, num lugar só.
+
+### Tutorial de boas-vindas
+
+Na primeira abertura, o mascote **Kiddo** apresenta o app em quatro passos, em
+balão de fala (`src/features/tutorial/`). O mascote é SVG e não imagem: escala
+em qualquer densidade e acompanha a paleta do tema.
+
+A preferência de "já vi" é persistida, e enquanto ela não chega do
+armazenamento nada é exibido — assim quem já viu não vê o tutorial piscar a
+cada abertura.
 
 ### Cancelamento
 

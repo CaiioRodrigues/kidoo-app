@@ -12,6 +12,7 @@ const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
 export const PreferenceKeys = {
   themeMode: 'kidoo.pref.themeMode',
+  tutorialSeen: 'kidoo.pref.tutorialSeen',
 } as const;
 
 type PreferenceKey = (typeof PreferenceKeys)[keyof typeof PreferenceKeys];
