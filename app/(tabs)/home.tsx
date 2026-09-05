@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ActivityCard } from '@/features/activities';
+import { TutorialOverlay, useTutorial } from '@/features/tutorial';
 import { Avatar, Button, Card, Chip, Input, ProgressBar, Screen, Text } from '@/components/ui';
 import { useCategories, useChildren, useRecommended, useSubscription } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
@@ -37,6 +38,7 @@ export default function HomeScreen() {
   const firstName = guardian?.name.split(' ')[0];
   const childName = activeChild?.name.split(' ')[0];
   const authenticated = useAuthStore((state) => state.status === 'authenticated');
+  const tutorial = useTutorial();
 
   return (
     <Screen scroll padded={false} edges={['top']} contentContainerStyle={styles.scroll}>
@@ -208,6 +210,7 @@ export default function HomeScreen() {
           </View>
         </Card>
       ) : null}
+      <TutorialOverlay visible={tutorial.visible} onFinish={tutorial.dismiss} />
     </Screen>
   );
 }

@@ -7,8 +7,11 @@ import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { HeaderBar } from '@/components/navigation';
 import { Avatar, Button, Card, Screen, Text } from '@/components/ui';
 import { CheckInTicketCard } from '@/features/check-in';
+import { HintBubble, useOneTimeHint } from '@/features/tutorial';
+import { PreferenceKeys } from '@/lib/preferences';
 import { AchievementCard, shareAchievement, type AchievementShare } from '@/features/share';
 import { levelName } from '@/lib/levels';
+import { PARTNER_SIMULATION_ENABLED } from '@/lib/flags';
 import { formatSessionTime } from '@/lib/format';
 import { canCancel, cancellationMessage, formatDeadline } from '@/lib/cancellation';
 import { toUserMessage } from '@/services';
@@ -34,6 +37,8 @@ export default function CheckInScreen() {
   const done = booking?.status === 'checked_in' || booking?.status === 'completed';
   const confirmed = booking?.status === 'completed' && booking.partnerConfirmedAt !== null;
   const ticket = result?.ticket ?? booking?.checkIn ?? null;
+  // A dica só aparece quando há código na tela — é sobre ele que ela fala.
+  const hint = useOneTimeHint(PreferenceKeys.hintCheckIn, Boolean(ticket));
   const firstName = booking?.child.name.split(' ')[0] ?? '';
 
   const handleCheckIn = useCallback(async () => {
@@ -160,6 +165,11 @@ export default function CheckInScreen() {
 
       {done && ticket ? (
         <View style={styles.ticket}>
+          <HintBubble
+            visible={hint.visible}
+            onDismiss={hint.dismiss}
+            text="Mostre este código ao professor ou à recepção. É a leitura dele que confirma que o seu pequeno chegou."
+          />
           <CheckInTicketCard ticket={ticket} />
         </View>
       ) : null}
@@ -205,9 +215,10 @@ export default function CheckInScreen() {
               onPress={() => void handleShare()}
             />
 
-            {__DEV__ && ticket && !confirmed ? (
-              // Só em desenvolvimento: sem o app do parceiro, é assim que dá
-              // para exercitar a confirmação de ponta a ponta.
+            {PARTNER_SIMULATION_ENABLED && ticket && !confirmed ? (
+              // Enquanto o app do parceiro não existe, é assim que dá para
+              // exercitar a confirmação de ponta a ponta. Ligado em dev e nas
+              // builds de preview; desligado em produção.
               <Button
                 title="Simular leitura do parceiro"
                 variant="ghost"
@@ -336,7 +347,7 @@ const makeStyles = (colors: ThemeColors) =>
       marginTop: spacing.xl,
     },
     levelUpEmoji: { fontSize: 30 },
-    ticket: { marginTop: spacing.xl },
+    ticket: { marginTop: spacing.xl, gap: spacing.base },
     offscreen: { position: 'absolute', left: -9999, top: 0 },
     confirmedCard: {
       flexDirection: 'row',
