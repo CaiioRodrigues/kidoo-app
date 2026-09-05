@@ -183,3 +183,17 @@ export function useSubmitReview() {
     },
   });
 }
+
+export function useCancelBooking() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (bookingId: string) => api.bookings.cancel(bookingId),
+    onSuccess: (booking) => {
+      // Cancelar devolve coins e bônus: os três precisam ser reconsultados.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.booking(booking.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.journey(booking.childId) });
+    },
+  });
+}
