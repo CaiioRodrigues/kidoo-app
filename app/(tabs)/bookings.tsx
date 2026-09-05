@@ -6,7 +6,7 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { Badge, ComingSoon, Divider, Screen, Text } from '@/components/ui';
 import { formatSessionTime } from '@/lib/format';
 import { useBookings } from '@/hooks/queries';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { BookingDetails, BookingStatus } from '@/types/domain';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
@@ -20,6 +20,8 @@ const STATUS: Record<BookingStatus, { label: string; tone: 'brand' | 'success' |
 
 /** Tela 8 (lista) — Reservas do responsável. */
 export default function BookingsScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const { data: bookings = [], isPending, refetch, isRefetching } = useBookings();
 
@@ -72,6 +74,8 @@ export default function BookingsScreen() {
 }
 
 function BookingRow({ booking, onPress }: { booking: BookingDetails; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const status = STATUS[booking.status];
 
   return (
@@ -112,17 +116,23 @@ function BookingRow({ booking, onPress }: { booking: BookingDetails; onPress: ()
 
 const keyExtractor = (booking: BookingDetails) => booking.id;
 
-const styles = StyleSheet.create({
-  pageTitle: { paddingHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.sm },
-  list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-  pressed: { opacity: 0.7 },
-  thumb: {
-    width: 74,
-    height: 74,
-    borderRadius: radius.lg,
-    backgroundColor: colors.backgroundMuted,
-  },
-  info: { flex: 1, gap: spacing.xxs },
-  empty: { marginTop: spacing.xxxl },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    pageTitle: { paddingHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.sm },
+    list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: spacing.md,
+    },
+    pressed: { opacity: 0.7 },
+    thumb: {
+      width: 74,
+      height: 74,
+      borderRadius: radius.lg,
+      backgroundColor: colors.backgroundMuted,
+    },
+    info: { flex: 1, gap: spacing.xxs },
+    empty: { marginTop: spacing.xxxl },
+  });

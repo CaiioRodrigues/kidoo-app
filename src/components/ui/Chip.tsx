@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { Text } from './Text';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useTheme } from '@/theme';
 
 export type ChipProps = {
   label: string;
@@ -22,6 +22,7 @@ export function Chip({
   tone = 'default',
   style,
 }: ChipProps) {
+  const { colors } = useTheme();
   const background = selected
     ? colors.primarySoft
     : tone === 'muted'

@@ -18,7 +18,7 @@ import {
 } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 type Blocker = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -30,6 +30,8 @@ type Blocker = {
 
 /** Tela 8 — Confirmar reserva. */
 export default function ConfirmBookingScreen() {
+  const { colors, palette } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const { activityId } = useLocalSearchParams<{ activityId: string }>();
 
@@ -219,6 +221,8 @@ function DetailRow({
   label: string;
   sub: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.detailRow}>
       <View style={styles.detailIcon}>
@@ -236,44 +240,45 @@ function DetailRow({
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { paddingBottom: spacing.xxl },
-  title: { marginTop: spacing.sm, marginBottom: spacing.xl },
-  childCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.base,
-    marginBottom: spacing.md,
-  },
-  blockerCard: { gap: spacing.base, marginBottom: spacing.md },
-  blockerHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  blockerIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-  },
-  detailsCard: { gap: spacing.base },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  detailIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryTint,
-  },
-  coinsRow: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
-  split: { paddingHorizontal: spacing.base },
-  noticeCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  error: { marginTop: spacing.md },
-  cta: { marginTop: spacing.xl, marginBottom: spacing.md },
-  flex: { flex: 1 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    scroll: { paddingBottom: spacing.xxl },
+    title: { marginTop: spacing.sm, marginBottom: spacing.xl },
+    childCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.base,
+      marginBottom: spacing.md,
+    },
+    blockerCard: { gap: spacing.base, marginBottom: spacing.md },
+    blockerHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+    blockerIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+    },
+    detailsCard: { gap: spacing.base },
+    detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    detailIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primaryTint,
+    },
+    coinsRow: { alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
+    split: { paddingHorizontal: spacing.base },
+    noticeCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+      marginTop: spacing.lg,
+    },
+    error: { marginTop: spacing.md },
+    cta: { marginTop: spacing.xl, marginBottom: spacing.md },
+    flex: { flex: 1 },
+  });

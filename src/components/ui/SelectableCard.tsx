@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from './Text';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 export type SelectableCardProps = {
   label: string;
@@ -15,6 +15,8 @@ export type SelectableCardProps = {
 
 /** Tile de modalidade da tela "Quais atividades ele mais gosta?". */
 function SelectableCardBase({ label, emoji, selected, onToggle }: SelectableCardProps) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const handlePress = useCallback(() => {
     if (Platform.OS !== 'web') {
       void Haptics.selectionAsync();
@@ -47,32 +49,33 @@ function SelectableCardBase({ label, emoji, selected, onToggle }: SelectableCard
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    flex: 1,
-    minHeight: 108,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 2,
-  },
-  cardIdle: { backgroundColor: colors.background, borderColor: colors.border },
-  cardSelected: { backgroundColor: colors.primaryTint, borderColor: colors.primary },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
-  emoji: { fontSize: 30, lineHeight: 36 },
-  check: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    card: {
+      flex: 1,
+      minHeight: 108,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderRadius: radius.lg,
+      borderWidth: 2,
+    },
+    cardIdle: { backgroundColor: colors.background, borderColor: colors.border },
+    cardSelected: { backgroundColor: colors.primaryTint, borderColor: colors.primary },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
+    emoji: { fontSize: 30, lineHeight: 36 },
+    check: {
+      position: 'absolute',
+      top: spacing.sm,
+      right: spacing.sm,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+    },
+  });
 
 export const SelectableCard = memo(SelectableCardBase);

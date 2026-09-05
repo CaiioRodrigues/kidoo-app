@@ -4,12 +4,14 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { KidooLogo, Sparkles } from '@/components/brand';
 import { Button, Screen, Text } from '@/components/ui';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 
 const CATEGORY_TEASERS = ['⚽', '🏊', '🥋', '🩰'];
 
 /** Tela 2 — Login / Cadastro. */
 export default function WelcomeScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
 
   return (
@@ -55,22 +57,23 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flexGrow: 1 },
-  container: { flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xxl },
-  brand: { alignItems: 'center', gap: spacing.base, marginTop: spacing.xxl },
-  sparkles: { marginBottom: spacing.xs },
-  headline: { marginTop: spacing.sm },
-  teasers: { flexDirection: 'row', justifyContent: 'center', gap: spacing.base },
-  teaser: {
-    width: 62,
-    height: 62,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.purpleTint,
-  },
-  teaserEmoji: { fontSize: 28, lineHeight: 34 },
-  actions: { gap: spacing.md },
-  legal: { marginTop: spacing.sm, paddingHorizontal: spacing.base },
-});
+const makeStyles = (_colors: ThemeColors, palette: ThemePalette) =>
+  StyleSheet.create({
+    scroll: { flexGrow: 1 },
+    container: { flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xxl },
+    brand: { alignItems: 'center', gap: spacing.base, marginTop: spacing.xxl },
+    sparkles: { marginBottom: spacing.xs },
+    headline: { marginTop: spacing.sm },
+    teasers: { flexDirection: 'row', justifyContent: 'center', gap: spacing.base },
+    teaser: {
+      width: 62,
+      height: 62,
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.purpleTint,
+    },
+    teaserEmoji: { fontSize: 28, lineHeight: 34 },
+    actions: { gap: spacing.md },
+    legal: { marginTop: spacing.sm, paddingHorizontal: spacing.base },
+  });

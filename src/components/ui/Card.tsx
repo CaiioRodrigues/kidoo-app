@@ -1,6 +1,14 @@
 import { StyleSheet, View, type ViewProps } from 'react-native';
 
-import { colors, radius, shadows, spacing, type ShadowToken } from '@/theme';
+import {
+  radius,
+  shadows,
+  spacing,
+  useStyles,
+  useTheme,
+  type ShadowToken,
+  type ThemeColors,
+} from '@/theme';
 
 export type CardProps = ViewProps & {
   elevation?: ShadowToken;
@@ -13,15 +21,20 @@ export function Card({
   elevation = 'card',
   padded = true,
   bordered = false,
-  background = colors.card,
+  background,
   style,
   ...rest
 }: CardProps) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+  // O padrão depende do tema, então resolve aqui e não na assinatura.
+  const surface = background ?? colors.card;
+
   return (
     <View
       style={[
         styles.card,
-        { backgroundColor: background },
+        { backgroundColor: surface },
         padded && styles.padded,
         bordered && styles.bordered,
         shadows[elevation],
@@ -32,8 +45,9 @@ export function Card({
   );
 }
 
-const styles = StyleSheet.create({
-  card: { borderRadius: radius.xl, overflow: 'hidden' },
-  padded: { padding: spacing.base },
-  bordered: { borderWidth: 1, borderColor: colors.border },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    card: { borderRadius: radius.xl, overflow: 'hidden' },
+    padded: { padding: spacing.base },
+    bordered: { borderWidth: 1, borderColor: colors.border },
+  });

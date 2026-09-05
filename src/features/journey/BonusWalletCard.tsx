@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Card, Text } from '@/components/ui';
 import { daysUntilExpiry } from '@/lib/bonus';
 import { formatDaysUntil } from '@/lib/format';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 import type { BonusWallet } from '@/types/domain';
 
 /**
@@ -11,6 +11,8 @@ import type { BonusWallet } from '@/types/domain';
  * perto de vencer — é a informação que evita o usuário perder moeda.
  */
 export function BonusWalletCard({ wallet }: { wallet: BonusWallet }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const empty = wallet.balance === 0;
   const expiring = wallet.nextExpiring;
   const daysLeft = expiring ? daysUntilExpiry(expiring.expiresAt) : null;
@@ -50,24 +52,25 @@ export function BonusWalletCard({ wallet }: { wallet: BonusWallet }) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { gap: spacing.md },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  icon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.pinkSoft,
-  },
-  emoji: { fontSize: 22 },
-  expiry: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.backgroundMuted,
-  },
-  expiryUrgent: { backgroundColor: colors.dangerSoft },
-  flex: { flex: 1 },
-});
+const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
+  StyleSheet.create({
+    card: { gap: spacing.md },
+    header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    icon: {
+      width: 44,
+      height: 44,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.pinkSoft,
+    },
+    emoji: { fontSize: 22 },
+    expiry: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor: colors.backgroundMuted,
+    },
+    expiryUrgent: { backgroundColor: colors.dangerSoft },
+    flex: { flex: 1 },
+  });

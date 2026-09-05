@@ -2,9 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 
-import { colors, fontFamily } from '@/theme';
+import { fontFamily, useTheme } from '@/theme';
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
   return (
     <Tabs
       screenOptions={{

@@ -1,10 +1,12 @@
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from './Text';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 
 /** Kidoo Coins — moeda interna usada para reservar atividades. */
 export function CoinBadge({ amount, size = 'md' }: { amount: number; size?: 'sm' | 'md' }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const small = size === 'sm';
   return (
     <View
@@ -19,18 +21,19 @@ export function CoinBadge({ amount, size = 'md' }: { amount: number; size?: 'sm'
   );
 }
 
-const styles = StyleSheet.create({
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: palette.yellowSoft,
-  },
-  badgeSm: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xxs },
-  coin: { fontSize: 14 },
-  coinSm: { fontSize: 11 },
-});
+const makeStyles = (_colors: ThemeColors, palette: ThemePalette) =>
+  StyleSheet.create({
+    badge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.pill,
+      backgroundColor: palette.yellowSoft,
+    },
+    badgeSm: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xxs },
+    coin: { fontSize: 14 },
+    coinSm: { fontSize: 11 },
+  });

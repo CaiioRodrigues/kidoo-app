@@ -7,12 +7,14 @@ import { HeaderBar } from '@/components/navigation';
 import { Badge, Button, Card, CoinBadge, Screen, Text } from '@/components/ui';
 import { formatDistance, formatSessionTime } from '@/lib/format';
 import { useActivity } from '@/hooks/queries';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
 /** Tela 7 — Detalhes da atividade (reserva chega na próxima fase). */
 export default function ActivityDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: activity, isPending, isError } = useActivity(id ?? '');
@@ -126,41 +128,42 @@ export default function ActivityDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { paddingBottom: spacing.xxl },
-  headerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: spacing.base,
-    right: spacing.base,
-    zIndex: 2,
-  },
-  hero: { width: '100%', height: 260, backgroundColor: colors.backgroundMuted },
-  content: {
-    marginTop: -spacing.xl,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    gap: spacing.sm,
-    backgroundColor: colors.background,
-    borderTopLeftRadius: radius.xxl,
-    borderTopRightRadius: radius.xxl,
-  },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
-  description: { marginTop: spacing.sm },
-  sessionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.base,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.base,
-    marginTop: spacing.xl,
-  },
-  reserve: { paddingHorizontal: spacing.xxl },
-  flex: { flex: 1 },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    scroll: { paddingBottom: spacing.xxl },
+    headerOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: spacing.base,
+      right: spacing.base,
+      zIndex: 2,
+    },
+    hero: { width: '100%', height: 260, backgroundColor: colors.backgroundMuted },
+    content: {
+      marginTop: -spacing.xl,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.xl,
+      gap: spacing.sm,
+      backgroundColor: colors.background,
+      borderTopLeftRadius: radius.xxl,
+      borderTopRightRadius: radius.xxl,
+    },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+    description: { marginTop: spacing.sm },
+    sessionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginTop: spacing.base,
+    },
+    footer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.base,
+      marginTop: spacing.xl,
+    },
+    reserve: { paddingHorizontal: spacing.xxl },
+    flex: { flex: 1 },
+  });

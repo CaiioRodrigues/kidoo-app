@@ -5,10 +5,12 @@ import { AchievementBadge, BonusWalletCard, EvolutionChart } from '@/features/jo
 import { Avatar, Badge, Card, ComingSoon, ProgressBar, Screen, Text } from '@/components/ui';
 import { useChildren, useJourney } from '@/hooks/queries';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { colors, palette, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 
 /** Tela 10 — Jornada da criança. */
 export default function JourneyScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const activeChildId = useOnboardingStore((state) => state.activeChildId);
   const { data: children = [] } = useChildren();
 
@@ -152,43 +154,44 @@ export default function JourneyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { paddingBottom: spacing.xxl },
-  pageTitle: { marginTop: spacing.md, marginBottom: spacing.lg },
-  headerCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.base },
-  headerInfo: { flex: 1, gap: spacing.xs },
-  xpBadge: {
-    alignItems: 'center',
-    gap: spacing.xxs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: palette.yellowSoft,
-  },
-  xpEmoji: { fontSize: 16 },
-  levelCard: { gap: spacing.sm, marginTop: spacing.md },
-  levelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md },
-  achievements: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  achievementSlot: { width: '23%', flexGrow: 1, flexBasis: '23%' },
-  tallyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  tallyCard: {
-    flexGrow: 1,
-    flexBasis: '30%',
-    alignItems: 'center',
-    gap: spacing.xxs,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.backgroundMuted,
-  },
-  tallyEmoji: { fontSize: 24, lineHeight: 30 },
-  chartCard: { gap: spacing.lg },
-  chartFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.base,
-  },
-  stat: { alignItems: 'center', gap: spacing.xxs },
-});
+const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
+  StyleSheet.create({
+    scroll: { paddingBottom: spacing.xxl },
+    pageTitle: { marginTop: spacing.md, marginBottom: spacing.lg },
+    headerCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.base },
+    headerInfo: { flex: 1, gap: spacing.xs },
+    xpBadge: {
+      alignItems: 'center',
+      gap: spacing.xxs,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor: palette.yellowSoft,
+    },
+    xpEmoji: { fontSize: 16 },
+    levelCard: { gap: spacing.sm, marginTop: spacing.md },
+    levelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md },
+    achievements: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    achievementSlot: { width: '23%', flexGrow: 1, flexBasis: '23%' },
+    tallyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    tallyCard: {
+      flexGrow: 1,
+      flexBasis: '30%',
+      alignItems: 'center',
+      gap: spacing.xxs,
+      padding: spacing.md,
+      borderRadius: radius.lg,
+      backgroundColor: colors.backgroundMuted,
+    },
+    tallyEmoji: { fontSize: 24, lineHeight: 30 },
+    chartCard: { gap: spacing.lg },
+    chartFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: spacing.base,
+    },
+    stat: { alignItems: 'center', gap: spacing.xxs },
+  });

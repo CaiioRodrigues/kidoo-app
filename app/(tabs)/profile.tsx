@@ -3,14 +3,15 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
-import { Avatar, Button, Card, Divider, Screen, Text } from '@/components/ui';
+import { Avatar, Button, Card, Divider, Screen, Text, ThemePicker } from '@/components/ui';
 import { formatAge, formatDaysUntil } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
 import { useChildren, useSubscription } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
-import { colors, spacing } from '@/theme';
+import { spacing, useTheme } from '@/theme';
 
 export default function ProfileScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const session = useAuthStore((state) => state.session);
   const signOut = useAuthStore((state) => state.signOut);
@@ -97,6 +98,16 @@ export default function ProfileScreen() {
             </View>
           ))
         )}
+      </Card>
+
+      <Text variant="subheading" style={styles.sectionTitle}>
+        Aparência
+      </Text>
+      <Card bordered elevation="none" style={styles.card}>
+        <Text variant="label" color={colors.textMuted}>
+          Tema do app
+        </Text>
+        <ThemePicker />
       </Card>
 
       <Text variant="subheading" style={styles.sectionTitle}>

@@ -10,7 +10,7 @@ import { brDateToIso, isoDateToBr, maskBirthDate } from '@/lib/format';
 import { logger } from '@/lib/logger';
 import { ageFromBirthDate, childProfileSchema, fieldErrors } from '@/lib/validation';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Gender } from '@/types/domain';
 
 const GENDERS: { value: Gender; label: string }[] = [
@@ -21,6 +21,8 @@ const GENDERS: { value: Gender; label: string }[] = [
 
 /** Tela 3 (etapa 1) — Quem é o pequeno Kidoo? */
 export default function ChildProfileScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const draft = useOnboardingStore((state) => state.draft);
   const setProfile = useOnboardingStore((state) => state.setProfile);
@@ -176,35 +178,41 @@ export default function ChildProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { paddingBottom: spacing.xxl },
-  intro: { flexDirection: 'row', alignItems: 'center', gap: spacing.base, paddingTop: spacing.sm },
-  introText: { flex: 1, gap: spacing.sm },
-  introArt: {
-    width: 92,
-    height: 92,
-    borderRadius: radius.xxl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryTint,
-  },
-  introEmoji: { fontSize: 44, lineHeight: 52 },
-  form: { gap: spacing.lg, marginTop: spacing.xxl },
-  group: { gap: spacing.sm },
-  genderRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  photoPicker: { alignSelf: 'center', marginTop: spacing.xs },
-  cameraBadge: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderWidth: 3,
-    borderColor: colors.background,
-  },
-  cta: { marginTop: spacing.xxl },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    scroll: { paddingBottom: spacing.xxl },
+    intro: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.base,
+      paddingTop: spacing.sm,
+    },
+    introText: { flex: 1, gap: spacing.sm },
+    introArt: {
+      width: 92,
+      height: 92,
+      borderRadius: radius.xxl,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primaryTint,
+    },
+    introEmoji: { fontSize: 44, lineHeight: 52 },
+    form: { gap: spacing.lg, marginTop: spacing.xxl },
+    group: { gap: spacing.sm },
+    genderRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    photoPicker: { alignSelf: 'center', marginTop: spacing.xs },
+    cameraBadge: {
+      position: 'absolute',
+      right: -2,
+      bottom: -2,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      borderWidth: 3,
+      borderColor: colors.background,
+    },
+    cta: { marginTop: spacing.xxl },
+  });
