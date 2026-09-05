@@ -168,6 +168,33 @@ As 10 telas do fluxo estão implementadas:
 
 O ciclo fecha: reservar → check-in → XP → conquista → jornada atualizada.
 
+### Tema claro e escuro
+
+Todo o design system lê cor em runtime: nenhum componente importa cor estática.
+Duas paletas com as mesmas chaves (`src/theme/palettes.ts`), um `ThemeProvider`
+com modo **Claro / Escuro / Automático** persistido, e `useStyles` recriando a
+folha de estilos só quando o tema muda.
+
+O escuro não é o claro invertido: o roxo da marca (#6A3FC6) não atinge
+contraste legível sobre fundo escuro, então nele o primário é clareado, e os
+fundos puxam para o roxo-carvão da identidade em vez de cinza neutro.
+
+O módulo de tema **não exporta cor estática de propósito** — sem isso, um
+componente poderia silenciosamente ficar preso no tema claro e ninguém
+perceberia até ver a tela.
+
+O seletor fica na aba Perfil.
+
+### Avaliações
+
+Atividades têm nota de 0 a 5 com meia estrela, distribuição por nota e
+comentários (`src/features/reviews/`). A tela de detalhes ganhou as abas
+**Sobre** e **Avaliações**.
+
+Quando uma atividade ainda não tem comentários, o resumo cai para a nota do
+catálogo em vez de exibir "0,0". Comentários mostram apenas o primeiro nome de
+quem avaliou — nunca o nome completo nem o da criança.
+
 ### Economia de Kidoo Coins
 
 A cobrança é **mensal**, mas a cota de coins é **semanal** e volta ao cheio toda

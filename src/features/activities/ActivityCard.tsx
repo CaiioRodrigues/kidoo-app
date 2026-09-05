@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CoinBadge, Text } from '@/components/ui';
+import { StarRating } from '@/features/reviews';
 import { formatDistance, formatSessionTime } from '@/lib/format';
 import { radius, shadows, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Activity } from '@/types/domain';
@@ -46,9 +47,9 @@ function ActivityCardBase({ activity, onPress }: { activity: Activity; onPress: 
           <Text variant="caption" color={colors.textFaint}>
             •
           </Text>
-          <Ionicons name="star" size={12} color={colors.accentYellow} />
+          <StarRating rating={activity.rating} size={11} />
           <Text variant="caption" color={colors.textMuted}>
-            {activity.rating.toFixed(1).replace('.', ',')}
+            {activity.rating.toFixed(1).replace('.', ',')} ({activity.reviewCount})
           </Text>
         </View>
 

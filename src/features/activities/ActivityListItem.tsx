@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CoinBadge, Text } from '@/components/ui';
+import { StarRating } from '@/features/reviews';
 import { formatDistance } from '@/lib/format';
 import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Activity } from '@/types/domain';
@@ -40,9 +41,9 @@ function ActivityListItemBase({ activity, onPress }: { activity: Activity; onPre
           <Text variant="caption" color={colors.textMuted}>
             {activity.minAge}-{activity.maxAge} anos
           </Text>
-          <Ionicons name="star" size={12} color={colors.accentYellow} />
+          <StarRating rating={activity.rating} size={11} />
           <Text variant="caption" color={colors.textMuted}>
-            {activity.rating.toFixed(1).replace('.', ',')}
+            {activity.rating.toFixed(1).replace('.', ',')} ({activity.reviewCount})
           </Text>
         </View>
         <View style={styles.metaRow}>

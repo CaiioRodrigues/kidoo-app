@@ -1,4 +1,5 @@
 import { ACTIVITIES, CATEGORIES, PLANS } from './data';
+import { REVIEWS, summarize } from './reviews';
 import {
   bonusForLevel,
   buildWallet,
@@ -271,6 +272,23 @@ export const mockApi: KidooApi = {
       if (!found) throw new ApiError('not_found', 'Atividade não encontrada.');
       return delay(found);
     },
+    async reviews(activityId) {
+      const activity = ACTIVITIES.find((item) => item.id === activityId);
+      if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
+
+      const reviews = REVIEWS.filter((review) => review.activityId === activityId).sort(
+        (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+      );
+
+      return delay({
+        summary: summarize(reviews, {
+          rating: activity.rating,
+          reviewCount: activity.reviewCount,
+        }),
+        reviews,
+      });
+    },
+
     async recommended(childId) {
       const child = state.children.find((item) => item.id === childId);
       if (!child) return delay(ACTIVITIES.slice(0, 3));
