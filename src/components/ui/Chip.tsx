@@ -10,6 +10,8 @@ export type ChipProps = {
   left?: React.ReactNode;
   right?: React.ReactNode;
   tone?: 'default' | 'brand' | 'muted';
+  /** Cor da modalidade, quando o chip representa uma. */
+  tint?: { solid: string; soft: string };
   style?: ViewStyle;
 };
 
@@ -20,16 +22,19 @@ export function Chip({
   left,
   right,
   tone = 'default',
+  tint,
   style,
 }: ChipProps) {
   const { colors } = useTheme();
+  // Com cor de modalidade, o chip selecionado assume a cor dela — é o que
+  // torna o filtro reconhecível de longe, sem depender de ler o rótulo.
   const background = selected
-    ? colors.primarySoft
+    ? (tint?.soft ?? colors.primarySoft)
     : tone === 'muted'
       ? colors.backgroundMuted
       : colors.background;
-  const border = selected ? colors.primary : colors.border;
-  const label_ = selected ? colors.primary : colors.text;
+  const border = selected ? (tint?.solid ?? colors.primary) : colors.border;
+  const label_ = selected ? (tint?.solid ?? colors.primary) : colors.text;
 
   const content = (
     <View style={[styles.chip, { backgroundColor: background, borderColor: border }, style]}>

@@ -4,12 +4,27 @@ import { useMemo } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ActivityCard } from '@/features/activities';
-import { TutorialOverlay, useTutorial } from '@/features/tutorial';
+import { BlobBackdrop } from '@/components/brand';
+import { CategoryIcon } from '@/components/CategoryIcon';
+import { Mascot, TutorialOverlay, useTutorial } from '@/features/tutorial';
 import { Avatar, Button, Card, Chip, Input, ProgressBar, Screen, Text } from '@/components/ui';
-import { useCategories, useChildren, useRecommended, useSubscription } from '@/hooks/queries';
+import {
+  useActivities,
+  useCategories,
+  useChildren,
+  useRecommended,
+  useSubscription,
+} from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import {
+  blobRadius,
+  categoryTone,
+  spacing,
+  useStyles,
+  useTheme,
+  type ThemeColors,
+} from '@/theme';
 import { daysUntilReset } from '@/lib/subscription';
 import { formatDaysUntil } from '@/lib/format';
 import type { Activity } from '@/types/domain';
@@ -18,7 +33,7 @@ const XP_PER_LEVEL = 1000;
 
 /** Tela 5 — Home. */
 export default function HomeScreen() {
-  const { colors, palette } = useTheme();
+  const { colors, palette, isDark } = useTheme();
   const styles = useStyles(makeStyles);
   const router = useRouter();
   const guardian = useAuthStore((state) => state.session?.guardian ?? null);
@@ -33,7 +48,17 @@ export default function HomeScreen() {
     [activeChildId, children],
   );
 
-  const { data: recommended = [], isPending } = useRecommended(activeChild?.id ?? null);
+  // Sem criança ativa não há o que recomendar — e a query fica desabilitada,
+  // com `isPending` preso em true. O visitante veria a seção vazia para sempre,
+  // então nesse caso a vitrine mostra o catálogo.
+  const { data: recommended = [], isLoading: loadingRecommended } = useRecommended(
+    activeChild?.id ?? null,
+  );
+  const { data: catalog = [], isLoading: loadingCatalog } = useActivities(undefined, {
+    enabled: !activeChild,
+  });
+  const highlights = activeChild ? recommended : catalog.slice(0, 6);
+  const loadingHighlights = activeChild ? loadingRecommended : loadingCatalog;
 
   const firstName = guardian?.name.split(' ')[0];
   const childName = activeChild?.name.split(' ')[0];
@@ -42,10 +67,12 @@ export default function HomeScreen() {
 
   return (
     <Screen scroll padded={false} edges={['top']} contentContainerStyle={styles.scroll}>
+      <BlobBackdrop height={200} />
+
       <View style={styles.header}>
         <View style={styles.greeting}>
-          <Text variant="heading" numberOfLines={1}>
-            {firstName ? `Olá, ${firstName}! 👋` : 'Olá! 👋'}
+          <Text variant="display" numberOfLines={1} style={styles.hello}>
+            {firstName ? `Olá, ${firstName}!` : 'Olá!'}
           </Text>
           <Text variant="body" color={colors.textMuted} numberOfLines={1}>
             {childName
@@ -90,21 +117,24 @@ export default function HomeScreen() {
 
       {activeChild ? null : (
         <Card style={styles.setupCard} background={palette.purpleTint} elevation="none">
-          <Text style={styles.setupEmoji}>{authenticated ? '🧒' : '✨'}</Text>
-          <View style={styles.flex}>
-            <Text variant="bodyStrong">
-              {authenticated ? 'Cadastre o seu pequeno' : 'Crie sua conta para reservar'}
-            </Text>
-            <Text variant="caption" color={colors.textMuted}>
-              {authenticated
-                ? 'Assim as recomendações ficam na idade certa e você já pode reservar.'
-                : 'Você pode explorar à vontade. Para reservar uma aula, é rapidinho criar a conta.'}
-            </Text>
+          {/* Texto e botão empilhados: lado a lado, a descrição sobrava numa
+              coluna de duas palavras por linha. */}
+          <View style={styles.setupRow}>
+            <Mascot size={54} />
+            <View style={styles.flex}>
+              <Text variant="bodyStrong">
+                {authenticated ? 'Cadastre o seu pequeno' : 'Crie sua conta para reservar'}
+              </Text>
+              <Text variant="caption" color={colors.textMuted}>
+                {authenticated
+                  ? 'Assim as recomendações ficam na idade certa e você já pode reservar.'
+                  : 'Você pode explorar à vontade. Para reservar uma aula, é rapidinho criar a conta.'}
+              </Text>
+            </View>
           </View>
           <Button
-            title={authenticated ? 'Cadastrar' : 'Criar conta'}
+            title={authenticated ? 'Cadastrar criança' : 'Criar conta'}
             size="sm"
-            fullWidth={false}
             onPress={() => router.push(authenticated ? '/(onboarding)/child' : '/(auth)/sign-up')}
           />
         </Card>
@@ -116,14 +146,14 @@ export default function HomeScreen() {
         onAction={() => router.push('/(tabs)/explore')}
       />
 
-      {isPending ? (
+      {loadingHighlights ? (
         <Text variant="caption" color={colors.textFaint} style={styles.sidePadding}>
           Buscando as melhores atividades…
         </Text>
       ) : (
         <FlatList
           horizontal
-          data={recommended}
+          data={highlights}
           keyExtractor={keyExtractor}
           renderItem={({ item }) => (
             <ActivityCard
@@ -156,10 +186,14 @@ export default function HomeScreen() {
             onPress={() =>
               router.push({ pathname: '/(tabs)/explore', params: { category: category.id } })
             }
-            style={({ pressed }) => [styles.categoryTile, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.categoryTile,
+              { backgroundColor: categoryTone(category.id, isDark).soft },
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.categoryEmoji}>{category.emoji}</Text>
-            <Text variant="caption" color={colors.text}>
+            <CategoryIcon category={category.id} size={30} />
+            <Text variant="caption" color={categoryTone(category.id, isDark).solid}>
               {category.label}
             </Text>
           </Pressable>
@@ -256,6 +290,7 @@ const makeStyles = (colors: ThemeColors) =>
       paddingTop: spacing.md,
     },
     greeting: { flex: 1, gap: spacing.xxs },
+    hello: { letterSpacing: -1 },
     filters: {
       flexDirection: 'row',
       gap: spacing.sm,
@@ -275,9 +310,9 @@ const makeStyles = (colors: ThemeColors) =>
     carousel: { paddingHorizontal: spacing.xl },
     categories: { paddingHorizontal: spacing.xl, gap: spacing.md },
     categoryTile: {
-      width: 76,
-      height: 76,
-      borderRadius: radius.lg,
+      width: 82,
+      height: 82,
+      ...blobRadius.tile,
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.xs,
@@ -286,18 +321,18 @@ const makeStyles = (colors: ThemeColors) =>
     categoryEmoji: { fontSize: 24, lineHeight: 30 },
     pressed: { opacity: 0.7 },
     setupCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      ...blobRadius.cardAlt,
       gap: spacing.md,
       marginHorizontal: spacing.xl,
       marginTop: spacing.lg,
     },
-    setupEmoji: { fontSize: 26 },
+    setupRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     journeyCard: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.base,
       marginHorizontal: spacing.xl,
+      ...blobRadius.card,
     },
     journeyInfo: { flex: 1, gap: spacing.xs },
     coinsCard: {

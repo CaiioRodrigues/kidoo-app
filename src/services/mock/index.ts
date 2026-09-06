@@ -1,6 +1,12 @@
 import { ACTIVITIES, CATEGORIES, PLANS } from './data';
 import { REVIEWS, summarize } from './reviews';
-import { isTicketValid, issueCheckInTicket } from '@/lib/check-in';
+import {
+  canCheckIn,
+  checkInWindow,
+  isTicketValid,
+  issueCheckInTicket,
+  proximityTo,
+} from '@/lib/check-in';
 import { canCancel, cancellationMessage } from '@/lib/cancellation';
 import {
   bonusLotsFor,
@@ -16,6 +22,7 @@ import { daysUntilReset, startSubscription, withCurrentCycle } from '@/lib/subsc
 import { buildAchievements } from './journey';
 import { ApiError } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
+import { haversineKm, type Coords } from '@/lib/geo';
 import type {
   Activity,
   ActivityCategoryId,
@@ -112,6 +119,19 @@ function requireSession(): Session {
   return state.session;
 }
 
+/**
+ * Preenche a distância a partir de onde o usuário está.
+ *
+ * Fica no serviço, e não na tela, porque é assim que o backend real vai
+ * funcionar: a coordenada do usuário sobe uma vez, o servidor devolve a lista
+ * já medida, e nenhum componente precisa saber fazer trigonometria.
+ */
+function withDistance(activity: Activity, origin: Coords | undefined): Activity {
+  if (!origin) return activity;
+  const { latitude, longitude } = activity.partner;
+  return { ...activity, distanceKm: haversineKm(origin, { latitude, longitude }) };
+}
+
 function matchesFilters(activity: Activity, filters: ActivityFilters | undefined): boolean {
   if (!filters) return true;
   if (filters.category && filters.category !== 'all' && activity.category !== filters.category) {
@@ -196,6 +216,7 @@ function seedDemoHistory(child: Child): void {
         },
         checkIn: null,
         partnerConfirmedAt: when.toISOString(),
+        checkInProof: { locationVerified: true, distanceM: 40, mocked: false },
         reviewId: null,
       },
     ];
@@ -281,12 +302,26 @@ export const mockApi: KidooApi = {
       return delay(CATEGORIES, 120);
     },
     async activities(filters) {
-      return delay(ACTIVITIES.filter((activity) => matchesFilters(activity, filters)));
+      const origin = filters?.origin;
+      let list = ACTIVITIES.filter((activity) => matchesFilters(activity, filters)).map(
+        (activity) => withDistance(activity, origin),
+      );
+
+      // Raio e ordenação por distância só fazem sentido com origem conhecida.
+      if (origin && filters?.radiusKm !== undefined) {
+        const limit = filters.radiusKm;
+        list = list.filter((activity) => activity.distanceKm !== null && activity.distanceKm <= limit);
+      }
+      if (origin && filters?.sort === 'distance') {
+        list = [...list].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+      }
+
+      return delay(list);
     },
-    async activity(id) {
+    async activity(id, origin) {
       const found = ACTIVITIES.find((activity) => activity.id === id);
       if (!found) throw new ApiError('not_found', 'Atividade não encontrada.');
-      return delay(found);
+      return delay(withDistance(found, origin));
     },
     async reviews(activityId) {
       const activity = ACTIVITIES.find((item) => item.id === activityId);
@@ -334,21 +369,23 @@ export const mockApi: KidooApi = {
       return delay(review);
     },
 
-    async recommended(childId) {
+    async recommended(childId, origin) {
+      const measured = ACTIVITIES.map((activity) => withDistance(activity, origin));
       const child = state.children.find((item) => item.id === childId);
-      if (!child) return delay(ACTIVITIES.slice(0, 3));
+      if (!child) return delay(measured.slice(0, 3));
 
       const age = ageInYears(child.birthDate);
-      const ranked = ACTIVITIES.filter(
-        (activity) => age >= activity.minAge - 1 && age <= activity.maxAge + 1,
-      ).sort((a, b) => {
-        const aLiked = child.interests.includes(a.category) ? 1 : 0;
-        const bLiked = child.interests.includes(b.category) ? 1 : 0;
-        if (aLiked !== bLiked) return bLiked - aLiked;
-        return a.distanceKm - b.distanceKm;
-      });
+      const ranked = measured
+        .filter((activity) => age >= activity.minAge - 1 && age <= activity.maxAge + 1)
+        .sort((a, b) => {
+          const aLiked = child.interests.includes(a.category) ? 1 : 0;
+          const bLiked = child.interests.includes(b.category) ? 1 : 0;
+          if (aLiked !== bLiked) return bLiked - aLiked;
+          // Sem origem conhecida ninguém "vence" no desempate por distância.
+          return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity);
+        });
 
-      return delay(ranked.length > 0 ? ranked : ACTIVITIES.slice(0, 3));
+      return delay(ranked.length > 0 ? ranked : measured.slice(0, 3));
     },
   },
 
@@ -390,13 +427,47 @@ export const mockApi: KidooApi = {
       return delay(toDetails(booking), 150);
     },
 
-    async checkIn(bookingId) {
+    async checkIn(bookingId, proof) {
       requireSession();
       const booking = state.bookings.find((item) => item.id === bookingId);
       if (!booking) throw new ApiError('not_found', 'Reserva não encontrada.');
       if (booking.status === 'cancelled') {
         throw new ApiError('not_found', 'Esta reserva foi cancelada.');
       }
+
+      const activity = ACTIVITIES.find((item) => item.id === booking.activityId);
+      if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
+
+      // A distância é recalculada aqui, a partir da leitura crua. O cliente
+      // manda onde acha que está, nunca "estou no local" — senão a checagem
+      // inteira seria um booleano que qualquer um reescreve.
+      const proximity = proximityTo(
+        { latitude: activity.partner.latitude, longitude: activity.partner.longitude },
+        proof ?? null,
+      );
+      const window = checkInWindow(booking.scheduledAt);
+
+      // Repetir o check-in não revalida nada: quem já entrou só está pedindo o
+      // código de novo.
+      if (booking.status !== 'checked_in') {
+        const verdict = canCheckIn(proximity, window);
+        if (!verdict.allowed) {
+          throw new ApiError(
+            'not_found',
+            verdict.blockedBy === 'window'
+              ? window.reason === 'early'
+                ? 'O check-in abre 45 minutos antes da aula.'
+                : 'A janela de check-in desta aula já fechou.'
+              : 'Você ainda não chegou no local da atividade.',
+          );
+        }
+      }
+
+      const checkInProof: Booking['checkInProof'] = {
+        locationVerified: proximity.kind === 'arrived',
+        distanceM: proximity.kind === 'unknown' ? null : Math.round(proximity.distanceM),
+        mocked: proof?.mocked ?? false,
+      };
 
       // Reemite o código se o antigo expirou: o responsável não pode ficar
       // preso sem comprovante só porque demorou para chamar o parceiro.
@@ -413,6 +484,7 @@ export const mockApi: KidooApi = {
               status: 'checked_in',
               checkedInAt: new Date().toISOString(),
               checkIn: ticket,
+              checkInProof,
             };
 
       state.bookings = state.bookings.map((item) => (item.id === bookingId ? checkedIn : item));
@@ -562,6 +634,7 @@ export const mockApi: KidooApi = {
         payment,
         checkIn: null,
         partnerConfirmedAt: null,
+        checkInProof: null,
         reviewId: null,
       };
       state.bookings = [...state.bookings, booking];

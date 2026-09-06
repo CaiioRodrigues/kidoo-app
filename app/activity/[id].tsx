@@ -4,18 +4,19 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { HeaderBar } from '@/components/navigation';
 import { Badge, Button, Card, CoinBadge, Divider, Screen, Text } from '@/components/ui';
 import { RatingSummaryCard, ReviewCard, StarRating } from '@/features/reviews';
-import { formatDistance, formatSessionTime } from '@/lib/format';
+import { formatPlace, formatSessionTime } from '@/lib/format';
 import { useActivity, useReviews } from '@/hooks/queries';
-import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import { categoryTone, radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
 /** Tela 7 — Detalhes da atividade (reserva chega na próxima fase). */
 export default function ActivityDetailScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useStyles(makeStyles);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,6 +46,8 @@ export default function ActivityDetailScreen() {
     );
   }
 
+  const tone = categoryTone(activity.category, isDark);
+
   return (
     <Screen scroll padded={false} edges={['top', 'bottom']} contentContainerStyle={styles.scroll}>
       <View style={styles.headerOverlay}>
@@ -62,6 +65,12 @@ export default function ActivityDetailScreen() {
       />
 
       <View style={styles.content}>
+        {/* Medalhão da modalidade a cavalo na emenda entre a foto e a ficha:
+            é o que diz "isto é natação" antes de qualquer texto ser lido. */}
+        <View style={[styles.medallion, { backgroundColor: tone.soft }]}>
+          <CategoryIcon category={activity.category} size={34} />
+        </View>
+
         {activity.partner.verified ? (
           <Badge
             label="Parceiro verificado"
@@ -89,8 +98,10 @@ export default function ActivityDetailScreen() {
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={15} color={colors.textFaint} />
           <Text variant="label" color={colors.textMuted} style={styles.flex}>
-            {activity.partner.neighborhood}, {activity.partner.city} •{' '}
-            {formatDistance(activity.distanceKm)}
+            {formatPlace(
+              `${activity.partner.neighborhood}, ${activity.partner.city}`,
+              activity.distanceKm,
+            )}
           </Text>
         </View>
 
@@ -108,9 +119,9 @@ export default function ActivityDetailScreen() {
               accessibilityRole="tab"
               accessibilityState={{ selected: tab === value }}
               onPress={() => setTab(value)}
-              style={[styles.tab, tab === value && styles.tabActive]}
+              style={[styles.tab, tab === value && { borderBottomColor: tone.solid }]}
             >
-              <Text variant="label" color={tab === value ? colors.primary : colors.textMuted}>
+              <Text variant="label" color={tab === value ? tone.solid : colors.textMuted}>
                 {value === 'sobre' ? 'Sobre' : 'Avaliações'}
               </Text>
             </Pressable>
@@ -193,8 +204,23 @@ const makeStyles = (colors: ThemeColors) =>
       paddingTop: spacing.xl,
       gap: spacing.sm,
       backgroundColor: colors.background,
-      borderTopLeftRadius: radius.xxl,
-      borderTopRightRadius: radius.xxl,
+      // Cantos desiguais: a ficha "desliza" por baixo da foto em vez de
+      // encaixar num retângulo simétrico.
+      borderTopLeftRadius: 44,
+      borderTopRightRadius: radius.lg,
+    },
+    medallion: {
+      position: 'absolute',
+      top: -30,
+      right: spacing.xl,
+      width: 60,
+      height: 60,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 30,
+      borderBottomRightRadius: 12,
+      borderWidth: 3,
+      borderColor: colors.background,
     },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
@@ -207,7 +233,6 @@ const makeStyles = (colors: ThemeColors) =>
       borderBottomColor: colors.border,
     },
     tab: { paddingBottom: spacing.md, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    tabActive: { borderBottomColor: colors.primary },
     reviews: { marginTop: spacing.lg, gap: spacing.md },
     sessionCard: {
       flexDirection: 'row',

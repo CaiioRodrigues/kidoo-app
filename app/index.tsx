@@ -8,8 +8,14 @@ import { Text } from '@/components/ui';
 import { useAuthStore } from '@/stores/auth-store';
 import { spacing, useStyles, type ThemeColors, type ThemePalette } from '@/theme';
 
-/** Tempo da abertura da marca. Curto o bastante para não atrapalhar o uso. */
-const BRAND_HOLD_MS = 1200;
+/**
+ * Tempo da abertura da marca.
+ *
+ * A animação da logo e a tagline entram em cascata até ~750 ms; em 1,2 s a
+ * tela saía quase junto com o fim da entrada, e a marca mal era lida. Segurar
+ * até 3,2 s dá tempo de ver a frase inteira antes do corte.
+ */
+const BRAND_HOLD_MS = 3200;
 
 /**
  * Tela 1 — Splash / Abertura.

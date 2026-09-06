@@ -5,8 +5,17 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CoinBadge, Text } from '@/components/ui';
 import { StarRating } from '@/features/reviews';
-import { formatDistance, formatSessionTime } from '@/lib/format';
-import { radius, shadows, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import { CategoryIcon } from '@/components/CategoryIcon';
+import { formatPlace, formatSessionTime } from '@/lib/format';
+import {
+  blobRadius,
+  categoryTone,
+  shadows,
+  spacing,
+  useStyles,
+  useTheme,
+  type ThemeColors,
+} from '@/theme';
 import type { Activity } from '@/types/domain';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
@@ -15,7 +24,7 @@ export const ACTIVITY_CARD_WIDTH = 232;
 
 /** Card horizontal usado no carrossel de recomendados da Home. */
 function ActivityCardBase({ activity, onPress }: { activity: Activity; onPress: () => void }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useStyles(makeStyles);
   return (
     <Pressable
@@ -36,9 +45,16 @@ function ActivityCardBase({ activity, onPress }: { activity: Activity; onPress: 
       />
 
       <View style={styles.content}>
-        <Text variant="bodyStrong" numberOfLines={1}>
-          {activity.title}
-        </Text>
+        <View style={styles.titleRow}>
+          <View
+            style={[styles.iconBadge, { backgroundColor: categoryTone(activity.category, isDark).soft }]}
+          >
+            <CategoryIcon category={activity.category} size={18} />
+          </View>
+          <Text variant="bodyStrong" numberOfLines={1} style={styles.flex}>
+            {activity.title}
+          </Text>
+        </View>
 
         <View style={styles.metaRow}>
           <Text variant="caption" color={colors.textMuted}>
@@ -56,7 +72,7 @@ function ActivityCardBase({ activity, onPress }: { activity: Activity; onPress: 
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={13} color={colors.textFaint} />
           <Text variant="caption" color={colors.textMuted} numberOfLines={1} style={styles.flex}>
-            {activity.partner.neighborhood} • {formatDistance(activity.distanceKm)}
+            {formatPlace(activity.partner.neighborhood, activity.distanceKm)}
           </Text>
         </View>
 
@@ -77,7 +93,7 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     card: {
       width: ACTIVITY_CARD_WIDTH,
-      borderRadius: radius.xl,
+      ...blobRadius.card,
       backgroundColor: colors.card,
       overflow: 'hidden',
       ...shadows.card,
@@ -86,6 +102,15 @@ const makeStyles = (colors: ThemeColors) =>
     image: { width: '100%', height: 124, backgroundColor: colors.backgroundMuted },
     content: { padding: spacing.md, gap: spacing.xs },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    iconBadge: {
+      width: 30,
+      height: 30,
+      borderRadius: 10,
+      borderBottomRightRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     flex: { flex: 1 },
   });
 

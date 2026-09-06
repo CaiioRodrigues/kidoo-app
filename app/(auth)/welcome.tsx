@@ -3,14 +3,22 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { KidooLogo, Sparkles } from '@/components/brand';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { Button, Screen, Text } from '@/components/ui';
-import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
+import { blobRadius, categoryTone, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import type { ActivityCategoryId } from '@/types/domain';
 
-const CATEGORY_TEASERS = ['⚽', '🏊', '🥋', '🩰'];
+/** Amostra das modalidades — o degrau de cada tile quebra a régua reta. */
+const CATEGORY_TEASERS: { id: ActivityCategoryId; lift: number }[] = [
+  { id: 'futebol', lift: 0 },
+  { id: 'natacao', lift: -10 },
+  { id: 'judo', lift: 6 },
+  { id: 'danca', lift: -4 },
+];
 
 /** Tela 2 — Login / Cadastro. */
 export default function WelcomeScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useStyles(makeStyles);
   const router = useRouter();
 
@@ -26,9 +34,19 @@ export default function WelcomeScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(120).duration(420)} style={styles.teasers}>
-          {CATEGORY_TEASERS.map((emoji) => (
-            <View key={emoji} style={styles.teaser}>
-              <Text style={styles.teaserEmoji}>{emoji}</Text>
+          {CATEGORY_TEASERS.map((teaser, index) => (
+            <View
+              key={teaser.id}
+              style={[
+                styles.teaser,
+                index % 2 === 0 ? blobRadius.tile : blobRadius.cardAlt,
+                {
+                  backgroundColor: categoryTone(teaser.id, isDark).soft,
+                  transform: [{ translateY: teaser.lift }],
+                },
+              ]}
+            >
+              <CategoryIcon category={teaser.id} size={30} />
             </View>
           ))}
         </Animated.View>
@@ -57,7 +75,7 @@ export default function WelcomeScreen() {
   );
 }
 
-const makeStyles = (_colors: ThemeColors, palette: ThemePalette) =>
+const makeStyles = (_colors: ThemeColors) =>
   StyleSheet.create({
     scroll: { flexGrow: 1 },
     container: { flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xxl },
@@ -68,12 +86,9 @@ const makeStyles = (_colors: ThemeColors, palette: ThemePalette) =>
     teaser: {
       width: 62,
       height: 62,
-      borderRadius: radius.lg,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: palette.purpleTint,
     },
-    teaserEmoji: { fontSize: 28, lineHeight: 34 },
     actions: { gap: spacing.md },
     legal: { marginTop: spacing.sm, paddingHorizontal: spacing.base },
   });

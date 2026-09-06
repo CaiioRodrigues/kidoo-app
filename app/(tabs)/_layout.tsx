@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, View, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +8,40 @@ import { fontFamily, useTheme } from '@/theme';
 
 /** Altura da barra sem contar a área do sistema. */
 const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 52 : 60;
+
+/**
+ * Pílula atrás do ícone ativo. A tab bar padrão só troca a cor do ícone, o que
+ * é o desenho mais genérico possível — a pílula dá um alvo visual claro e uma
+ * assinatura própria, sem custar legibilidade.
+ */
+function TabIcon({
+  name,
+  color,
+  focused,
+  tint,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  color: ColorValue;
+  focused: boolean;
+  tint: ColorValue;
+}) {
+  return (
+    <View style={[tabIconStyles.wrapper, focused && { backgroundColor: tint }]}>
+      <Ionicons name={name} size={22} color={color} />
+    </View>
+  );
+}
+
+const tabIconStyles = StyleSheet.create({
+  wrapper: {
+    minWidth: 46,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderBottomRightRadius: 18,
+  },
+});
 
 export default function TabsLayout() {
   const { colors } = useTheme();
@@ -34,22 +69,26 @@ export default function TabsLayout() {
         name="home"
         options={{
           title: 'Início',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="home" color={color} focused={focused} tint={colors.primaryTint} />
+          ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
           title: 'Explorar',
-          tabBarIcon: ({ color, size }) => <Ionicons name="search" size={size} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="search" color={color} focused={focused} tint={colors.primaryTint} />
+          ),
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
           title: 'Reservas',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="calendar-outline" color={color} focused={focused} tint={colors.primaryTint} />
           ),
         }}
       />
@@ -57,8 +96,8 @@ export default function TabsLayout() {
         name="journey"
         options={{
           title: 'Jornada',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="star-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="star-outline" color={color} focused={focused} tint={colors.primaryTint} />
           ),
         }}
       />
@@ -66,8 +105,8 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="person-outline" color={color} focused={focused} tint={colors.primaryTint} />
           ),
         }}
       />

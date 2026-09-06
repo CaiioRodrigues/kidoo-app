@@ -5,8 +5,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CoinBadge, Text } from '@/components/ui';
 import { StarRating } from '@/features/reviews';
-import { formatDistance } from '@/lib/format';
-import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import { CategoryIcon } from '@/components/CategoryIcon';
+import { formatPlace } from '@/lib/format';
+import { blobRadius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Activity } from '@/types/domain';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
@@ -34,9 +35,12 @@ function ActivityListItemBase({ activity, onPress }: { activity: Activity; onPre
       />
 
       <View style={styles.info}>
-        <Text variant="bodyStrong" numberOfLines={1}>
-          {activity.title}
-        </Text>
+        <View style={styles.titleRow}>
+          <CategoryIcon category={activity.category} size={16} />
+          <Text variant="bodyStrong" numberOfLines={1} style={styles.flex}>
+            {activity.title}
+          </Text>
+        </View>
         <View style={styles.metaRow}>
           <Text variant="caption" color={colors.textMuted}>
             {activity.minAge}-{activity.maxAge} anos
@@ -49,7 +53,7 @@ function ActivityListItemBase({ activity, onPress }: { activity: Activity; onPre
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={13} color={colors.textFaint} />
           <Text variant="caption" color={colors.textMuted} numberOfLines={1} style={styles.flex}>
-            {activity.partner.neighborhood} • {formatDistance(activity.distanceKm)}
+            {formatPlace(activity.partner.neighborhood, activity.distanceKm)}
           </Text>
         </View>
         <CoinBadge amount={activity.coinCost} size="sm" />
@@ -72,10 +76,11 @@ const makeStyles = (colors: ThemeColors) =>
     thumb: {
       width: 74,
       height: 74,
-      borderRadius: radius.lg,
+      ...blobRadius.tile,
       backgroundColor: colors.backgroundMuted,
     },
     info: { flex: 1, gap: spacing.xxs },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
     flex: { flex: 1 },
   });

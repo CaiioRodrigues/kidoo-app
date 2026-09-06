@@ -90,6 +90,8 @@ const PARTNERS = {
     name: 'Academia Arena Kids',
     neighborhood: 'Buritis',
     city: 'Belo Horizonte',
+    latitude: -19.9702,
+    longitude: -43.9803,
     verified: true,
   },
   pampulha: {
@@ -97,6 +99,8 @@ const PARTNERS = {
     name: 'Clube Pampulha',
     neighborhood: 'Pampulha',
     city: 'Belo Horizonte',
+    latitude: -19.8551,
+    longitude: -43.9797,
     verified: true,
   },
   savassi: {
@@ -104,6 +108,8 @@ const PARTNERS = {
     name: 'Dojo Savassi',
     neighborhood: 'Savassi',
     city: 'Belo Horizonte',
+    latitude: -19.9381,
+    longitude: -43.9331,
     verified: true,
   },
   bailar: {
@@ -111,6 +117,8 @@ const PARTNERS = {
     name: 'Studio Bailar',
     neighborhood: 'Funcionários',
     city: 'Belo Horizonte',
+    latitude: -19.9334,
+    longitude: -43.9282,
     verified: false,
   },
   cidadeJardim: {
@@ -118,6 +126,8 @@ const PARTNERS = {
     name: 'Espaço Cidade Jardim',
     neighborhood: 'Cidade Jardim',
     city: 'Belo Horizonte',
+    latitude: -19.9424,
+    longitude: -43.9518,
     verified: true,
   },
   ateliê: {
@@ -125,6 +135,8 @@ const PARTNERS = {
     name: 'Ateliê Cores',
     neighborhood: 'Santo Antônio',
     city: 'Belo Horizonte',
+    latitude: -19.9479,
+    longitude: -43.9447,
     verified: true,
   },
   castelo: {
@@ -132,6 +144,8 @@ const PARTNERS = {
     name: 'Centro Esportivo Castelo',
     neighborhood: 'Castelo',
     city: 'Belo Horizonte',
+    latitude: -19.8903,
+    longitude: -44.0104,
     verified: true,
   },
   serra: {
@@ -139,6 +153,8 @@ const PARTNERS = {
     name: 'Vila Esportiva Serra',
     neighborhood: 'Serra',
     city: 'Belo Horizonte',
+    latitude: -19.9432,
+    longitude: -43.9203,
     verified: false,
   },
 } satisfies Record<string, Partner>;
@@ -169,6 +185,17 @@ function sessionAt(hour: number, dayOffset: number): string {
   return date.toISOString();
 }
 
+/**
+ * Turma começando daqui a pouco.
+ *
+ * O check-in só abre 45 minutos antes da aula. Um catálogo em que tudo começa
+ * "hoje às 17:00" deixaria o check-in inalcançável na maior parte do dia — e
+ * um catálogo de verdade sempre tem turma entrando na próxima hora.
+ */
+function sessionIn(minutes: number): string {
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+}
+
 type Seed = {
   id: string;
   title: string;
@@ -179,9 +206,10 @@ type Seed = {
   reviewCount: number;
   minAge: number;
   maxAge: number;
-  distanceKm: number;
   hour: number;
   dayOffset: number;
+  /** Sobrepõe hora/dia por uma turma prestes a começar. */
+  startsInMin?: number;
   description: string;
   tags: string[];
 };
@@ -197,9 +225,9 @@ const SEEDS: Seed[] = [
     reviewCount: 127,
     minAge: 6,
     maxAge: 9,
-    distanceKm: 2.3,
     hour: 17,
     dayOffset: 0,
+    startsInMin: 20,
     description:
       'Aulas recreativas de futebol focadas em movimento, coordenação, socialização e diversão. Aqui a criança aprende brincando!',
     tags: ['Turma mista', 'Aulas recreativas'],
@@ -214,7 +242,6 @@ const SEEDS: Seed[] = [
     reviewCount: 58,
     minAge: 9,
     maxAge: 13,
-    distanceKm: 4.8,
     hour: 18,
     dayOffset: 1,
     description:
@@ -231,9 +258,9 @@ const SEEDS: Seed[] = [
     reviewCount: 94,
     minAge: 5,
     maxAge: 10,
-    distanceKm: 3.1,
     hour: 9,
     dayOffset: 1,
+    startsInMin: 40,
     description:
       'Adaptação ao meio líquido e primeiros nados, com turmas pequenas e professores especializados em educação infantil.',
     tags: ['Turmas pequenas', 'Piscina aquecida'],
@@ -248,7 +275,6 @@ const SEEDS: Seed[] = [
     reviewCount: 41,
     minAge: 2,
     maxAge: 4,
-    distanceKm: 3.1,
     hour: 10,
     dayOffset: 2,
     description:
@@ -265,9 +291,9 @@ const SEEDS: Seed[] = [
     reviewCount: 61,
     minAge: 6,
     maxAge: 12,
-    distanceKm: 2.4,
     hour: 18,
     dayOffset: 1,
+    startsInMin: 65,
     description:
       'Judô infantil com foco em disciplina, respeito e coordenação motora, em ambiente acolhedor e seguro.',
     tags: ['Disciplina', 'Faixas oficiais'],
@@ -282,7 +308,6 @@ const SEEDS: Seed[] = [
     reviewCount: 29,
     minAge: 7,
     maxAge: 12,
-    distanceKm: 5.6,
     hour: 17,
     dayOffset: 3,
     description:
@@ -299,7 +324,6 @@ const SEEDS: Seed[] = [
     reviewCount: 48,
     minAge: 4,
     maxAge: 8,
-    distanceKm: 4.2,
     hour: 15,
     dayOffset: 2,
     description:
@@ -316,7 +340,6 @@ const SEEDS: Seed[] = [
     reviewCount: 33,
     minAge: 5,
     maxAge: 10,
-    distanceKm: 3.7,
     hour: 16,
     dayOffset: 4,
     description:
@@ -333,7 +356,6 @@ const SEEDS: Seed[] = [
     reviewCount: 73,
     minAge: 6,
     maxAge: 12,
-    distanceKm: 2.1,
     hour: 16,
     dayOffset: 2,
     description:
@@ -350,7 +372,6 @@ const SEEDS: Seed[] = [
     reviewCount: 37,
     minAge: 5,
     maxAge: 11,
-    distanceKm: 3.7,
     hour: 14,
     dayOffset: 5,
     description:
@@ -367,7 +388,6 @@ const SEEDS: Seed[] = [
     reviewCount: 35,
     minAge: 7,
     maxAge: 12,
-    distanceKm: 3.4,
     hour: 10,
     dayOffset: 3,
     description:
@@ -384,7 +404,6 @@ const SEEDS: Seed[] = [
     reviewCount: 22,
     minAge: 8,
     maxAge: 14,
-    distanceKm: 5.2,
     hour: 9,
     dayOffset: 6,
     description:
@@ -401,7 +420,6 @@ const SEEDS: Seed[] = [
     reviewCount: 52,
     minAge: 7,
     maxAge: 12,
-    distanceKm: 4.8,
     hour: 17,
     dayOffset: 2,
     description:
@@ -418,7 +436,6 @@ const SEEDS: Seed[] = [
     reviewCount: 26,
     minAge: 11,
     maxAge: 15,
-    distanceKm: 2.3,
     hour: 19,
     dayOffset: 4,
     description:
@@ -435,7 +452,6 @@ const SEEDS: Seed[] = [
     reviewCount: 44,
     minAge: 8,
     maxAge: 13,
-    distanceKm: 4.8,
     hour: 16,
     dayOffset: 3,
     description:
@@ -452,7 +468,6 @@ const SEEDS: Seed[] = [
     reviewCount: 18,
     minAge: 9,
     maxAge: 14,
-    distanceKm: 5.2,
     hour: 8,
     dayOffset: 6,
     description:
@@ -469,7 +484,6 @@ const SEEDS: Seed[] = [
     reviewCount: 66,
     minAge: 3,
     maxAge: 7,
-    distanceKm: 2.9,
     hour: 14,
     dayOffset: 1,
     description:
@@ -486,7 +500,6 @@ const SEEDS: Seed[] = [
     reviewCount: 31,
     minAge: 7,
     maxAge: 12,
-    distanceKm: 2.9,
     hour: 15,
     dayOffset: 5,
     description:
@@ -505,9 +518,13 @@ export const ACTIVITIES: Activity[] = SEEDS.map((seed) => ({
   reviewCount: seed.reviewCount,
   minAge: seed.minAge,
   maxAge: seed.maxAge,
-  distanceKm: seed.distanceKm,
+  // Derivada em tempo de consulta, a partir de onde o usuário está.
+  distanceKm: null,
   coinCost: COIN_TIERS[seed.tier],
-  nextSessionAt: sessionAt(seed.hour, seed.dayOffset),
+  nextSessionAt:
+    seed.startsInMin === undefined
+      ? sessionAt(seed.hour, seed.dayOffset)
+      : sessionIn(seed.startsInMin),
   description: seed.description,
   tags: seed.tags,
 }));

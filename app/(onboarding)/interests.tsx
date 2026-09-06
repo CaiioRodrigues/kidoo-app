@@ -3,10 +3,11 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { HeaderBar } from '@/components/navigation';
+import { Mascot } from '@/features/tutorial';
 import { Button, Card, Screen, SelectableCard, StepIndicator, Text } from '@/components/ui';
 import { useCategories } from '@/hooks/queries';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
+import { spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 
 /** Tela 3 (etapa 2) — Quais atividades ele mais gosta? */
 export default function InterestsScreen() {
@@ -45,7 +46,7 @@ export default function InterestsScreen() {
           </Text>
         </View>
         <View style={styles.introArt}>
-          <Text style={styles.introEmoji}>🏆</Text>
+          <Mascot size={72} waving={false} />
         </View>
       </View>
 
@@ -59,7 +60,7 @@ export default function InterestsScreen() {
             <View key={category.id} style={styles.gridItem}>
               <SelectableCard
                 label={category.label}
-                emoji={category.emoji}
+                category={category.id}
                 selected={interests.includes(category.id)}
                 onToggle={() => toggleInterest(category.id)}
               />
@@ -99,12 +100,12 @@ const makeStyles = (_colors: ThemeColors, palette: ThemePalette) =>
     introArt: {
       width: 88,
       height: 88,
-      borderRadius: radius.xxl,
+      borderRadius: 44,
+      borderBottomLeftRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: palette.pinkSoft,
     },
-    introEmoji: { fontSize: 40, lineHeight: 48 },
     loading: { marginTop: spacing.xxl },
     grid: {
       flexDirection: 'row',
@@ -112,8 +113,8 @@ const makeStyles = (_colors: ThemeColors, palette: ThemePalette) =>
       gap: spacing.md,
       marginTop: spacing.xl,
     },
-    // 3 colunas: cada item ocupa ~1/3 descontando os dois gaps.
-    gridItem: { width: '31%', flexGrow: 1, flexBasis: '31%' },
+    // 3 colunas: 31% arredondava para mais que a largura útil e caía para 2.
+    gridItem: { flexGrow: 1, flexBasis: '30%' },
     tip: {
       flexDirection: 'row',
       alignItems: 'center',

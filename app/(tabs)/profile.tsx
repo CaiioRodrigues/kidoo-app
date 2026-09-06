@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar, Button, Card, Divider, Screen, Text, ThemePicker } from '@/components/ui';
+import { BlobBackdrop } from '@/components/brand';
 import { formatAge, formatDaysUntil } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
 import { useChildren, useSubscription } from '@/hooks/queries';
@@ -38,6 +39,8 @@ export default function ProfileScreen() {
 
   return (
     <Screen scroll contentContainerStyle={styles.scroll}>
+      <BlobBackdrop height={150} style={styles.backdrop} />
+
       <View style={styles.header}>
         <Avatar name={session?.guardian.name ?? 'Visitante'} size={64} ring />
         <View style={styles.headerInfo}>
@@ -140,6 +143,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  backdrop: { left: -spacing.xl, right: -spacing.xl },
   scroll: { paddingBottom: spacing.xxl },
   header: {
     flexDirection: 'row',

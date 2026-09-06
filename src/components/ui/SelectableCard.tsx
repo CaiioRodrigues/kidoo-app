@@ -4,19 +4,22 @@ import * as Haptics from 'expo-haptics';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from './Text';
-import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import { CategoryIcon } from '@/components/CategoryIcon';
+import { blobRadius, categoryTone, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import type { ActivityCategoryId } from '@/types/domain';
 
 export type SelectableCardProps = {
   label: string;
-  emoji: string;
+  category: ActivityCategoryId;
   selected: boolean;
   onToggle: () => void;
 };
 
 /** Tile de modalidade da tela "Quais atividades ele mais gosta?". */
-function SelectableCardBase({ label, emoji, selected, onToggle }: SelectableCardProps) {
-  const { colors } = useTheme();
+function SelectableCardBase({ label, category, selected, onToggle }: SelectableCardProps) {
+  const { colors, isDark } = useTheme();
   const styles = useStyles(makeStyles);
+  const tone = categoryTone(category, isDark);
   const handlePress = useCallback(() => {
     if (Platform.OS !== 'web') {
       void Haptics.selectionAsync();
@@ -32,17 +35,19 @@ function SelectableCardBase({ label, emoji, selected, onToggle }: SelectableCard
       onPress={handlePress}
       style={({ pressed }) => [
         styles.card,
-        selected ? styles.cardSelected : styles.cardIdle,
+        selected
+          ? { backgroundColor: tone.soft, borderColor: tone.solid }
+          : styles.cardIdle,
         pressed && styles.pressed,
       ]}
     >
       {selected ? (
-        <View style={styles.check}>
+        <View style={[styles.check, { backgroundColor: tone.solid }]}>
           <Ionicons name="checkmark" size={14} color={colors.textOnPrimary} />
         </View>
       ) : null}
-      <Text style={styles.emoji}>{emoji}</Text>
-      <Text variant="label" color={selected ? colors.primary : colors.text} numberOfLines={1}>
+      <CategoryIcon category={category} size={34} />
+      <Text variant="label" color={selected ? tone.solid : colors.text} numberOfLines={1}>
         {label}
       </Text>
     </Pressable>
@@ -58,13 +63,11 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       gap: spacing.sm,
       padding: spacing.md,
-      borderRadius: radius.lg,
       borderWidth: 2,
+      ...blobRadius.tile,
     },
     cardIdle: { backgroundColor: colors.background, borderColor: colors.border },
-    cardSelected: { backgroundColor: colors.primaryTint, borderColor: colors.primary },
     pressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
-    emoji: { fontSize: 30, lineHeight: 36 },
     check: {
       position: 'absolute',
       top: spacing.sm,
@@ -74,7 +77,6 @@ const makeStyles = (colors: ThemeColors) =>
       borderRadius: 11,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.primary,
     },
   });
 

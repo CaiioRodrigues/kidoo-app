@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, type ActivityFilters } from '@/services';
 import { useAuthStore } from '@/stores/auth-store';
+import { useLocationStore } from '@/stores/location-store';
+import type { Coords } from '@/lib/geo';
 import type { ActivityCategoryId, PlanId } from '@/types/domain';
 import type { ChildProfileInput } from '@/lib/validation';
 
@@ -13,9 +15,10 @@ export const queryKeys = {
   children: ['children'] as const,
   bookings: ['bookings'] as const,
   activities: (filters?: ActivityFilters) => ['activities', filters ?? {}] as const,
-  activity: (id: string) => ['activity', id] as const,
+  activity: (id: string, origin?: Coords) => ['activity', id, origin ?? null] as const,
   reviews: (activityId: string) => ['reviews', activityId] as const,
-  recommended: (childId: string) => ['recommended', childId] as const,
+  recommended: (childId: string, origin?: Coords) =>
+    ['recommended', childId, origin ?? null] as const,
   booking: (id: string) => ['booking', id] as const,
   journey: (childId: string) => ['journey', childId] as const,
 };
@@ -50,25 +53,36 @@ export function useChildren() {
   });
 }
 
-export function useActivities(filters?: ActivityFilters) {
+export function useActivities(filters?: ActivityFilters, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.activities(filters),
     queryFn: () => api.catalog.activities(filters),
+    enabled: options?.enabled ?? true,
   });
 }
 
+/**
+ * Origem das medidas de distância. `undefined` enquanto não há permissão — e
+ * aí o catálogo devolve `distanceKm: null`, que a tela sabe omitir.
+ */
+export function useOrigin(): Coords | undefined {
+  return useLocationStore((state) => state.proof?.origin);
+}
+
 export function useActivity(id: string) {
+  const origin = useOrigin();
   return useQuery({
-    queryKey: queryKeys.activity(id),
-    queryFn: () => api.catalog.activity(id),
+    queryKey: queryKeys.activity(id, origin),
+    queryFn: () => api.catalog.activity(id, origin),
     enabled: id.length > 0,
   });
 }
 
 export function useRecommended(childId: string | null) {
+  const origin = useOrigin();
   return useQuery({
-    queryKey: queryKeys.recommended(childId ?? ''),
-    queryFn: () => api.catalog.recommended(childId ?? ''),
+    queryKey: queryKeys.recommended(childId ?? '', origin),
+    queryFn: () => api.catalog.recommended(childId ?? '', origin),
     enabled: Boolean(childId),
   });
 }
@@ -138,8 +152,11 @@ export function useCreateBooking() {
 
 export function useCheckIn() {
   const queryClient = useQueryClient();
+  // A prova de localização sai do store no momento da chamada — quem decide se
+  // ela vale é o serviço, não esta camada.
+  const proof = useLocationStore((state) => state.proof);
   return useMutation({
-    mutationFn: (bookingId: string) => api.bookings.checkIn(bookingId),
+    mutationFn: (bookingId: string) => api.bookings.checkIn(bookingId, proof ?? undefined),
     onSuccess: ({ booking }) => {
       // Check-in mexe em reserva, XP e nível da criança, carteira de bônus e jornada.
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });

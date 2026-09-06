@@ -223,6 +223,103 @@ perceberia até ver a tela.
 
 O seletor fica na aba Perfil.
 
+### Cada modalidade tem cor e desenho próprios
+
+O app inteiro era roxo. Isso deixa a marca coerente, mas faz Futebol, Natação e
+Judô parecerem o mesmo produto — e a criança que abre o app não lê rótulo, lê
+forma e cor.
+
+- `src/theme/categories.ts` dá a cada modalidade um par **sólido/suave**, com
+  variantes para o tema escuro. É essa cor que pinta o tile da Home, o chip de
+  filtro selecionado no Explorar, o medalhão da tela de detalhe e os cartões de
+  "Minhas atividades" na Jornada.
+- `src/components/CategoryIcon.tsx` traz nove desenhos em SVG no lugar dos
+  emojis. Emoji resolve rápido, mas cada sistema desenha o seu: o app ficava com
+  a cara do Android ou do iOS, não do Kidoo. Os traços seguem a geometria do
+  logotipo e assumem a cor da modalidade.
+- `src/components/brand/BlobBackdrop.tsx` traz as formas orgânicas do guia da
+  marca para trás dos cabeçalhos, em opacidade baixa — o texto passa por cima
+  sem perder contraste.
+- `blobRadius` (`src/theme/layout.ts`) quebra a simetria dos cantos: um canto
+  grande e três pequenos, em vez do retângulo arredondado padrão.
+
+Os desenhos foram revisados em captura de tela, no tamanho real de uso. Judô,
+dança, ginástica e tênis foram redesenhados porque, a 28px, o primeiro traçado
+não era legível — a versão anterior de judô lia como a letra "M".
+
+### Distância é derivada, não guardada
+
+O catálogo trazia `distanceKm` fixo em cada atividade — o que só funciona
+enquanto todo mundo mora no mesmo lugar. Distância é uma relação entre o
+parceiro e *quem está olhando*, então agora o parceiro guarda
+`latitude`/`longitude` e o valor sai de `haversineKm` (`src/lib/geo.ts`), no
+serviço e não na tela. No backend real isso vira um filtro por bounding box
+antes do haversine; a tela continua recebendo o número pronto.
+
+Sem localização, `distanceKm` é `null` e a tela **omite a distância** em vez de
+estimar uma que não temos — "Buritis", não "Buritis • ~3 km".
+
+O filtro **Perto de mim**, no Explorar, liga o raio (2 / 5 / 10 km) e a
+ordenação por distância. Quatro decisões que valem também com backend:
+
+- **Só primeiro plano.** `ACCESS_BACKGROUND_LOCATION` e `ACCESS_FINE_LOCATION`
+  entram em `blockedPermissions`; sobra `ACCESS_COARSE_LOCATION`, e o app pede
+  `Accuracy.Low`. Bairro basta para ordenar uma lista — calçada, não.
+- **Só em memória.** A coordenada vive no store zustand e nunca vai para disco
+  nem para o armazenamento seguro. Fechou o app, acabou.
+- **Arredondada na entrada.** Três casas decimais (~110 m) antes de guardar:
+  não dá para reconstruir o endereço da família, e a chave de cache para de
+  mudar a cada tremida do GPS.
+- **O prompt é do usuário.** Na abertura o app só *confere* uma permissão que
+  já exista; o diálogo aparece quando alguém toca em "Perto de mim", com o
+  rótulo na tela dizendo para quê.
+
+Prompt e leitura têm teto de tempo (20 s e 8 s). Sem isso, quem simplesmente
+ignora o diálogo do sistema deixa a tela em "Localizando…" para sempre — foi o
+que aconteceu na primeira verificação em navegador, que fica em `prompt` sem
+chamar nenhum callback. Estourado o tempo do prompt, o estado volta para
+`idle` e não para `denied`: ninguém negou nada, e o próximo toque aproveita a
+resposta que tenha chegado nesse meio-tempo.
+
+### Check-in por proximidade
+
+Chegou no local, o botão abre — o fluxo do Wellhub. Duas condições, em
+`src/lib/check-in.ts`:
+
+- **Janela de horário**: abre 45 min antes da aula, fecha 90 min depois.
+- **Raio de 250 m** do parceiro. Generoso de propósito: um clube ocupa um
+  quarteirão e o GPS erra dezenas de metros perto de prédio alto.
+
+A margem de erro do aparelho entra **a favor de quem está chegando** — a
+comparação é `distância − precisão` contra o raio. Um GPS que diz "300 m,
+±120 m" pode estar em cima do local, e não cabe ao app apostar contra.
+
+**GPS não é a autoridade do check-in, e não deve ser.** Falsificar localização
+no Android é trivial (opções de desenvolvedor). Então a regra é assimétrica:
+negamos quando há **prova contra** (leitura boa dizendo que a pessoa está
+longe), nunca por **falta de prova**. Sem permissão, sem sinal, ou com
+localização simulada, o check-in segue — marcado como não verificado. Quem
+confirma a presença de verdade continua sendo o parceiro lendo o código.
+
+Travar sem prova puniria a quadra coberta sem sinal e renderia chamado de
+suporte; deixar passar um check-in não verificado apenas o marca como tal.
+
+Três decisões de servidor que valem no backend real:
+
+- **A distância é recalculada no serviço.** O cliente manda onde acha que
+  está, nunca `estouNoLocal: true` — senão a checagem inteira vira um booleano
+  que qualquer um reescreve.
+- **Guardamos a distância, não a coordenada.** Para auditar um check-in
+  suspeito basta saber que ele veio de 40 km; a localização da família não
+  precisa existir no banco (`CheckInProof`).
+- **Localização simulada nunca é `arrived`.** Se o próprio aparelho avisa que
+  o dado é falso, o mínimo é não usá-lo como prova — vira "não verificado", e
+  a flag fica registrada.
+
+O catálogo tem sempre algumas turmas começando na próxima hora
+(`startsInMin`). Sem isso, um mock em que tudo começa "hoje às 17:00" deixaria
+o check-in inalcançável na maior parte do dia.
+
 ### Check-in confirmado pelo parceiro
 
 O check-in gera um **comprovante**: um QR e um código de 6 dígitos que o
