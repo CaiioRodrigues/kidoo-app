@@ -39,6 +39,7 @@ done
 
 psql -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/seed.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/rls.sql"
+psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/partner.sql"
 
 # Os dois testes em TypeScript rodam contra o mesmo banco recém-aplicado:
 # paridade das regras que existem nos dois lados, e o contrato de nomes entre o

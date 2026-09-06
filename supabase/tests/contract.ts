@@ -26,7 +26,17 @@ function sql(query: string): string[] {
   return out.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
-const adapter = readFileSync(join(HERE, '../../src/services/supabase/index.ts'), 'utf8');
+/**
+ * Os dois clientes do banco: o app das famílias e o painel do parceiro. O
+ * painel chama seis funções que o app não chama — deixá-lo de fora seria
+ * conferir metade do contrato.
+ */
+const adapter = [
+  '../../src/services/supabase/index.ts',
+  '../../partner/src/api/supabase.ts',
+]
+  .map((caminho) => readFileSync(join(HERE, caminho), 'utf8'))
+  .join('\n');
 const mappers = readFileSync(join(HERE, '../../src/services/supabase/mappers.ts'), 'utf8');
 
 const falhas: string[] = [];
@@ -37,7 +47,15 @@ function checa(condicao: boolean, mensagem: string): void {
 // ------------------------------------------------------------- funções ------
 
 const funcoes = new Map(
-  sql(`select p.proname || ' ' || coalesce(array_to_string(p.proargnames, ','), '')
+  // Só os parâmetros de ENTRADA. Numa função "returns table", `proargnames`
+  // traz junto os nomes das colunas de saída — sem este filtro, uma coluna
+  // devolvida passaria como se fosse um parâmetro aceito.
+  sql(`select p.proname || ' ' || coalesce((
+           select string_agg(t.nome, ',' order by t.ordem)
+             from unnest(p.proargnames) with ordinality as t(nome, ordem)
+            where p.proargmodes is null
+               or p.proargmodes[t.ordem] in ('i', 'b', 'v')
+         ), '')
          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public'`).map((linha) => {
     const [nome, args = ''] = linha.split(' ');
@@ -45,9 +63,14 @@ const funcoes = new Map(
   }),
 );
 
-// rpc('nome', { p_x: ..., p_y: ... })
-const rpcs = [...adapter.matchAll(/\.rpc\(\s*'([a-z_]+)'(?:,\s*\{([^}]*)\})?/g)];
-checa(rpcs.length >= 7, `esperava ao menos 7 chamadas de RPC, achei ${rpcs.length}`);
+// Duas formas de chamar: `rpc('nome', {...})` direto, e o auxiliar do painel
+// `linhasDe<T>('nome', {...})` para funções que devolvem conjunto. A segunda
+// escapava do teste — justamente as três RPCs de leitura do painel.
+const rpcs = [
+  ...adapter.matchAll(/\.rpc\(\s*'([a-z_]+)'(?:,\s*\{([^}]*)\})?/g),
+  ...adapter.matchAll(/linhasDe<[^>]*>\(\s*'([a-z_]+)',\s*\{([^}]*)\}/g),
+];
+checa(rpcs.length >= 13, `esperava ao menos 13 chamadas de RPC, achei ${rpcs.length}`);
 
 for (const [, nome, corpo = ''] of rpcs) {
   const esperados = funcoes.get(nome as string);
@@ -55,7 +78,16 @@ for (const [, nome, corpo = ''] of rpcs) {
     falhas.push(`função ${nome} não existe no banco`);
     continue;
   }
-  for (const [, param] of corpo.matchAll(/^\s*(p_[a-z_]+)\s*:/gm)) {
+  // Cada chave do objeto de argumentos, e não só as que começam com `p_`:
+  // um nome fora da convenção é exatamente o que o Postgres recusaria em
+  // runtime. E a chave é reconhecida por vir depois de `{` ou `,`, porque
+  // ancorar no início da linha só conferia o primeiro parâmetro de um objeto
+  // escrito numa linha só.
+  // Comentários saem antes: um `// o nome não vai daqui: ...` no meio do
+  // objeto de argumentos era lido como um parâmetro chamado "daqui".
+  const semComentarios = (corpo as string).replace(/\/\/[^\n]*/g, '');
+
+  for (const [, param] of semComentarios.matchAll(/[{,]?\s*([a-z_][a-z0-9_]*)\s*:/g)) {
     checa(
       esperados.has(param as string),
       `${nome} não tem o parâmetro ${param} (tem: ${[...esperados].join(', ')})`,
@@ -83,10 +115,14 @@ for (const [, tabela, lista] of adapter.matchAll(/\.from\('([a-z_]+)'\)\s*\n?\s*
   }
   if (lista === '*') continue;
 
-  for (const campo of (lista as string).split(',')) {
+  // Os embeds saem antes da quebra por vírgula: senão
+  // `partner:partners(id, name, city)` viraria as colunas soltas `name` e
+  // `city)`, conferidas contra a tabela de fora. São conferidos logo abaixo.
+  const semEmbeds = (lista as string).replace(/[a-z_]+:[a-z_]+\([^)]*\)/g, '');
+
+  for (const campo of semEmbeds.split(',')) {
     const nome = campo.trim();
-    // embeds (`activity:activities(category_id)`) são conferidos à parte
-    if (!nome || nome.includes('(') || nome.includes(':')) continue;
+    if (!nome) continue;
     checa(disponiveis.has(nome), `${tabela} não tem a coluna ${nome}`);
   }
 }

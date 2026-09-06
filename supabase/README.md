@@ -98,12 +98,44 @@ Três coisas que só apareceram rodando:
   caminho normal e creditava mais 100 de XP. Repetindo, era uma fábrica de
   Kidoo Bônus — e o mesmo buraco existia no mock.
 
+## O que o parceiro não decide
+
+O painel do parceiro trouxe uma pergunta que o app não fazia: o que o
+fornecedor pode declarar sobre o próprio pagamento?
+
+- **`kind` não é dele.** A policy `for all` em `class_sessions` deixava o
+  parceiro escrever `kind` direto: bastava marcar tudo como `cheia` para dobrar
+  o próprio repasse sem mudar nada no mundo real. Agora um gatilho o deriva de
+  `slot_kind_for(capacity, enrolled)`. A honestidade final ainda depende de
+  `enrolled`, que é declarado — mas mentir passou a exigir mentir sobre a
+  lotação da turma, que é verificável na porta. O resto é contrato e auditoria
+  por amostragem, como no Wellhub.
+- **`coin_cost` tem teto.** Sai do bolso da família: sem faixa, dava para
+  publicar uma aula a 40 coins e torrar a cota semanal de quem reservasse.
+- **A lista da turma não é a tabela `children`.** `session_roster` é
+  `security definer` e devolve **primeiro nome e idade** de quem reservou com
+  aquele parceiro. Um teste confere o número de colunas da função: acrescentar
+  dado da família ali passa a exigir uma decisão explícita, não um `select *`
+  distraído.
+
 ## O contrato de nomes com o adapter
 
 `tests/contract.ts` lê `src/services/supabase/` e pergunta ao Postgres se cada
 tabela, coluna, função e parâmetro que o adapter cita existe de verdade.
 
+Cobre os dois clientes: o app das famílias e o painel do parceiro.
+
 É a classe de erro que o TypeScript não vê: `rpc('book_sesion', ...)` compila e
-só quebra na mão do usuário. O teste foi sabotado de propósito (nome de tabela
-trocado, parâmetro com typo, coluna inventada no mapper) e apontou os cinco
-casos antes de voltar a passar.
+só quebra na mão do usuário. O teste foi sabotado de propósito várias vezes —
+nome de tabela trocado, parâmetro com typo, coluna inventada no mapper, e o
+nome de uma coluna de saída usado como parâmetro — e cada sabotagem apontou
+mais um furo no próprio teste antes de ele ficar de pé:
+
+- chamadas via o auxiliar `linhasDe` não eram vistas (três RPCs do painel
+  passavam batido);
+- a lista do `select` era quebrada por vírgula sem tirar os embeds antes, então
+  `partner:partners(id, name)` virava colunas soltas conferidas contra a tabela
+  errada;
+- só o primeiro parâmetro de um objeto escrito numa linha só era conferido;
+- um comentário dentro do objeto de argumentos virava um parâmetro chamado
+  "daqui".

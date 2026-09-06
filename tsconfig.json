@@ -19,5 +19,8 @@
   // `supabase/` é ferramenta de banco, não código do app: roda em Node, com
   // APIs que o bundle do React Native não tem. Typechecar junto só produziria
   // erro de tipo de Node faltando.
-  "exclude": ["node_modules", "android", "ios", ".expo", "dist", "supabase"]
+  // `partner/` e `supabase/` têm ferramentas próprias: o painel é um app Vite com
+  // seu tsconfig, e as migrations são SQL. Incluí-los aqui faria o `@/*` do app
+  // (que aponta para `src/`) capturar o `@/*` do painel.
+  "exclude": ["node_modules", "android", "ios", ".expo", "dist", "supabase", "partner"]
 }

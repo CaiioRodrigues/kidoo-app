@@ -69,6 +69,21 @@ npm run lint       # eslint, zero warnings tolerados
 npm run format     # prettier
 ```
 
+Painel do parceiro (app separado, `partner/README.md`):
+
+```bash
+cd partner && npm install && npm run dev   # http://localhost:5273
+```
+
+Banco (precisa de um Postgres local; não usa Docker nem rede — veja
+`supabase/README.md`):
+
+```bash
+supabase/tests/run.sh          # migrations, RLS, reserva, check-in, painel,
+                               # paridade SQL↔TS e contrato de nomes
+supabase/tests/concurrency.sh  # duas famílias na mesma última vaga
+```
+
 Para gerar binários, use EAS Build (`eas build -p android|ios`). As pastas
 `android/` e `ios/` não são versionadas: são reconstruídas com
 `npm run prebuild` a partir do `app.json`.
@@ -135,15 +150,35 @@ src/
   stores/                 zustand (sessão, rascunho de onboarding)
   lib/                    validação (zod), formatação, storage seguro, logger
   types/domain.ts         modelo de domínio
+
+supabase/                 migrations SQL e testes contra um Postgres de verdade
+partner/                  painel web do parceiro (Vite + React)
 ```
 
 ### A regra que sustenta tudo
 
 Nenhuma tela conhece HTTP. Toda a UI depende só da interface `KidooApi`
-(`src/services/types.ts`). Hoje ela é atendida por um mock em memória
-(`src/services/mock/`). Quando o backend real existir, basta criar uma nova
-implementação da mesma interface e apontar `src/services/index.ts` para ela —
-nenhuma tela muda.
+(`src/services/types.ts`). Ela tem duas implementações: um backend em memória
+(`src/services/mock/`) e o Supabase (`src/services/supabase/`). A escolha é por
+configuração — com `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+definidos, o app fala com o Supabase; sem elas, com o mock. Nenhuma tela sabe
+qual dos dois respondeu.
+
+O mock continua sendo o padrão de propósito: é ele que mantém o app navegável
+para quem clona o repositório, e é o contrato que a implementação real tem de
+satisfazer — não um rascunho a descartar.
+
+### Três peças, um domínio
+
+O app das famílias, o painel do parceiro e o banco vivem no mesmo repositório e
+compartilham `src/types/domain.ts`. `SlotKind`, `ClassSession` e a curva de
+níveis são os mesmos objetos nos três — se fossem copiados, uma mudança num
+deles só apareceria nos outros quando quebrasse.
+
+O painel **não** é uma tela do Expo: é um app Vite em `partner/`. O app é React
+Native no celular; o painel é ferramenta de balcão, com tabela e formulário num
+navegador. Enfiá-lo no Expo custaria o React Native Web inteiro no bundle das
+famílias e ainda daria um layout de telefone numa tela de recepção.
 
 ---
 
