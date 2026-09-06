@@ -57,8 +57,13 @@ begin
   v_from_sub   := v_session.coin_cost - v_from_bonus;
 
   if v_from_sub > 0 then
-    select * into v_sub from subscriptions where guardian_id = v_guardian for update;
-    if not found then
+    -- Aplica a virada de semana ANTES de olhar o saldo: uma reserva feita na
+    -- segunda tem de usar a cota nova, e quem decide isso é o banco. Confiar no
+    -- cliente para resetar deixaria um app que não recarrega gastando a cota da
+    -- semana passada para sempre. (`roll_subscription_cycle` vive na migration
+    -- 000005; plpgsql resolve o nome na chamada, não na criação.)
+    v_sub := roll_subscription_cycle(v_guardian);
+    if v_sub.guardian_id is null then
       raise exception 'no_subscription' using errcode = 'P0001';
     end if;
     if v_sub.coins_remaining < v_from_sub then

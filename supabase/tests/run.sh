@@ -24,7 +24,7 @@ createdb kidoo_test
 # auth.users e auth.uid() são do Supabase; fora dele viram stub para o teste.
 psql -q -v ON_ERROR_STOP=1 -d kidoo_test <<'SQL'
 create schema if not exists auth;
-create table auth.users (id uuid primary key, email text);
+create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb);
 create function auth.uid() returns uuid language sql stable as
   $fn$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $fn$;
 do $do$ begin
@@ -39,3 +39,8 @@ done
 
 psql -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/seed.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/rls.sql"
+
+# Os dois testes em TypeScript rodam contra o mesmo banco recém-aplicado:
+# paridade das regras que existem nos dois lados, e o contrato de nomes entre o
+# adapter e o esquema — nada disso o `tsc` enxerga.
+( cd "$HERE/../.." && npx tsx supabase/tests/parity.ts && npx tsx supabase/tests/contract.ts )

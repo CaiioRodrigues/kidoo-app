@@ -6,9 +6,11 @@ insert into auth.users (id, email) values
   ('33333333-3333-3333-3333-333333333333','arena@ex.com'),
   ('44444444-4444-4444-4444-444444444444','pampulha@ex.com');
 
+-- O trigger on_auth_user_created já criou os perfis acima; aqui só nomeamos.
 insert into guardians (id, name, email) values
   ('11111111-1111-1111-1111-111111111111','Ana','ana@ex.com'),
-  ('22222222-2222-2222-2222-222222222222','Bruno','bruno@ex.com');
+  ('22222222-2222-2222-2222-222222222222','Bruno','bruno@ex.com')
+on conflict (id) do update set name = excluded.name;
 
 insert into children (id, guardian_id, name, birth_date) values
   ('aaaaaaaa-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','Joao','2018-03-15'),
@@ -22,7 +24,7 @@ insert into partner_members (partner_id, user_id, role) values
   ('cccccccc-0000-0000-0000-00000000000a','33333333-3333-3333-3333-333333333333','owner'),
   ('cccccccc-0000-0000-0000-00000000000b','44444444-4444-4444-4444-444444444444','owner');
 
-insert into activity_categories (id,label) values ('futebol','Futebol'),('natacao','Natação');
+-- As modalidades vêm da migration 000005: são lista fechada, não dado de teste.
 
 insert into activities (id, partner_id, category_id, title, min_age, max_age) values
   ('dddddddd-0000-0000-0000-00000000000a','cccccccc-0000-0000-0000-00000000000a','futebol','Futebol Kids',6,9),

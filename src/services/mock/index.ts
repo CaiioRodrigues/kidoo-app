@@ -18,9 +18,10 @@ import {
   splitPayment,
 } from '@/lib/bonus';
 import { MAX_LEVEL, XP_PER_CHECK_IN, bonusForLevel, levelFromXp } from '@/lib/levels';
+import { buildAchievements } from '@/lib/achievements';
+import { rankForChild } from '@/lib/recommendation';
 import { daysUntilReset, startSubscription, withCurrentCycle } from '@/lib/subscription';
 
-import { buildAchievements } from './journey';
 import { ApiError } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
 import { haversineKm, type Coords } from '@/lib/geo';
@@ -388,17 +389,7 @@ export const mockApi: KidooApi = {
       const child = state.children.find((item) => item.id === childId);
       if (!child) return delay(measured.slice(0, 3));
 
-      const age = ageInYears(child.birthDate);
-      const ranked = measured
-        .filter((activity) => age >= activity.minAge - 1 && age <= activity.maxAge + 1)
-        .sort((a, b) => {
-          const aLiked = child.interests.includes(a.category) ? 1 : 0;
-          const bLiked = child.interests.includes(b.category) ? 1 : 0;
-          if (aLiked !== bLiked) return bLiked - aLiked;
-          // Sem origem conhecida ninguém "vence" no desempate por distância.
-          return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity);
-        });
-
+      const ranked = rankForChild(measured, child);
       return delay(ranked.length > 0 ? ranked : measured.slice(0, 3));
     },
   },
@@ -447,6 +438,12 @@ export const mockApi: KidooApi = {
       if (!booking) throw new ApiError('not_found', 'Reserva não encontrada.');
       if (booking.status === 'cancelled') {
         throw new ApiError('not_found', 'Esta reserva foi cancelada.');
+      }
+      // Presença confirmada pelo parceiro encerra a reserva. Sem esta guarda o
+      // fluxo abaixo tratava 'completed' como "ainda não entrou" e creditava
+      // XP de novo a cada check-in repetido.
+      if (booking.status === 'completed') {
+        throw new ApiError('not_found', 'Esta presença já foi confirmada pelo parceiro.');
       }
 
       const activity = ACTIVITIES.find((item) => item.id === booking.activityId);
@@ -744,15 +741,6 @@ function weeklyActivityOf(childId: string): { label: string; count: number }[] {
   }
 
   return buckets;
-}
-
-function ageInYears(birthDate: string): number {
-  const birth = new Date(birthDate);
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const monthDelta = now.getMonth() - birth.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < birth.getDate())) age -= 1;
-  return age;
 }
 
 /** Usado em testes e no logout para voltar ao estado inicial. */

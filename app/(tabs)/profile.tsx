@@ -10,6 +10,7 @@ import { formatAge, formatDaysUntil } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
 import { useChildren, useSubscription } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
+import { backendName } from '@/services';
 import { spacing, useTheme } from '@/theme';
 
 export default function ProfileScreen() {
@@ -169,6 +170,15 @@ export default function ProfileScreen() {
           style={styles.signOut}
         />
       )}
+
+      {/* Quem testa precisa saber se o que está vendo é dado real. Sem esta
+          linha, catálogo de demonstração e catálogo de verdade são iguais na
+          tela — e um bug de backend passa por bug de conteúdo. */}
+      <Text variant="caption" color={colors.textFaint} style={styles.backend}>
+        {backendName === 'supabase'
+          ? 'Conectado ao servidor Kidoo.'
+          : 'Modo demonstração: as atividades e reservas não são reais.'}
+      </Text>
     </Screen>
   );
 }
@@ -194,4 +204,5 @@ const styles = StyleSheet.create({
   },
   flex: { flex: 1 },
   signOut: { marginTop: spacing.xxl },
+  backend: { marginTop: spacing.lg, textAlign: 'center' },
 });

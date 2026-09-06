@@ -28,11 +28,27 @@ mudam. Uma policy de `update` aberta ao parceiro deixaria ele marcar
 `partner_confirmed_at` sem código nenhum, e o repasse viraria autodeclaração do
 outro lado.
 
+**A cota semanal vira no servidor.** `roll_subscription_cycle` aplica a virada
+de segunda-feira (fuso de Brasília, que é o que a tela promete) antes de
+qualquer leitura ou débito. Isso vivia só em `src/lib/subscription.ts` — ou
+seja, só no cliente: um app que não recarrega gastaria a cota da semana passada
+indefinidamente.
+
 **O dinheiro anda dentro da transação.** `book_session` debita o bônus (que
 expira primeiro) e depois a cota da assinatura, na mesma transação que trava a
 vaga. Debitar fora dela abriria janela para gastar o mesmo coin duas vezes.
 Cancelar devolve a cota; o bônus volta ao lote original, mantendo a validade —
 senão cancelar viraria uma forma de esticar o prazo de uma moeda vencendo.
+
+**Quem mede a distância é o servidor.** `check_in` recebe a leitura crua do
+aparelho (latitude, longitude, precisão) e calcula a distância contra a
+coordenada do parceiro, com `distance_m`. Receber uma distância já pronta seria
+autodeclaração: "estou a 10 m" é só um número que qualquer um edita. A
+coordenada entra no cálculo e vai embora — o que fica gravado é a distância.
+
+**O nome do autor da avaliação não vem do cliente.** `submit_review` o deriva do
+perfil (só o primeiro nome). O `insert` direto em `reviews` foi revogado; com
+ele, dava para assinar uma avaliação com o nome de outra família.
 
 ## Regras duplicadas, de propósito
 
@@ -56,8 +72,8 @@ initdb -D "$PGDATA_DIR" -A trust -U postgres
 pg_ctl -D "$PGDATA_DIR" -o "-p 5433 -k $PGDATA_DIR" start
 
 supabase/tests/run.sh          # migrations + RLS + reserva + check-in + extrato
+                               # (já roda parity.ts e contract.ts no fim)
 supabase/tests/concurrency.sh  # duas famílias na mesma última vaga
-npx tsx supabase/tests/parity.ts   # regras de nível: SQL vs TypeScript
 ```
 
 `run.sh` recria o banco do zero a cada execução. `concurrency.sh` prepara o
@@ -77,3 +93,17 @@ Três coisas que só apareceram rodando:
   turma. Virou índice parcial, com `where status <> 'cancelled'`.
 - **A view de repasse pagava reserva cancelada.** Hoje as funções impedem essa
   combinação, mas a view não deve depender disso para estar certa.
+- **Presença já confirmada aceitava novo check-in.** `check_in_booking` só
+  desviava quando o status era `checked_in`; com `completed` ele caía no
+  caminho normal e creditava mais 100 de XP. Repetindo, era uma fábrica de
+  Kidoo Bônus — e o mesmo buraco existia no mock.
+
+## O contrato de nomes com o adapter
+
+`tests/contract.ts` lê `src/services/supabase/` e pergunta ao Postgres se cada
+tabela, coluna, função e parâmetro que o adapter cita existe de verdade.
+
+É a classe de erro que o TypeScript não vê: `rpc('book_sesion', ...)` compila e
+só quebra na mão do usuário. O teste foi sabotado de propósito (nome de tabela
+trocado, parâmetro com typo, coluna inventada no mapper) e apontou os cinco
+casos antes de voltar a passar.

@@ -40,6 +40,12 @@ begin
   if v_booking.status = 'cancelled' then
     raise exception 'booking_cancelled' using errcode = 'P0001';
   end if;
+  -- Presença já confirmada pelo parceiro está encerrada. Sem esta linha, um
+  -- novo check-in na mesma reserva caía no caminho de baixo e creditava mais
+  -- 100 de XP — repetindo, viraria uma fábrica de Kidoo Bônus.
+  if v_booking.status = 'completed' then
+    raise exception 'already_confirmed' using errcode = 'P0001';
+  end if;
 
   -- Janela de horário: estar no local três horas antes não é chegar.
   if now() < v_booking.scheduled_at - interval '45 minutes' then
