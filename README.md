@@ -281,6 +281,22 @@ chamar nenhum callback. Estourado o tempo do prompt, o estado volta para
 `idle` e não para `denied`: ninguém negou nada, e o próximo toque aproveita a
 resposta que tenha chegado nesse meio-tempo.
 
+### Banco (Supabase)
+
+As migrations vivem em `supabase/migrations/` e o que elas garantem está em
+`supabase/README.md`. Três pontos que valem aqui:
+
+- **A vaga não é vendida duas vezes.** `book_session` trava a linha da turma
+  antes de contar. Há um teste que abre duas conexões e disputa a mesma última
+  vaga — sem o `for update`, as duas passam.
+- **RLS separa os dois públicos** que vivem no mesmo banco: o responsável, no
+  app, e o parceiro, no painel. E um parceiro nunca enxerga outro.
+- **O responsável não confirma a própria presença.** Ele não tem `update` em
+  `bookings`; quem confirma é o parceiro, e é isso que faz o repasse não ser
+  autodeclaração.
+
+`supabase/tests/run.sh` sobe um Postgres descartável e roda tudo, sem Docker.
+
 ### Turmas, capacidade e vaga ociosa
 
 A reserva era de uma **atividade**, com um horário genérico. Mas quem tem lugar
