@@ -2,6 +2,7 @@ import * as Location from 'expo-location';
 import { create } from 'zustand';
 
 import { DEFAULT_RADIUS_KM, type Coords, type RadiusKm } from '@/lib/geo';
+import type { LocationProof } from '@/lib/check-in';
 
 export type LocationStatus =
   /** Ainda não perguntamos nada ao sistema. */
@@ -15,13 +16,16 @@ export type LocationStatus =
 
 type LocationState = {
   status: LocationStatus;
-  coords: Coords | null;
+  /** Leitura crua mais recente. A distância nunca é calculada aqui. */
+  proof: LocationProof | null;
   nearbyOnly: boolean;
   radiusKm: RadiusKm;
   /** Lê a permissão já concedida, sem abrir prompt. */
   hydrate: () => Promise<void>;
   /** Abre o prompt. Só a partir de um gesto explícito do usuário. */
   request: () => Promise<boolean>;
+  /** Relê a posição se a permissão já existe. Nunca abre prompt. */
+  refresh: () => Promise<void>;
   setNearbyOnly: (value: boolean) => void;
   setRadiusKm: (value: RadiusKm) => void;
 };
@@ -40,6 +44,15 @@ function coarse(coords: Coords): Coords {
     longitude: Math.round(coords.longitude * 1000) / 1000,
   };
 }
+
+/**
+ * Erro que o próprio arredondamento introduz.
+ *
+ * Cortar a terceira casa decimal desloca o ponto em até ~80 m. Somar isso à
+ * precisão declarada mantém a conta honesta: o raio do check-in passa a
+ * considerar tanto o erro do GPS quanto o que nós mesmos jogamos fora.
+ */
+const COARSE_ERROR_M = 80;
 
 /**
  * Teto para a leitura do GPS. Dentro de ginásio ou piscina coberta o sinal
@@ -65,14 +78,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
-async function read(): Promise<Coords | null> {
+async function read(): Promise<LocationProof | null> {
   try {
-    // `Low` é bairro, não calçada — é tudo que a ordenação por distância pede.
+    // `Low` é bairro, não calçada — é tudo que a ordenação por distância pede,
+    // e o raio de check-in (250 m) absorve com folga.
     const position = await withTimeout(
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
       READ_TIMEOUT_MS,
     );
-    return position ? coarse(position.coords) : null;
+    if (!position) return null;
+
+    return {
+      origin: coarse(position.coords),
+      accuracyM: (position.coords.accuracy ?? 0) + COARSE_ERROR_M,
+      // Android avisa quando há app de mock location no comando.
+      mocked: position.mocked ?? false,
+    };
   } catch {
     return null;
   }
@@ -94,7 +115,7 @@ async function read(): Promise<Coords | null> {
  */
 export const useLocationStore = create<LocationState>((set, get) => ({
   status: 'idle',
-  coords: null,
+  proof: null,
   nearbyOnly: false,
   radiusKm: DEFAULT_RADIUS_KM,
 
@@ -105,10 +126,21 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       if (!granted) return;
 
       set({ status: 'asking' });
-      const coords = await read();
-      set(coords ? { status: 'granted', coords } : { status: 'unavailable', coords: null });
+      const proof = await read();
+      set(proof ? { status: 'granted', proof } : { status: 'unavailable', proof: null });
     } catch {
       set({ status: 'unavailable' });
+    }
+  },
+
+  refresh: async () => {
+    try {
+      const { granted } = await Location.getForegroundPermissionsAsync();
+      if (!granted) return;
+      const proof = await read();
+      if (proof) set({ status: 'granted', proof });
+    } catch {
+      // Uma releitura que falha não derruba o que já sabíamos.
     }
   },
 
@@ -124,25 +156,25 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       // para `denied`: ninguém negou nada, e um novo toque tenta de novo — se
       // a resposta tiver chegado nesse meio-tempo, ela já vale.
       if (permission === null) {
-        set({ status: 'idle', coords: null });
+        set({ status: 'idle', proof: null });
         return false;
       }
 
       if (!permission.granted) {
-        set({ status: 'denied', coords: null });
+        set({ status: 'denied', proof: null });
         return false;
       }
 
-      const coords = await read();
-      if (!coords) {
-        set({ status: 'unavailable', coords: null });
+      const proof = await read();
+      if (!proof) {
+        set({ status: 'unavailable', proof: null });
         return false;
       }
 
-      set({ status: 'granted', coords });
+      set({ status: 'granted', proof });
       return true;
     } catch {
-      set({ status: 'unavailable', coords: null });
+      set({ status: 'unavailable', proof: null });
       return false;
     }
   },

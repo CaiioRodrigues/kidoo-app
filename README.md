@@ -281,6 +281,45 @@ chamar nenhum callback. Estourado o tempo do prompt, o estado volta para
 `idle` e não para `denied`: ninguém negou nada, e o próximo toque aproveita a
 resposta que tenha chegado nesse meio-tempo.
 
+### Check-in por proximidade
+
+Chegou no local, o botão abre — o fluxo do Wellhub. Duas condições, em
+`src/lib/check-in.ts`:
+
+- **Janela de horário**: abre 45 min antes da aula, fecha 90 min depois.
+- **Raio de 250 m** do parceiro. Generoso de propósito: um clube ocupa um
+  quarteirão e o GPS erra dezenas de metros perto de prédio alto.
+
+A margem de erro do aparelho entra **a favor de quem está chegando** — a
+comparação é `distância − precisão` contra o raio. Um GPS que diz "300 m,
+±120 m" pode estar em cima do local, e não cabe ao app apostar contra.
+
+**GPS não é a autoridade do check-in, e não deve ser.** Falsificar localização
+no Android é trivial (opções de desenvolvedor). Então a regra é assimétrica:
+negamos quando há **prova contra** (leitura boa dizendo que a pessoa está
+longe), nunca por **falta de prova**. Sem permissão, sem sinal, ou com
+localização simulada, o check-in segue — marcado como não verificado. Quem
+confirma a presença de verdade continua sendo o parceiro lendo o código.
+
+Travar sem prova puniria a quadra coberta sem sinal e renderia chamado de
+suporte; deixar passar um check-in não verificado apenas o marca como tal.
+
+Três decisões de servidor que valem no backend real:
+
+- **A distância é recalculada no serviço.** O cliente manda onde acha que
+  está, nunca `estouNoLocal: true` — senão a checagem inteira vira um booleano
+  que qualquer um reescreve.
+- **Guardamos a distância, não a coordenada.** Para auditar um check-in
+  suspeito basta saber que ele veio de 40 km; a localização da família não
+  precisa existir no banco (`CheckInProof`).
+- **Localização simulada nunca é `arrived`.** Se o próprio aparelho avisa que
+  o dado é falso, o mínimo é não usá-lo como prova — vira "não verificado", e
+  a flag fica registrada.
+
+O catálogo tem sempre algumas turmas começando na próxima hora
+(`startsInMin`). Sem isso, um mock em que tudo começa "hoje às 17:00" deixaria
+o check-in inalcançável na maior parte do dia.
+
 ### Check-in confirmado pelo parceiro
 
 O check-in gera um **comprovante**: um QR e um código de 6 dígitos que o

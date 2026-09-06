@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 
 import { HeaderBar } from '@/components/navigation';
 import { Avatar, Button, Card, Screen, Text } from '@/components/ui';
-import { CheckInTicketCard } from '@/features/check-in';
+import { CheckInTicketCard, ProximityCard } from '@/features/check-in';
 import { HintBubble, useOneTimeHint } from '@/features/tutorial';
 import { PreferenceKeys } from '@/lib/preferences';
 import { AchievementCard, shareAchievement, type AchievementShare } from '@/features/share';
@@ -14,6 +14,8 @@ import { levelName } from '@/lib/levels';
 import { PARTNER_SIMULATION_ENABLED } from '@/lib/flags';
 import { formatSessionTime } from '@/lib/format';
 import { canCancel, cancellationMessage, formatDeadline } from '@/lib/cancellation';
+import { canCheckIn, checkInWindow, proximityTo } from '@/lib/check-in';
+import { useLocationStore } from '@/stores/location-store';
 import { toUserMessage } from '@/services';
 import { useBooking, useCancelBooking, useCheckIn, useConfirmByPartner } from '@/hooks/queries';
 import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
@@ -29,6 +31,11 @@ export default function CheckInScreen() {
   const { data: booking, isPending } = useBooking(id ?? '');
   const checkIn = useCheckIn();
   const [error, setError] = useState<string | null>(null);
+
+  const locationProof = useLocationStore((state) => state.proof);
+  const locationStatus = useLocationStore((state) => state.status);
+  const refreshLocation = useLocationStore((state) => state.refresh);
+  const requestLocation = useLocationStore((state) => state.request);
 
   const result = checkIn.data ?? null;
   const confirmPartner = useConfirmByPartner();
@@ -50,6 +57,33 @@ export default function CheckInScreen() {
       setError(toUserMessage(caught));
     }
   }, [booking, checkIn]);
+
+  // A posição guardada pode ser de outra tela, de minutos atrás. Aqui ela
+  // precisa ser de agora — é o que decide se o botão abre.
+  useEffect(() => {
+    void refreshLocation();
+  }, [refreshLocation]);
+
+  const proximity = useMemo(
+    () =>
+      booking
+        ? proximityTo(
+            {
+              latitude: booking.activity.partner.latitude,
+              longitude: booking.activity.partner.longitude,
+            },
+            locationProof,
+          )
+        : ({ kind: 'unknown' } as const),
+    [booking, locationProof],
+  );
+
+  const window = useMemo(
+    () => checkInWindow(booking?.scheduledAt ?? new Date().toISOString()),
+    [booking?.scheduledAt],
+  );
+
+  const gate = canCheckIn(proximity, window);
 
   const cancellation = booking ? canCancel(booking) : null;
 
@@ -183,6 +217,17 @@ export default function CheckInScreen() {
         </Card>
       ) : null}
 
+      {done ? null : (
+        <ProximityCard
+          proximity={proximity}
+          window={window}
+          partnerName={booking.activity.partner.name}
+          busy={locationStatus === 'asking'}
+          onEnable={() => void requestLocation()}
+          onRefresh={() => void refreshLocation()}
+        />
+      )}
+
       {error ? (
         <Text variant="caption" color={colors.danger} center style={styles.error}>
           {error}
@@ -237,6 +282,7 @@ export default function CheckInScreen() {
             <Button
               title="Fazer check-in"
               loading={checkIn.isPending}
+              disabled={!gate.allowed}
               onPress={() => void handleCheckIn()}
             />
             <Button

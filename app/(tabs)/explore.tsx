@@ -33,7 +33,7 @@ export default function ExploreScreen() {
   );
 
   const locationStatus = useLocationStore((state) => state.status);
-  const coords = useLocationStore((state) => state.coords);
+  const coords = useLocationStore((state) => state.proof?.origin ?? null);
   const nearbyOnly = useLocationStore((state) => state.nearbyOnly);
   const radiusKm = useLocationStore((state) => state.radiusKm);
   const setNearbyOnly = useLocationStore((state) => state.setNearbyOnly);

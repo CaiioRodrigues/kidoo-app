@@ -182,6 +182,14 @@ export type Booking = {
   checkIn: CheckInTicket | null;
   /** Quando o parceiro validou o código. Null enquanto não validou. */
   partnerConfirmedAt: IsoDateTime | null;
+  /**
+   * Como a presença foi aferida no momento do check-in.
+   *
+   * Guardamos a *distância*, nunca a coordenada: para auditar um check-in
+   * suspeito basta saber que ele veio de 40 km, e ninguém precisa da localização
+   * da família no banco. Null enquanto não houve check-in.
+   */
+  checkInProof: CheckInProof | null;
   /** Avaliação já enviada para esta reserva, se houver. */
   reviewId: Uuid | null;
 };
@@ -193,6 +201,15 @@ export type Booking = {
  * informação para leitura. Ambos apontam para a mesma reserva e caducam
  * juntos.
  */
+export type CheckInProof = {
+  /** Falso quando não deu para conferir — sem permissão, sem sinal ou mock. */
+  locationVerified: boolean;
+  /** Metros até o parceiro, arredondados. Null quando não houve leitura. */
+  distanceM: number | null;
+  /** O aparelho declarou localização simulada. */
+  mocked: boolean;
+};
+
 export type CheckInTicket = {
   /** 6 dígitos, fácil de ditar em voz alta. */
   code: string;

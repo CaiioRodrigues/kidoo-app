@@ -66,7 +66,7 @@ export function useActivities(filters?: ActivityFilters, options?: { enabled?: b
  * aí o catálogo devolve `distanceKm: null`, que a tela sabe omitir.
  */
 export function useOrigin(): Coords | undefined {
-  return useLocationStore((state) => state.coords) ?? undefined;
+  return useLocationStore((state) => state.proof?.origin);
 }
 
 export function useActivity(id: string) {
@@ -152,8 +152,11 @@ export function useCreateBooking() {
 
 export function useCheckIn() {
   const queryClient = useQueryClient();
+  // A prova de localização sai do store no momento da chamada — quem decide se
+  // ela vale é o serviço, não esta camada.
+  const proof = useLocationStore((state) => state.proof);
   return useMutation({
-    mutationFn: (bookingId: string) => api.bookings.checkIn(bookingId),
+    mutationFn: (bookingId: string) => api.bookings.checkIn(bookingId, proof ?? undefined),
     onSuccess: ({ booking }) => {
       // Check-in mexe em reserva, XP e nível da criança, carteira de bônus e jornada.
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });

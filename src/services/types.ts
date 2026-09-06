@@ -16,6 +16,7 @@ import type {
 } from '@/types/domain';
 import type { ChildProfileInput, SignInInput, SignUpInput } from '@/lib/validation';
 import type { Coords } from '@/lib/geo';
+import type { LocationProof } from '@/lib/check-in';
 
 export type ActivityFilters = {
   query?: string;
@@ -67,8 +68,14 @@ export type KidooApi = {
     list(): Promise<BookingDetails[]>;
     get(id: string): Promise<BookingDetails>;
     create(input: { activityId: string; childId: string }): Promise<Booking>;
-    /** Registra a presença, credita XP e, ao subir de nível, Kidoo Bônus. */
-    checkIn(bookingId: string): Promise<CheckInResult>;
+    /**
+     * Registra a presença, credita XP e, ao subir de nível, Kidoo Bônus.
+     *
+     * `proof` é a leitura crua do aparelho. Quem decide se ela vale é o
+     * serviço: o cliente nunca manda "estou no local", manda onde acha que
+     * está, e a distância é recalculada aqui.
+     */
+    checkIn(bookingId: string, proof?: LocationProof): Promise<CheckInResult>;
     /**
      * Chamado pelo parceiro ao ler o QR ou digitar o código do responsável.
      * É o que transforma "o app diz que veio" em presença confirmada.

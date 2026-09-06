@@ -185,6 +185,17 @@ function sessionAt(hour: number, dayOffset: number): string {
   return date.toISOString();
 }
 
+/**
+ * Turma começando daqui a pouco.
+ *
+ * O check-in só abre 45 minutos antes da aula. Um catálogo em que tudo começa
+ * "hoje às 17:00" deixaria o check-in inalcançável na maior parte do dia — e
+ * um catálogo de verdade sempre tem turma entrando na próxima hora.
+ */
+function sessionIn(minutes: number): string {
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+}
+
 type Seed = {
   id: string;
   title: string;
@@ -197,6 +208,8 @@ type Seed = {
   maxAge: number;
   hour: number;
   dayOffset: number;
+  /** Sobrepõe hora/dia por uma turma prestes a começar. */
+  startsInMin?: number;
   description: string;
   tags: string[];
 };
@@ -214,6 +227,7 @@ const SEEDS: Seed[] = [
     maxAge: 9,
     hour: 17,
     dayOffset: 0,
+    startsInMin: 20,
     description:
       'Aulas recreativas de futebol focadas em movimento, coordenação, socialização e diversão. Aqui a criança aprende brincando!',
     tags: ['Turma mista', 'Aulas recreativas'],
@@ -246,6 +260,7 @@ const SEEDS: Seed[] = [
     maxAge: 10,
     hour: 9,
     dayOffset: 1,
+    startsInMin: 40,
     description:
       'Adaptação ao meio líquido e primeiros nados, com turmas pequenas e professores especializados em educação infantil.',
     tags: ['Turmas pequenas', 'Piscina aquecida'],
@@ -278,6 +293,7 @@ const SEEDS: Seed[] = [
     maxAge: 12,
     hour: 18,
     dayOffset: 1,
+    startsInMin: 65,
     description:
       'Judô infantil com foco em disciplina, respeito e coordenação motora, em ambiente acolhedor e seguro.',
     tags: ['Disciplina', 'Faixas oficiais'],
@@ -505,7 +521,10 @@ export const ACTIVITIES: Activity[] = SEEDS.map((seed) => ({
   // Derivada em tempo de consulta, a partir de onde o usuário está.
   distanceKm: null,
   coinCost: COIN_TIERS[seed.tier],
-  nextSessionAt: sessionAt(seed.hour, seed.dayOffset),
+  nextSessionAt:
+    seed.startsInMin === undefined
+      ? sessionAt(seed.hour, seed.dayOffset)
+      : sessionIn(seed.startsInMin),
   description: seed.description,
   tags: seed.tags,
 }));

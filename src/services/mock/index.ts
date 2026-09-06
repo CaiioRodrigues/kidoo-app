@@ -1,6 +1,12 @@
 import { ACTIVITIES, CATEGORIES, PLANS } from './data';
 import { REVIEWS, summarize } from './reviews';
-import { isTicketValid, issueCheckInTicket } from '@/lib/check-in';
+import {
+  canCheckIn,
+  checkInWindow,
+  isTicketValid,
+  issueCheckInTicket,
+  proximityTo,
+} from '@/lib/check-in';
 import { canCancel, cancellationMessage } from '@/lib/cancellation';
 import {
   bonusLotsFor,
@@ -210,6 +216,7 @@ function seedDemoHistory(child: Child): void {
         },
         checkIn: null,
         partnerConfirmedAt: when.toISOString(),
+        checkInProof: { locationVerified: true, distanceM: 40, mocked: false },
         reviewId: null,
       },
     ];
@@ -420,13 +427,47 @@ export const mockApi: KidooApi = {
       return delay(toDetails(booking), 150);
     },
 
-    async checkIn(bookingId) {
+    async checkIn(bookingId, proof) {
       requireSession();
       const booking = state.bookings.find((item) => item.id === bookingId);
       if (!booking) throw new ApiError('not_found', 'Reserva não encontrada.');
       if (booking.status === 'cancelled') {
         throw new ApiError('not_found', 'Esta reserva foi cancelada.');
       }
+
+      const activity = ACTIVITIES.find((item) => item.id === booking.activityId);
+      if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
+
+      // A distância é recalculada aqui, a partir da leitura crua. O cliente
+      // manda onde acha que está, nunca "estou no local" — senão a checagem
+      // inteira seria um booleano que qualquer um reescreve.
+      const proximity = proximityTo(
+        { latitude: activity.partner.latitude, longitude: activity.partner.longitude },
+        proof ?? null,
+      );
+      const window = checkInWindow(booking.scheduledAt);
+
+      // Repetir o check-in não revalida nada: quem já entrou só está pedindo o
+      // código de novo.
+      if (booking.status !== 'checked_in') {
+        const verdict = canCheckIn(proximity, window);
+        if (!verdict.allowed) {
+          throw new ApiError(
+            'not_found',
+            verdict.blockedBy === 'window'
+              ? window.reason === 'early'
+                ? 'O check-in abre 45 minutos antes da aula.'
+                : 'A janela de check-in desta aula já fechou.'
+              : 'Você ainda não chegou no local da atividade.',
+          );
+        }
+      }
+
+      const checkInProof: Booking['checkInProof'] = {
+        locationVerified: proximity.kind === 'arrived',
+        distanceM: proximity.kind === 'unknown' ? null : Math.round(proximity.distanceM),
+        mocked: proof?.mocked ?? false,
+      };
 
       // Reemite o código se o antigo expirou: o responsável não pode ficar
       // preso sem comprovante só porque demorou para chamar o parceiro.
@@ -443,6 +484,7 @@ export const mockApi: KidooApi = {
               status: 'checked_in',
               checkedInAt: new Date().toISOString(),
               checkIn: ticket,
+              checkInProof,
             };
 
       state.bookings = state.bookings.map((item) => (item.id === bookingId ? checkedIn : item));
@@ -592,6 +634,7 @@ export const mockApi: KidooApi = {
         payment,
         checkIn: null,
         partnerConfirmedAt: null,
+        checkInProof: null,
         reviewId: null,
       };
       state.bookings = [...state.bookings, booking];
