@@ -1,5 +1,7 @@
 import {
   COIN_TIERS,
+  type ClassSession,
+  type SlotKind,
   type Activity,
   type ActivityCategory,
   type CoinTier,
@@ -508,6 +510,107 @@ const SEEDS: Seed[] = [
   },
 ];
 
+/**
+ * Quantas crianças cabem numa turma, por modalidade.
+ *
+ * É a razão professor/criança que a segurança da modalidade exige — e é ela que
+ * define se sobra vaga ociosa. Natação com 1 professor para 8 quase não sobra;
+ * futebol numa quadra com 20 sobra o tempo todo. Esse número é o que separa
+ * "capacidade elástica" de "capacidade rígida".
+ */
+const CAPACITY: Record<Activity['category'], number> = {
+  natacao: 8,
+  judo: 12,
+  danca: 14,
+  ginastica: 12,
+  artes: 12,
+  tenis: 10,
+  basquete: 16,
+  volei: 16,
+  futebol: 20,
+};
+
+/** Desconto da vaga ociosa, em coins. Nunca deixa a aula sair de graça. */
+function idleCost(fullCost: number): number {
+  return Math.max(1, fullCost - 1);
+}
+
+/**
+ * Turmas de demonstração de cada atividade.
+ *
+ * No backend real quem cria isto é o parceiro, no painel dele: ele publica a
+ * turma e decide quantos lugares abre para o Kidoo. Aqui as turmas são geradas
+ * a partir das sementes só para as telas terem o que mostrar.
+ */
+function sessionsFor(seed: Seed, activityId: string, firstStart: string): ClassSession[] {
+  const capacity = CAPACITY[seed.category];
+  const base = new Date(firstStart);
+
+  /**
+   * Turma apertada enche; turma grande sobra.
+   *
+   * Não é coincidência: a turma de 8 da natação é escassa justamente porque a
+   * razão professor/criança a limita, então ela lota. A de 20 do futebol quase
+   * nunca fecha. É essa diferença que decide onde existe vaga ociosa — e por
+   * isso a ocupação sai da capacidade, e não de um número solto.
+   */
+  const occupancy = capacity <= 8 ? 0.9 : capacity <= 14 ? 0.78 : 0.62;
+
+  return [0, 2, 4].map((dayOffset, index) => {
+    const startsAt = new Date(base);
+    startsAt.setDate(startsAt.getDate() + dayOffset);
+
+    // A turma do meio é o horário fraco do parceiro — onde ele mais quer ajuda.
+    const enrolled = Math.round(capacity * (index === 1 ? occupancy * 0.55 : occupancy));
+    const free = capacity - enrolled;
+
+    // Só é ociosa quando sobra folga de verdade, e "folga" é proporcional: três
+    // lugares numa turma de 20 é turma cheia; numa de 8 é um terço vazio. Uma
+    // cadeira solta não é estoque ocioso — é a última, e vale o preço cheio.
+    const kind: SlotKind = free >= Math.max(3, capacity * 0.3) ? 'ociosa' : 'cheia';
+
+    // O parceiro não abre tudo: guarda folga para a própria matrícula.
+    const slotsOpen = Math.max(1, Math.round(free * 0.6));
+
+    return {
+      id: `${activityId}-s${index}`,
+      activityId,
+      startsAt: startsAt.toISOString(),
+      capacity,
+      enrolled,
+      slotsOpen,
+      slotsTaken: 0,
+      kind,
+      coinCost: kind === 'ociosa' ? idleCost(COIN_TIERS[seed.tier]) : COIN_TIERS[seed.tier],
+    } satisfies ClassSession;
+  });
+}
+
+const SESSION_SEEDS = SEEDS.map((seed) => {
+  const firstStart =
+    seed.startsInMin === undefined ? sessionAt(seed.hour, seed.dayOffset) : sessionIn(seed.startsInMin);
+  return { seed, sessions: sessionsFor(seed, seed.id, firstStart) };
+});
+
+/** Todas as turmas do catálogo. */
+export const CLASS_SESSIONS: ClassSession[] = SESSION_SEEDS.flatMap((item) => item.sessions);
+
+const sessionsOf = (activityId: string) =>
+  CLASS_SESSIONS.filter((session) => session.activityId === activityId);
+
+/** "A partir de" do cartão: a turma mais barata, que costuma ser a ociosa. */
+function cheapestCost(activityId: string): number {
+  const costs = sessionsOf(activityId).map((session) => session.coinCost);
+  return costs.length > 0 ? Math.min(...costs) : 0;
+}
+
+function firstStartOf(activityId: string): string {
+  const starts = sessionsOf(activityId)
+    .map((session) => session.startsAt)
+    .sort();
+  return starts[0] ?? new Date().toISOString();
+}
+
 export const ACTIVITIES: Activity[] = SEEDS.map((seed) => ({
   id: seed.id,
   title: seed.title,
@@ -520,11 +623,9 @@ export const ACTIVITIES: Activity[] = SEEDS.map((seed) => ({
   maxAge: seed.maxAge,
   // Derivada em tempo de consulta, a partir de onde o usuário está.
   distanceKm: null,
-  coinCost: COIN_TIERS[seed.tier],
-  nextSessionAt:
-    seed.startsInMin === undefined
-      ? sessionAt(seed.hour, seed.dayOffset)
-      : sessionIn(seed.startsInMin),
+  // Derivados das turmas: o cartão mostra "a partir de" e a próxima com vaga.
+  coinCost: cheapestCost(seed.id),
+  nextSessionAt: firstStartOf(seed.id),
   description: seed.description,
   tags: seed.tags,
 }));

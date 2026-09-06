@@ -1,5 +1,6 @@
-import { ACTIVITIES, CATEGORIES, PLANS } from './data';
+import { ACTIVITIES, CATEGORIES, CLASS_SESSIONS, PLANS } from './data';
 import { REVIEWS, summarize } from './reviews';
+import { slotsAvailable } from '@/types/domain';
 import {
   canCheckIn,
   checkInWindow,
@@ -203,11 +204,13 @@ function seedDemoHistory(child: Child): void {
       {
         id: randomId('b'),
         activityId: activity.id,
+        sessionId: `${activity.id}-s0`,
         childId: child.id,
         status: 'completed',
         scheduledAt: when.toISOString(),
         checkedInAt: when.toISOString(),
         coinCost: activity.coinCost,
+        slotKind: 'ociosa',
         payment: {
           fromBonus: 0,
           fromSubscription: activity.coinCost,
@@ -323,6 +326,17 @@ export const mockApi: KidooApi = {
       if (!found) throw new ApiError('not_found', 'Atividade não encontrada.');
       return delay(withDistance(found, origin));
     },
+    async sessions(activityId) {
+      const now = Date.now();
+      const open = CLASS_SESSIONS.filter(
+        (session) =>
+          session.activityId === activityId &&
+          slotsAvailable(session) > 0 &&
+          Date.parse(session.startsAt) > now,
+      ).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+      return delay(open);
+    },
+
     async reviews(activityId) {
       const activity = ACTIVITIES.find((item) => item.id === activityId);
       if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
@@ -580,15 +594,33 @@ export const mockApi: KidooApi = {
         );
       }
 
+      // A vaga volta para o parceiro. Sem isto a turma "encheria" com reservas
+      // canceladas e ele perderia lugar que está livre.
+      const session = CLASS_SESSIONS.find((item) => item.id === booking.sessionId);
+      if (session) session.slotsTaken = Math.max(0, session.slotsTaken - 1);
+
       const cancelled: Booking = { ...booking, status: 'cancelled', checkIn: null };
       state.bookings = state.bookings.map((item) => (item.id === bookingId ? cancelled : item));
       return delay(toDetails(cancelled));
     },
 
-    async create({ activityId, childId }) {
+    async create({ sessionId, childId }) {
       requireSession();
-      const activity = ACTIVITIES.find((item) => item.id === activityId);
+      const session = CLASS_SESSIONS.find((item) => item.id === sessionId);
+      if (!session) throw new ApiError('not_found', 'Turma não encontrada.');
+
+      const activity = ACTIVITIES.find((item) => item.id === session.activityId);
       if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
+
+      // A vaga é do parceiro: se ele fechou ou a turma encheu, não há o que
+      // reservar. A checagem é aqui, no serviço, porque duas famílias podem
+      // tocar em "confirmar" ao mesmo tempo.
+      if (slotsAvailable(session) <= 0) {
+        throw new ApiError('not_found', 'Esta turma não tem mais vaga aberta.');
+      }
+      if (Date.parse(session.startsAt) <= Date.now()) {
+        throw new ApiError('not_found', 'Esta turma já começou.');
+      }
 
       // Aplica a virada de semana antes de debitar: uma reserva feita depois da
       // segunda-feira usa a cota nova, não a que já expirou.
@@ -599,9 +631,9 @@ export const mockApi: KidooApi = {
       const lots = bonusLotsFor(
         state.bonusGrants,
         childId,
-        Math.min(wallet.balance, activity.coinCost),
+        Math.min(wallet.balance, session.coinCost),
       );
-      const payment = splitPayment(activity.coinCost, wallet.balance, lots);
+      const payment = splitPayment(session.coinCost, wallet.balance, lots);
 
       if (subscription) {
         if (subscription.coinsRemaining < payment.fromSubscription) {
@@ -623,14 +655,18 @@ export const mockApi: KidooApi = {
         state.bonusGrants = consumeBonus(state.bonusGrants, childId, payment.fromBonus);
       }
 
+      session.slotsTaken += 1;
+
       const booking: Booking = {
         id: randomId('b'),
-        activityId,
+        activityId: activity.id,
+        sessionId: session.id,
         childId,
         status: 'confirmed',
-        scheduledAt: activity.nextSessionAt,
+        scheduledAt: session.startsAt,
         checkedInAt: null,
-        coinCost: activity.coinCost,
+        coinCost: session.coinCost,
+        slotKind: session.kind,
         payment,
         checkIn: null,
         partnerConfirmedAt: null,

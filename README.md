@@ -281,6 +281,39 @@ chamar nenhum callback. Estourado o tempo do prompt, o estado volta para
 `idle` e não para `denied`: ninguém negou nada, e o próximo toque aproveita a
 resposta que tenha chegado nesse meio-tempo.
 
+### Turmas, capacidade e vaga ociosa
+
+A reserva era de uma **atividade**, com um horário genérico. Mas quem tem lugar
+é a **turma** — e é o parceiro quem decide quantos lugares abre em cada uma.
+`ClassSession` (`src/types/domain.ts`) carrega dia, hora, capacidade,
+matriculados, vagas liberadas ao Kidoo e o tipo da vaga.
+
+**Vaga ociosa é outro produto, não um desconto.** Numa turma que vai acontecer
+de qualquer jeito e tem lugar sobrando, a criança a mais não custa nada ao
+parceiro: o professor já está pago e a sala já está alugada. É a única fonte de
+custo marginal baixo que existe em atividade infantil — o equivalente à
+musculação no modelo do Wellhub, que consegue ser "ilimitado" justamente porque
+uma visita a mais custa zero à academia.
+
+Duas consequências no código:
+
+- **A capacidade sai da modalidade.** Natação é 1 professor para 8 crianças, por
+  segurança; futebol cabe 20 na quadra. Turma apertada lota, turma grande sobra
+  — então a ocupação simulada é derivada da capacidade, e não um número solto.
+  O resultado é um gradiente real: natação tem 1 turma ociosa em 3, futebol tem
+  as 3. Na primeira versão do gerador **toda** modalidade dava a mesma
+  proporção, o que fazia a elasticidade parecer modelada sem estar.
+- **O `coinCost` da atividade virou "a partir de".** Quem cobra é a turma, e a
+  ociosa custa um coin a menos. O desconto é repassado à família de propósito:
+  é o que a move para o horário vazio, que é justamente o que dá para comprar
+  barato. Sem esse incentivo todo mundo pede sábado de manhã.
+
+`Booking` congela o `slotKind` no momento da reserva. O extrato de repasse do
+parceiro é calculado sobre isso, e a turma pode mudar depois.
+
+Cancelar devolve a vaga (`slotsTaken`), e a reserva rejeita turma cheia ou já
+começada no serviço — duas famílias podem tocar em "confirmar" ao mesmo tempo.
+
 ### Check-in por proximidade
 
 Chegou no local, o botão abre — o fluxo do Wellhub. Duas condições, em
