@@ -6,6 +6,7 @@ export { fontFamily, textVariants, type TextVariant, type FontFamilyToken } from
 export {
   spacing,
   radius,
+  blobRadius,
   hitSlop,
   minTouchTarget,
   type SpacingToken,
@@ -13,6 +14,7 @@ export {
 } from './layout';
 export { shadows, type ShadowToken } from './shadows';
 export { appFonts } from './fonts';
+export { categoryTone, type CategoryTone } from './categories';
 export {
   brand,
   lightColors,

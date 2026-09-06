@@ -223,6 +223,30 @@ perceberia até ver a tela.
 
 O seletor fica na aba Perfil.
 
+### Cada modalidade tem cor e desenho próprios
+
+O app inteiro era roxo. Isso deixa a marca coerente, mas faz Futebol, Natação e
+Judô parecerem o mesmo produto — e a criança que abre o app não lê rótulo, lê
+forma e cor.
+
+- `src/theme/categories.ts` dá a cada modalidade um par **sólido/suave**, com
+  variantes para o tema escuro. É essa cor que pinta o tile da Home, o chip de
+  filtro selecionado no Explorar, o medalhão da tela de detalhe e os cartões de
+  "Minhas atividades" na Jornada.
+- `src/components/CategoryIcon.tsx` traz nove desenhos em SVG no lugar dos
+  emojis. Emoji resolve rápido, mas cada sistema desenha o seu: o app ficava com
+  a cara do Android ou do iOS, não do Kidoo. Os traços seguem a geometria do
+  logotipo e assumem a cor da modalidade.
+- `src/components/brand/BlobBackdrop.tsx` traz as formas orgânicas do guia da
+  marca para trás dos cabeçalhos, em opacidade baixa — o texto passa por cima
+  sem perder contraste.
+- `blobRadius` (`src/theme/layout.ts`) quebra a simetria dos cantos: um canto
+  grande e três pequenos, em vez do retângulo arredondado padrão.
+
+Os desenhos foram revisados em captura de tela, no tamanho real de uso. Judô,
+dança, ginástica e tênis foram redesenhados porque, a 28px, o primeiro traçado
+não era legível — a versão anterior de judô lia como a letra "M".
+
 ### Check-in confirmado pelo parceiro
 
 O check-in gera um **comprovante**: um QR e um código de 6 dígitos que o

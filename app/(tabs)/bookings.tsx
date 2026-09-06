@@ -3,10 +3,13 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
-import { Badge, ComingSoon, Divider, Screen, Text } from '@/components/ui';
+import { Badge, Button, ComingSoon, Divider, Screen, Text } from '@/components/ui';
+import { BlobBackdrop } from '@/components/brand';
+import { Mascot } from '@/features/tutorial';
 import { formatSessionTime } from '@/lib/format';
 import { useBookings } from '@/hooks/queries';
-import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import { useAuthStore } from '@/stores/auth-store';
+import { blobRadius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { BookingDetails, BookingStatus } from '@/types/domain';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
@@ -23,9 +26,35 @@ export default function BookingsScreen() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
   const router = useRouter();
-  const { data: bookings = [], isPending, refetch, isRefetching } = useBookings();
+  const authenticated = useAuthStore((state) => state.status === 'authenticated');
+  // `isPending` continua true enquanto a query está desabilitada (visitante), o
+  // que deixava a aba presa em "Carregando reservas…". `isLoading` só é true
+  // quando há busca de verdade em andamento.
+  const { data: bookings = [], isLoading, refetch, isRefetching } = useBookings();
 
-  if (!isPending && bookings.length === 0) {
+  if (!authenticated) {
+    return (
+      <Screen>
+        <View style={styles.guest}>
+          <Mascot size={104} />
+          <Text variant="heading" center>
+            Suas reservas ficam aqui
+          </Text>
+          <Text variant="body" color={colors.textMuted} center>
+            Crie sua conta para reservar aulas, fazer o check-in no dia e acompanhar o histórico.
+          </Text>
+          <Button
+            title="Criar conta"
+            fullWidth={false}
+            onPress={() => router.push('/(auth)/sign-up')}
+            style={styles.guestCta}
+          />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (!isLoading && bookings.length === 0) {
     return (
       <Screen>
         <ComingSoon
@@ -39,7 +68,9 @@ export default function BookingsScreen() {
 
   return (
     <Screen padded={false} edges={['top']}>
-      <Text variant="title" style={styles.pageTitle}>
+      <BlobBackdrop height={140} />
+
+      <Text variant="display" style={styles.pageTitle}>
         Reservas
       </Text>
 
@@ -141,10 +172,12 @@ const makeStyles = (colors: ThemeColors) =>
     thumb: {
       width: 74,
       height: 74,
-      borderRadius: radius.lg,
       backgroundColor: colors.backgroundMuted,
+      ...blobRadius.tile,
     },
     info: { flex: 1, gap: spacing.xxs },
     badgeRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
     empty: { marginTop: spacing.xxxl },
+    guest: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+    guestCta: { marginTop: spacing.sm, paddingHorizontal: spacing.xxl },
   });

@@ -4,15 +4,26 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AchievementBadge, BonusWalletCard, EvolutionChart } from '@/features/journey';
+import { BlobBackdrop } from '@/components/brand';
+import { CategoryIcon } from '@/components/CategoryIcon';
 import { Avatar, Badge, Card, ComingSoon, ProgressBar, Screen, Text } from '@/components/ui';
 import { useChildren, useJourney } from '@/hooks/queries';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
+import {
+  blobRadius,
+  categoryTone,
+  radius,
+  spacing,
+  useStyles,
+  useTheme,
+  type ThemeColors,
+  type ThemePalette,
+} from '@/theme';
 
 /** Tela 10 — Jornada da criança. */
 export default function JourneyScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useStyles(makeStyles);
   const activeChildId = useOnboardingStore((state) => state.activeChildId);
   const { data: children = [] } = useChildren();
@@ -51,7 +62,9 @@ export default function JourneyScreen() {
 
   return (
     <Screen scroll edges={['top']} contentContainerStyle={styles.scroll}>
-      <Text variant="title" style={styles.pageTitle}>
+      <BlobBackdrop height={170} style={styles.backdrop} />
+
+      <Text variant="display" style={styles.pageTitle}>
         Jornada do {firstName}
       </Text>
 
@@ -137,8 +150,11 @@ export default function JourneyScreen() {
       ) : (
         <View style={styles.tallyRow}>
           {journey.activityTally.map((item) => (
-            <View key={item.category} style={styles.tallyCard}>
-              <Text style={styles.tallyEmoji}>{item.emoji}</Text>
+            <View
+              key={item.category}
+              style={[styles.tallyCard, { backgroundColor: categoryTone(item.category, isDark).soft }]}
+            >
+              <CategoryIcon category={item.category} size={26} />
               <Text variant="label" numberOfLines={1}>
                 {item.label}
               </Text>
@@ -180,6 +196,7 @@ export default function JourneyScreen() {
 
 const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
   StyleSheet.create({
+    backdrop: { left: -spacing.xl, right: -spacing.xl },
     scroll: { paddingBottom: spacing.xxl },
     pageTitle: { marginTop: spacing.md, marginBottom: spacing.lg },
     headerCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.base },
@@ -206,10 +223,8 @@ const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
       alignItems: 'center',
       gap: spacing.xxs,
       padding: spacing.md,
-      borderRadius: radius.lg,
-      backgroundColor: colors.backgroundMuted,
+      ...blobRadius.tile,
     },
-    tallyEmoji: { fontSize: 24, lineHeight: 30 },
     chartCard: { gap: spacing.lg },
     chartFooter: {
       flexDirection: 'row',

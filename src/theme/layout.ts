@@ -23,6 +23,19 @@ export const radius = {
   pill: 999,
 } as const;
 
+/**
+ * Silhueta da marca: um canto bem maior que os outros.
+ *
+ * Retângulo com todos os cantos iguais é o desenho mais genérico que existe —
+ * é o que faz um app parecer qualquer outro. Quebrar um canto dá uma
+ * assinatura reconhecível sem custar nada em usabilidade.
+ */
+export const blobRadius = {
+  card: { borderRadius: 20, borderBottomRightRadius: 44 },
+  cardAlt: { borderRadius: 20, borderTopLeftRadius: 44 },
+  tile: { borderRadius: 16, borderBottomRightRadius: 30 },
+} as const;
+
 export const hitSlop = { top: 8, bottom: 8, left: 8, right: 8 } as const;
 
 /** Alvo mínimo de toque recomendado por iOS HIG e Material (acessibilidade). */

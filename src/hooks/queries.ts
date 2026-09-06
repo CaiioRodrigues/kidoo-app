@@ -50,10 +50,11 @@ export function useChildren() {
   });
 }
 
-export function useActivities(filters?: ActivityFilters) {
+export function useActivities(filters?: ActivityFilters, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.activities(filters),
     queryFn: () => api.catalog.activities(filters),
+    enabled: options?.enabled ?? true,
   });
 }
 
