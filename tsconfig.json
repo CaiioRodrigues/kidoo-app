@@ -16,5 +16,8 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules", "android", "ios", ".expo", "dist"]
+  // `supabase/` é ferramenta de banco, não código do app: roda em Node, com
+  // APIs que o bundle do React Native não tem. Typechecar junto só produziria
+  // erro de tipo de Node faltando.
+  "exclude": ["node_modules", "android", "ios", ".expo", "dist", "supabase"]
 }

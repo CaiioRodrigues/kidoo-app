@@ -7,7 +7,9 @@ module.exports = defineConfig([
   expoConfig,
   prettier,
   {
-    ignores: ['dist/*', 'node_modules/*', '.expo/*', 'android/*', 'ios/*'],
+    // `supabase/` é script de linha de comando: o `no-console` do app não se
+    // aplica a uma ferramenta cujo resultado é justamente o que ela imprime.
+    ignores: ['dist/*', 'node_modules/*', '.expo/*', 'android/*', 'ios/*', 'supabase/*'],
   },
   {
     rules: {
