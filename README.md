@@ -445,6 +445,14 @@ espelho, a decisão vale para a execução inteira mesmo que o disco falhe. No
 navegador o armazenamento cai para `localStorage`: antes disso as duas funções
 eram no-op fora do aparelho, e o tutorial reaparecia a cada carga da página.
 
+O estado do tutorial vive num store (`src/stores/tutorial-store.ts`), e não no
+estado local da Home. Voltar do check-in faz `replace` para as abas, o que
+**remonta a Home** — com estado local, o tutorial ressuscitava a cada volta.
+
+Em **Perfil › Ajuda** dá para rever a apresentação. Sem isso, quem dispensou
+uma vez nunca mais via o tutorial: a preferência sobrevive à atualização do
+APK, então nem reinstalar por cima trazia ele de volta.
+
 Quatro passos é o teto útil: tutorial longo tem queda forte de conclusão, e
 quem pula não vê justamente o que importa. Por isso o conteúdo é enxuto e a
 instrução mais incomum do app — mostrar o código ao parceiro — aparece

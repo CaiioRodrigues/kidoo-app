@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar, Button, Card, Divider, Screen, Text, ThemePicker } from '@/components/ui';
 import { BlobBackdrop } from '@/components/brand';
+import { useTutorialStore } from '@/stores/tutorial-store';
 import { formatAge, formatDaysUntil } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
 import { useChildren, useSubscription } from '@/hooks/queries';
@@ -19,6 +20,14 @@ export default function ProfileScreen() {
   const { data: children = [] } = useChildren();
   const { data: subscription } = useSubscription();
   const [signingOut, setSigningOut] = useState(false);
+  const restartTutorial = useTutorialStore((state) => state.restart);
+
+  const handleReplayTutorial = useCallback(() => {
+    restartTutorial();
+    // `navigate`, e não `push`: empilhar as abas monta uma segunda Home, e o
+    // tutorial aparecia duplicado, um por cima do outro.
+    router.navigate('/(tabs)/home');
+  }, [restartTutorial, router]);
 
   const handleSignOut = useCallback(() => {
     Alert.alert('Sair da conta', 'Você precisará entrar novamente para acessar o Kidoo.', [
@@ -111,6 +120,28 @@ export default function ProfileScreen() {
           Tema do app
         </Text>
         <ThemePicker />
+      </Card>
+
+      <Text variant="subheading" style={styles.sectionTitle}>
+        Ajuda
+      </Text>
+      <Card bordered elevation="none" padded={false}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ver o tutorial novamente"
+          onPress={handleReplayTutorial}
+          style={styles.row}
+        >
+          <Ionicons name="sparkles-outline" size={22} color={colors.primary} />
+          <View style={styles.flex}>
+            <Text variant="body" color={colors.primary}>
+              Ver o tutorial novamente
+            </Text>
+            <Text variant="caption" color={colors.textMuted}>
+              O Kiddo reapresenta o app em quatro passos.
+            </Text>
+          </View>
+        </Pressable>
       </Card>
 
       <Text variant="subheading" style={styles.sectionTitle}>
