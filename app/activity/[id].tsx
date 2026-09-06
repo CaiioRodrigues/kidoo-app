@@ -8,7 +8,7 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { HeaderBar } from '@/components/navigation';
 import { Badge, Button, Card, CoinBadge, Divider, Screen, Text } from '@/components/ui';
 import { RatingSummaryCard, ReviewCard, StarRating } from '@/features/reviews';
-import { formatDistance, formatSessionTime } from '@/lib/format';
+import { formatPlace, formatSessionTime } from '@/lib/format';
 import { useActivity, useReviews } from '@/hooks/queries';
 import { categoryTone, radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
@@ -98,8 +98,10 @@ export default function ActivityDetailScreen() {
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={15} color={colors.textFaint} />
           <Text variant="label" color={colors.textMuted} style={styles.flex}>
-            {activity.partner.neighborhood}, {activity.partner.city} •{' '}
-            {formatDistance(activity.distanceKm)}
+            {formatPlace(
+              `${activity.partner.neighborhood}, ${activity.partner.city}`,
+              activity.distanceKm,
+            )}
           </Text>
         </View>
 

@@ -38,7 +38,8 @@
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ],
       "versionCode": 1
     },
@@ -64,6 +65,15 @@
         {
           "photosPermission": "O Kidoo acessa suas fotos apenas para você escolher a foto de perfil da criança.",
           "cameraPermission": "O Kidoo usa a câmera apenas para você adicionar a foto do perfil da criança."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Usamos sua localização apenas para mostrar atividades perto de você, enquanto o app está aberto. Você também pode escolher a cidade manualmente.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
         }
       ],
       [

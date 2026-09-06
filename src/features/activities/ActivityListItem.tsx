@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { CoinBadge, Text } from '@/components/ui';
 import { StarRating } from '@/features/reviews';
 import { CategoryIcon } from '@/components/CategoryIcon';
-import { formatDistance } from '@/lib/format';
+import { formatPlace } from '@/lib/format';
 import { blobRadius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Activity } from '@/types/domain';
 
@@ -53,7 +53,7 @@ function ActivityListItemBase({ activity, onPress }: { activity: Activity; onPre
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={13} color={colors.textFaint} />
           <Text variant="caption" color={colors.textMuted} numberOfLines={1} style={styles.flex}>
-            {activity.partner.neighborhood} • {formatDistance(activity.distanceKm)}
+            {formatPlace(activity.partner.neighborhood, activity.distanceKm)}
           </Text>
         </View>
         <CoinBadge amount={activity.coinCost} size="sm" />

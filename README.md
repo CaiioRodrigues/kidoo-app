@@ -247,6 +247,40 @@ Os desenhos foram revisados em captura de tela, no tamanho real de uso. Judô,
 dança, ginástica e tênis foram redesenhados porque, a 28px, o primeiro traçado
 não era legível — a versão anterior de judô lia como a letra "M".
 
+### Distância é derivada, não guardada
+
+O catálogo trazia `distanceKm` fixo em cada atividade — o que só funciona
+enquanto todo mundo mora no mesmo lugar. Distância é uma relação entre o
+parceiro e *quem está olhando*, então agora o parceiro guarda
+`latitude`/`longitude` e o valor sai de `haversineKm` (`src/lib/geo.ts`), no
+serviço e não na tela. No backend real isso vira um filtro por bounding box
+antes do haversine; a tela continua recebendo o número pronto.
+
+Sem localização, `distanceKm` é `null` e a tela **omite a distância** em vez de
+estimar uma que não temos — "Buritis", não "Buritis • ~3 km".
+
+O filtro **Perto de mim**, no Explorar, liga o raio (2 / 5 / 10 km) e a
+ordenação por distância. Quatro decisões que valem também com backend:
+
+- **Só primeiro plano.** `ACCESS_BACKGROUND_LOCATION` e `ACCESS_FINE_LOCATION`
+  entram em `blockedPermissions`; sobra `ACCESS_COARSE_LOCATION`, e o app pede
+  `Accuracy.Low`. Bairro basta para ordenar uma lista — calçada, não.
+- **Só em memória.** A coordenada vive no store zustand e nunca vai para disco
+  nem para o armazenamento seguro. Fechou o app, acabou.
+- **Arredondada na entrada.** Três casas decimais (~110 m) antes de guardar:
+  não dá para reconstruir o endereço da família, e a chave de cache para de
+  mudar a cada tremida do GPS.
+- **O prompt é do usuário.** Na abertura o app só *confere* uma permissão que
+  já exista; o diálogo aparece quando alguém toca em "Perto de mim", com o
+  rótulo na tela dizendo para quê.
+
+Prompt e leitura têm teto de tempo (20 s e 8 s). Sem isso, quem simplesmente
+ignora o diálogo do sistema deixa a tela em "Localizando…" para sempre — foi o
+que aconteceu na primeira verificação em navegador, que fica em `prompt` sem
+chamar nenhum callback. Estourado o tempo do prompt, o estado volta para
+`idle` e não para `denied`: ninguém negou nada, e o próximo toque aproveita a
+resposta que tenha chegado nesse meio-tempo.
+
 ### Check-in confirmado pelo parceiro
 
 O check-in gera um **comprovante**: um QR e um código de 6 dígitos que o

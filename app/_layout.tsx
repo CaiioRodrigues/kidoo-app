@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { createQueryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth-store';
+import { useLocationStore } from '@/stores/location-store';
 import { ThemeProvider, appFonts, useSystemUiSync, useTheme } from '@/theme';
 
 // Mantém a splash nativa até fontes e sessão estarem prontas: sem "flash" de
@@ -33,10 +34,17 @@ function ThemedApp() {
   const [fontsLoaded, fontError] = useFonts(appFonts);
   const restore = useAuthStore((state) => state.restore);
   const authStatus = useAuthStore((state) => state.status);
+  const hydrateLocation = useLocationStore((state) => state.hydrate);
 
   useEffect(() => {
     void restore();
   }, [restore]);
+
+  // Só confere uma permissão que já exista — não abre prompt. Quem abre é o
+  // toque em "Perto de mim", no Explorar.
+  useEffect(() => {
+    void hydrateLocation();
+  }, [hydrateLocation]);
 
   const fontsSettled = fontsLoaded || Boolean(fontError);
   const authSettled = authStatus !== 'idle' && authStatus !== 'restoring';

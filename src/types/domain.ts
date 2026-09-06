@@ -72,6 +72,9 @@ export type Partner = {
   neighborhood: string;
   city: string;
   verified: boolean;
+  /** Onde o parceiro fica. É daqui que sai a distância mostrada na tela. */
+  latitude: number;
+  longitude: number;
 };
 
 export type Activity = {
@@ -84,7 +87,12 @@ export type Activity = {
   reviewCount: number;
   minAge: number;
   maxAge: number;
-  distanceKm: number;
+  /**
+   * Distância até quem está olhando, derivada da coordenada do parceiro.
+   * `null` quando não sabemos onde o usuário está — e aí a tela não inventa
+   * um número, apenas omite.
+   */
+  distanceKm: number | null;
   coinCost: number;
   nextSessionAt: IsoDateTime;
   description: string;

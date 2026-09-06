@@ -16,6 +16,7 @@ import { daysUntilReset, startSubscription, withCurrentCycle } from '@/lib/subsc
 import { buildAchievements } from './journey';
 import { ApiError } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
+import { haversineKm, type Coords } from '@/lib/geo';
 import type {
   Activity,
   ActivityCategoryId,
@@ -110,6 +111,19 @@ function requireSession(): Session {
     throw new ApiError('invalid_credentials', 'Sua sessão expirou. Entre novamente.');
   }
   return state.session;
+}
+
+/**
+ * Preenche a distância a partir de onde o usuário está.
+ *
+ * Fica no serviço, e não na tela, porque é assim que o backend real vai
+ * funcionar: a coordenada do usuário sobe uma vez, o servidor devolve a lista
+ * já medida, e nenhum componente precisa saber fazer trigonometria.
+ */
+function withDistance(activity: Activity, origin: Coords | undefined): Activity {
+  if (!origin) return activity;
+  const { latitude, longitude } = activity.partner;
+  return { ...activity, distanceKm: haversineKm(origin, { latitude, longitude }) };
 }
 
 function matchesFilters(activity: Activity, filters: ActivityFilters | undefined): boolean {
@@ -281,12 +295,26 @@ export const mockApi: KidooApi = {
       return delay(CATEGORIES, 120);
     },
     async activities(filters) {
-      return delay(ACTIVITIES.filter((activity) => matchesFilters(activity, filters)));
+      const origin = filters?.origin;
+      let list = ACTIVITIES.filter((activity) => matchesFilters(activity, filters)).map(
+        (activity) => withDistance(activity, origin),
+      );
+
+      // Raio e ordenação por distância só fazem sentido com origem conhecida.
+      if (origin && filters?.radiusKm !== undefined) {
+        const limit = filters.radiusKm;
+        list = list.filter((activity) => activity.distanceKm !== null && activity.distanceKm <= limit);
+      }
+      if (origin && filters?.sort === 'distance') {
+        list = [...list].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+      }
+
+      return delay(list);
     },
-    async activity(id) {
+    async activity(id, origin) {
       const found = ACTIVITIES.find((activity) => activity.id === id);
       if (!found) throw new ApiError('not_found', 'Atividade não encontrada.');
-      return delay(found);
+      return delay(withDistance(found, origin));
     },
     async reviews(activityId) {
       const activity = ACTIVITIES.find((item) => item.id === activityId);
@@ -334,21 +362,23 @@ export const mockApi: KidooApi = {
       return delay(review);
     },
 
-    async recommended(childId) {
+    async recommended(childId, origin) {
+      const measured = ACTIVITIES.map((activity) => withDistance(activity, origin));
       const child = state.children.find((item) => item.id === childId);
-      if (!child) return delay(ACTIVITIES.slice(0, 3));
+      if (!child) return delay(measured.slice(0, 3));
 
       const age = ageInYears(child.birthDate);
-      const ranked = ACTIVITIES.filter(
-        (activity) => age >= activity.minAge - 1 && age <= activity.maxAge + 1,
-      ).sort((a, b) => {
-        const aLiked = child.interests.includes(a.category) ? 1 : 0;
-        const bLiked = child.interests.includes(b.category) ? 1 : 0;
-        if (aLiked !== bLiked) return bLiked - aLiked;
-        return a.distanceKm - b.distanceKm;
-      });
+      const ranked = measured
+        .filter((activity) => age >= activity.minAge - 1 && age <= activity.maxAge + 1)
+        .sort((a, b) => {
+          const aLiked = child.interests.includes(a.category) ? 1 : 0;
+          const bLiked = child.interests.includes(b.category) ? 1 : 0;
+          if (aLiked !== bLiked) return bLiked - aLiked;
+          // Sem origem conhecida ninguém "vence" no desempate por distância.
+          return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity);
+        });
 
-      return delay(ranked.length > 0 ? ranked : ACTIVITIES.slice(0, 3));
+      return delay(ranked.length > 0 ? ranked : measured.slice(0, 3));
     },
   },
 

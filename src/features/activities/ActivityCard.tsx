@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { CoinBadge, Text } from '@/components/ui';
 import { StarRating } from '@/features/reviews';
 import { CategoryIcon } from '@/components/CategoryIcon';
-import { formatDistance, formatSessionTime } from '@/lib/format';
+import { formatPlace, formatSessionTime } from '@/lib/format';
 import {
   blobRadius,
   categoryTone,
@@ -72,7 +72,7 @@ function ActivityCardBase({ activity, onPress }: { activity: Activity; onPress: 
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={13} color={colors.textFaint} />
           <Text variant="caption" color={colors.textMuted} numberOfLines={1} style={styles.flex}>
-            {activity.partner.neighborhood} • {formatDistance(activity.distanceKm)}
+            {formatPlace(activity.partner.neighborhood, activity.distanceKm)}
           </Text>
         </View>
 

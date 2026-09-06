@@ -15,6 +15,15 @@ export function formatDistance(km: number): string {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`;
 }
 
+/**
+ * "Buritis • 2,3 km", ou só "Buritis" quando não sabemos onde o usuário está.
+ * Sem localização não há distância — e um separador solto no fim da linha é
+ * pior do que não mostrar nada.
+ */
+export function formatPlace(place: string, km: number | null): string {
+  return km === null ? place : `${place} • ${formatDistance(km)}`;
+}
+
 /** "Hoje às 17:00" / "Sáb, 24/08 às 10:00" — usado nos cards de atividade. */
 export function formatSessionTime(isoDateTime: string, now: Date = new Date()): string {
   const date = new Date(isoDateTime);
