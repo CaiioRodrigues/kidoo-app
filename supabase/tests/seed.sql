@@ -30,7 +30,15 @@ insert into activities (id, partner_id, category_id, title, min_age, max_age) va
 
 insert into class_sessions (id, activity_id, starts_at, capacity, enrolled, slots_open, slots_taken, kind, coin_cost) values
   ('eeeeeeee-0000-0000-0000-000000000001','dddddddd-0000-0000-0000-00000000000a', now() + interval '2 hours', 20, 7, 1, 0, 'ociosa', 2),
-  ('eeeeeeee-0000-0000-0000-000000000002','dddddddd-0000-0000-0000-00000000000b', now() + interval '3 hours', 8, 5, 2, 0, 'cheia', 3);
+  ('eeeeeeee-0000-0000-0000-000000000002','dddddddd-0000-0000-0000-00000000000b', now() + interval '3 hours', 8, 5, 2, 0, 'cheia', 3),
+  -- turma começando já: é a única em que o check-in cabe na janela
+  ('eeeeeeee-0000-0000-0000-000000000003','dddddddd-0000-0000-0000-00000000000a', now() + interval '10 minutes', 20, 7, 3, 0, 'ociosa', 2);
+
+-- Assinatura e bônus: sem eles a reserva falha por falta de coin, e o teste
+-- não chegaria a exercitar capacidade nem RLS.
+insert into subscriptions (guardian_id, plan_id, coins_per_week, coins_remaining, renews_at) values
+  ('11111111-1111-1111-1111-111111111111','plus',12,12, now() + interval '7 days'),
+  ('22222222-2222-2222-2222-222222222222','plus',12,12, now() + interval '7 days');
 
 insert into payout_rates (partner_id, kind, amount_cents) values
   ('cccccccc-0000-0000-0000-00000000000a','ociosa',800),

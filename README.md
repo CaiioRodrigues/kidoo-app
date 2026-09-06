@@ -295,6 +295,14 @@ As migrations vivem em `supabase/migrations/` e o que elas garantem está em
   `bookings`; quem confirma é o parceiro, e é isso que faz o repasse não ser
   autodeclaração.
 
+- **O dinheiro anda dentro da transação da vaga.** `book_session` debita bônus
+  e cota junto com o `slots_taken`; debitar fora abriria janela para gastar o
+  mesmo coin duas vezes.
+
+As regras de nível existem em SQL e em `src/lib/levels.ts` — o banco credita, a
+tela prevê. `supabase/tests/parity.ts` compara as duas sobre a mesma faixa de XP,
+porque duplicação em duas linguagens é onde isso racha em silêncio.
+
 `supabase/tests/run.sh` sobe um Postgres descartável e roda tudo, sem Docker.
 
 ### Turmas, capacidade e vaga ociosa

@@ -15,6 +15,9 @@ declare
   v_session   class_sessions%rowtype;
   v_activity  activities%rowtype;
   v_booking   bookings%rowtype;
+  v_sub       subscriptions%rowtype;
+  v_from_bonus int;
+  v_from_sub   int;
 begin
   if v_guardian is null then
     raise exception 'not_authenticated' using errcode = '28000';
@@ -48,16 +51,40 @@ begin
 
   select * into v_activity from activities where id = v_session.activity_id;
 
+  -- O bônus entra antes da cota da assinatura porque ele expira; a cota volta
+  -- ao cheio toda semana de qualquer jeito.
+  v_from_bonus := least(bonus_balance(p_child_id), v_session.coin_cost);
+  v_from_sub   := v_session.coin_cost - v_from_bonus;
+
+  if v_from_sub > 0 then
+    select * into v_sub from subscriptions where guardian_id = v_guardian for update;
+    if not found then
+      raise exception 'no_subscription' using errcode = 'P0001';
+    end if;
+    if v_sub.coins_remaining < v_from_sub then
+      raise exception 'insufficient_coins' using errcode = 'P0001';
+    end if;
+    update subscriptions
+       set coins_remaining = coins_remaining - v_from_sub
+     where guardian_id = v_guardian;
+  end if;
+
+  if v_from_bonus > 0 then
+    perform consume_bonus(p_child_id, v_from_bonus);
+  end if;
+
   update class_sessions
      set slots_taken = slots_taken + 1
    where id = p_session_id;
 
   insert into bookings (
     guardian_id, child_id, session_id, activity_id,
-    scheduled_at, coin_cost, slot_kind
+    scheduled_at, coin_cost, slot_kind, payment
   ) values (
     v_guardian, p_child_id, v_session.id, v_activity.id,
-    v_session.starts_at, v_session.coin_cost, v_session.kind
+    v_session.starts_at, v_session.coin_cost, v_session.kind,
+    jsonb_build_object('fromBonus', v_from_bonus, 'fromSubscription', v_from_sub,
+                       'total', v_session.coin_cost)
   )
   returning * into v_booking;
 
@@ -92,6 +119,25 @@ begin
   update class_sessions
      set slots_taken = greatest(0, slots_taken - 1)
    where id = v_booking.session_id;
+
+  -- Devolve a cota da assinatura. O bônus não volta como lote novo: ele
+  -- mantém a validade original, senão cancelar viraria uma forma de esticar o
+  -- prazo de uma moeda que estava para vencer.
+  if (v_booking.payment->>'fromSubscription')::int > 0 then
+    update subscriptions
+       set coins_remaining = coins_remaining + (v_booking.payment->>'fromSubscription')::int
+     where guardian_id = v_booking.guardian_id;
+  end if;
+
+  if (v_booking.payment->>'fromBonus')::int > 0 then
+    update bonus_grants
+       set remaining = least(amount, remaining + (v_booking.payment->>'fromBonus')::int)
+     where id = (
+       select id from bonus_grants
+        where child_id = v_booking.child_id and expires_at > now()
+        order by expires_at asc limit 1
+     );
+  end if;
 
   update bookings
      set status = 'cancelled', check_in = null

@@ -21,13 +21,30 @@ recebe duas crianças para um lugar só.
 parceiro de parceiro. O catálogo é público, porque o app permite explorar sem
 conta.
 
-**Responsável não confirma a própria presença.** Ele não tem `update` em
-`bookings`; quem confirma é o parceiro. Sem essa separação, o repasse viraria
-autodeclaração.
+**Ninguém escreve em `bookings` direto** — nem o responsável, nem o parceiro.
+Reservar, cancelar, fazer check-in e confirmar presença passam por funções
+`security definer`, que travam a linha e controlam exatamente quais colunas
+mudam. Uma policy de `update` aberta ao parceiro deixaria ele marcar
+`partner_confirmed_at` sem código nenhum, e o repasse viraria autodeclaração do
+outro lado.
 
-> Falta ainda uma função de check-in: como o responsável não tem `update` em
-> `bookings`, emitir o código precisa de um `security definer` próprio, no
-> mesmo formato de `book_session`.
+**O dinheiro anda dentro da transação.** `book_session` debita o bônus (que
+expira primeiro) e depois a cota da assinatura, na mesma transação que trava a
+vaga. Debitar fora dela abriria janela para gastar o mesmo coin duas vezes.
+Cancelar devolve a cota; o bônus volta ao lote original, mantendo a validade —
+senão cancelar viraria uma forma de esticar o prazo de uma moeda vencendo.
+
+## Regras duplicadas, de propósito
+
+Nível, bônus e custo de XP existem em SQL **e** em `src/lib/levels.ts`. O banco
+precisa ser a autoridade (creditar fora da transação abre brecha) e a tela
+precisa prever o resultado antes de chamar.
+
+Duplicação em duas linguagens é onde este tipo de projeto racha em silêncio:
+alguém ajusta a curva de um lado, o app mostra um número e o banco credita
+outro. Por isso existe `tests/parity.ts`, que roda as duas implementações sobre
+a mesma faixa de XP e compara. Verifiquei que ele falha quando as regras
+divergem — um teste de paridade que não pega divergência não vale nada.
 
 ## Rodando os testes
 
@@ -38,8 +55,9 @@ export PGDATA_DIR=/var/lib/postgresql/kidoo-test
 initdb -D "$PGDATA_DIR" -A trust -U postgres
 pg_ctl -D "$PGDATA_DIR" -o "-p 5433 -k $PGDATA_DIR" start
 
-supabase/tests/run.sh          # migrations + RLS + regras de reserva
+supabase/tests/run.sh          # migrations + RLS + reserva + check-in + extrato
 supabase/tests/concurrency.sh  # duas famílias na mesma última vaga
+npx tsx supabase/tests/parity.ts   # regras de nível: SQL vs TypeScript
 ```
 
 `run.sh` recria o banco do zero a cada execução. `concurrency.sh` prepara o

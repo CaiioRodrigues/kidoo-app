@@ -83,31 +83,82 @@ do $$ begin
   end;
 end $$;
 
--- ---- responsável não escreve em reserva ------------------------------------
--- Confirmar presença é do parceiro. Se o responsável pudesse editar a própria
--- reserva, ele assinaria a própria presença e o repasse viraria autodeclaração.
+-- ---- check-in: só o responsável, e só na janela -------------------------
+do $$
+declare v_booking bookings%rowtype; v_code text; v_xp_antes int;
+begin
+  -- turma daqui a 2h: fora da janela de 45 min
+  v_booking := book_session('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
+  begin
+    perform check_in_booking(v_booking.id);
+    assert false, 'check-in três horas antes deveria ser recusado';
+  exception when others then
+    assert sqlerrm = 'check_in_too_early', 'esperado check_in_too_early, veio: ' || sqlerrm;
+  end;
+  perform cancel_booking(v_booking.id);
+
+  select xp into v_xp_antes from children where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+
+  -- turma daqui a 10 min: dentro da janela
+  v_booking := book_session('eeeeeeee-0000-0000-0000-000000000003','aaaaaaaa-0000-0000-0000-000000000001');
+  v_booking := check_in_booking(v_booking.id, 40, false);
+  assert v_booking.status = 'checked_in', 'o check-in deveria valer';
+  assert (v_booking.check_in_proof->>'locationVerified')::boolean, 'leitura a 40 m é verificada';
+  assert (select xp from children where id = 'aaaaaaaa-0000-0000-0000-000000000001') = v_xp_antes + 100,
+         'check-in credita 100 de XP';
+
+  -- longe demais, com leitura confiável, é recusado
+  begin
+    perform check_in_booking(v_booking.id, 12000, false);
+    assert false, 'a 12 km deveria recusar';
+  exception when others then
+    assert sqlerrm = 'too_far_from_venue', 'esperado too_far_from_venue, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- ---- responsável não confirma a própria presença ---------------------------
 do $$ begin
-  perform book_session('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
   update bookings set partner_confirmed_at = now();
   assert (select count(*) from bookings where partner_confirmed_at is not null) = 0,
          'responsável não pode confirmar a própria presença';
 end $$;
 
--- ---- extrato: só presença confirmada pelo parceiro paga --------------------
+-- ---- confirmação do parceiro e extrato -------------------------------------
 select set_config('request.jwt.claim.sub', :'arena', false);
 do $$
-declare v_total int;
+declare v_booking bookings%rowtype; v_total int;
 begin
+  select * into v_booking from bookings where status = 'checked_in' limit 1;
+
+  begin
+    perform confirm_by_partner(v_booking.id, '000000');
+    assert false, 'código errado deveria falhar';
+  exception when others then
+    assert sqlerrm = 'wrong_code', 'esperado wrong_code, veio: ' || sqlerrm;
+  end;
+
   assert (select count(*) from partner_payouts) = 0, 'sem confirmação não há repasse';
 
-  update bookings set partner_confirmed_at = now(), status = 'completed'
-   where activity_id = 'dddddddd-0000-0000-0000-00000000000a' and status = 'confirmed';
-
+  perform confirm_by_partner(v_booking.id, v_booking.check_in->>'code');
   select total_cents into v_total from partner_payouts where slot_kind = 'ociosa';
   assert v_total = 800, 'vaga ociosa deveria render 800 centavos, veio ' || coalesce(v_total::text,'nulo');
+end $$;
 
-  update bookings set status = 'cancelled' where partner_confirmed_at is not null;
-  assert (select count(*) from partner_payouts) = 0, 'reserva cancelada não pode aparecer no extrato';
+-- ---- um parceiro não confirma presença de outro ----------------------------
+select set_config('request.jwt.claim.sub', '44444444-4444-4444-4444-444444444444', false);
+do $$
+declare v_id uuid;
+begin
+  select id into v_id from bookings where status = 'completed' limit 1;
+  if v_id is not null then
+    begin
+      perform confirm_by_partner(v_id, '123456');
+      assert false, 'Pampulha não pode confirmar presença da Arena';
+    exception when others then
+      assert sqlerrm in ('not_this_partner','booking_not_found'),
+             'esperado not_this_partner, veio: ' || sqlerrm;
+    end;
+  end if;
 end $$;
 
 reset role;

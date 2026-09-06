@@ -82,12 +82,12 @@ create policy guardian_reads_bookings on bookings
 create policy partner_reads_bookings on bookings
   for select using (is_partner_member((select partner_id from activities where id = activity_id)));
 
--- Confirmar presença é do parceiro. A escrita é restrita a este caminho: criar
--- e cancelar reserva passam pelas funções, que travam a vaga.
-create policy partner_confirms_presence on bookings
-  for update
-  using (is_partner_member((select partner_id from activities where id = activity_id)))
-  with check (is_partner_member((select partner_id from activities where id = activity_id)));
+-- Ninguém escreve em `bookings` direto — nem o responsável, nem o parceiro.
+-- Reservar, cancelar, fazer check-in e confirmar presença passam por funções
+-- `security definer`, que travam a linha e controlam exatamente quais colunas
+-- mudam. Uma policy de update aberta ao parceiro deixaria ele marcar
+-- `partner_confirmed_at` sem código nenhum, e o repasse viraria autodeclaração
+-- do outro lado.
 
 -- ------------------------------------------------------------- avaliações ---
 
@@ -138,3 +138,5 @@ grant select on partner_members, payout_rates, partner_payouts to authenticated;
 grant execute on function book_session(uuid, uuid) to authenticated;
 grant execute on function cancel_booking(uuid) to authenticated;
 grant execute on function is_partner_member(uuid) to anon, authenticated;
+grant execute on function check_in_booking(uuid, int, boolean) to authenticated;
+grant execute on function confirm_by_partner(uuid, text) to authenticated;
