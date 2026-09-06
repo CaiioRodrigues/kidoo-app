@@ -433,9 +433,17 @@ Na primeira abertura, o mascote **Kiddo** apresenta o app em quatro passos, em
 balão de fala (`src/features/tutorial/`). O mascote é SVG e não imagem: escala
 em qualquer densidade e acompanha a paleta do tema.
 
-A preferência de "já vi" é persistida, e enquanto ela não chega do
-armazenamento nada é exibido — assim quem já viu não vê o tutorial piscar a
-cada abertura.
+A preferência de "já vi" é persistida (`src/lib/preferences.ts`), e enquanto
+ela não chega do armazenamento nada é exibido — assim quem já viu não vê o
+tutorial piscar a cada abertura.
+
+O módulo de preferências mantém um **espelho em memória** atualizado *antes* da
+gravação em disco. São dois problemas em um: a gravação podia falhar em
+silêncio, e o "já vi" vivia só no estado local da tela — então qualquer
+remontagem reapresentava o tutorial, sem erro visível em lugar nenhum. Com o
+espelho, a decisão vale para a execução inteira mesmo que o disco falhe. No
+navegador o armazenamento cai para `localStorage`: antes disso as duas funções
+eram no-op fora do aparelho, e o tutorial reaparecia a cada carga da página.
 
 Quatro passos é o teto útil: tutorial longo tem queda forte de conclusão, e
 quem pula não vê justamente o que importa. Por isso o conteúdo é enxuto e a
