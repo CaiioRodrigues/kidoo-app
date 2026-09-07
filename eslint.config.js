@@ -9,7 +9,9 @@ module.exports = defineConfig([
   {
     // `supabase/` é script de linha de comando: o `no-console` do app não se
     // aplica a uma ferramenta cujo resultado é justamente o que ela imprime.
-    ignores: ['dist/*', 'node_modules/*', '.expo/*', 'android/*', 'ios/*', 'supabase/*', 'partner/*'],
+    // `materiais/` é o mesmo caso: geradores de .pptx e .docx em CommonJS,
+    // rodados à mão e sem relação com o bundle do app.
+    ignores: ['dist/*', 'node_modules/*', '.expo/*', 'android/*', 'ios/*', 'supabase/*', 'partner/*', 'materiais/*'],
   },
   {
     rules: {
