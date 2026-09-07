@@ -88,6 +88,25 @@ Para gerar binários, use EAS Build (`eas build -p android|ios`). As pastas
 `android/` e `ios/` não são versionadas: são reconstruídas com
 `npm run prebuild` a partir do `app.json`.
 
+### O APK e o servidor
+
+O Supabase é servidor de internet pública: o celular alcança de qualquer lugar,
+inclusive por dados móveis. Não há nada rodando na sua máquina de que o app
+dependa.
+
+O que precisa estar no build são as duas variáveis, porque `.env` não viaja
+para dentro do EAS — elas vivem no `env` de cada perfil em `eas.json`. Sem
+elas, o APK sai em modo demonstração (e o rodapé do Perfil avisa). A chave
+publicável pode ficar versionada: ela é pública por natureza, vai embutida em
+qualquer app que fale com o Supabase, e quem protege os dados é a RLS. A
+`service_role` nunca.
+
+O que **não** sai da sua máquina é o Metro e o painel do parceiro. Para abrir
+o painel no celular — necessário para testar o ciclo inteiro, com check-in no
+aparelho e confirmação no painel — os dois precisam estar na mesma rede, e o
+endereço é `http://SEU-IP-LOCAL:5273`. O `npm run dev` imprime esse endereço na
+linha "Network" ao subir.
+
 ---
 
 ## Identidade do app
