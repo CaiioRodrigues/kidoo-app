@@ -8,6 +8,7 @@ import type {
   ActivityCategoryId,
   BonusGrant,
   Booking,
+  BookingReward,
   ClassSession,
   Child,
   CoinPayment,
@@ -93,6 +94,7 @@ export type BookingRow = {
   check_in: { code: string; issuedAt: string; expiresAt: string } | null;
   partner_confirmed_at: string | null;
   check_in_proof: { locationVerified?: boolean; distanceM?: number | null; mocked?: boolean } | null;
+  reward: { xpEarned?: number; levelUp?: BookingReward['levelUp'] } | null;
 };
 
 export type ReviewRow = {
@@ -282,6 +284,9 @@ export function toBooking(row: BookingRow, reviewId: string | null = null): Book
         }
       : null,
     reviewId,
+    reward: row.reward
+      ? { xpEarned: row.reward.xpEarned ?? 0, levelUp: row.reward.levelUp ?? null }
+      : null,
   };
 }
 
