@@ -11,13 +11,12 @@ import { HintBubble, useOneTimeHint } from '@/features/tutorial';
 import { PreferenceKeys } from '@/lib/preferences';
 import { AchievementCard, shareAchievement, type AchievementShare } from '@/features/share';
 import { levelName } from '@/lib/levels';
-import { PARTNER_SIMULATION_ENABLED } from '@/lib/flags';
 import { formatSessionTime } from '@/lib/format';
 import { canCancel, cancellationMessage, formatDeadline } from '@/lib/cancellation';
 import { canCheckIn, checkInWindow, proximityTo } from '@/lib/check-in';
 import { useLocationStore } from '@/stores/location-store';
 import { toUserMessage } from '@/services';
-import { useBooking, useCancelBooking, useCheckIn, useConfirmByPartner } from '@/hooks/queries';
+import { useBooking, useCancelBooking, useCheckIn } from '@/hooks/queries';
 import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const CONFETTI = ['🎉', '⭐', '🎈', '✨', '🎊', '💜'];
@@ -41,7 +40,6 @@ export default function CheckInScreen() {
 
   const result = checkIn.data ?? null;
   const reward = booking?.reward ?? null;
-  const confirmPartner = useConfirmByPartner();
   const cancelBooking = useCancelBooking();
   const cardRef = useRef<View>(null);
   const done = booking?.status === 'checked_in' || booking?.status === 'completed';
@@ -269,22 +267,6 @@ export default function CheckInScreen() {
               />
             ) : null}
 
-            {PARTNER_SIMULATION_ENABLED && ticket && !confirmed ? (
-              // Enquanto o app do parceiro não existe, é assim que dá para
-              // exercitar a confirmação de ponta a ponta. Ligado em dev e nas
-              // builds de preview; desligado em produção.
-              <Button
-                title="Simular leitura do parceiro"
-                variant="ghost"
-                size="sm"
-                onPress={() =>
-                  void confirmPartner.mutateAsync({
-                    bookingId: booking.id,
-                    code: ticket.code,
-                  })
-                }
-              />
-            ) : null}
           </>
         ) : (
           <>
