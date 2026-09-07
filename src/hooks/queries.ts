@@ -24,6 +24,20 @@ export const queryKeys = {
   journey: (childId: string) => ['journey', childId] as const,
 };
 
+/**
+ * Prefixos para invalidar **todas** as variações de uma chave.
+ *
+ * `activity`, `activities` e `recommended` carregam a origem de distância e os
+ * filtros na chave. O React Query casa por prefixo, então invalidar
+ * `['activity', id, null]` não alcança `['activity', id, { lat, lng }]` — e a
+ * tela de quem tem localização ligada ficava com o dado velho.
+ */
+export const queryPrefixes = {
+  activity: (id: string) => ['activity', id] as const,
+  activities: ['activities'] as const,
+  recommended: ['recommended'] as const,
+};
+
 export function useCategories() {
   return useQuery({
     queryKey: queryKeys.categories,
@@ -229,8 +243,13 @@ export function useSubmitReview() {
       api.catalog.submitReview(input),
     onSuccess: (review) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.reviews(review.activityId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.activity(review.activityId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });
+      // A nota entra na média da atividade, e a média aparece em três lugares:
+      // no detalhe, na busca do Explorar e nos recomendados da Home. Invalidar
+      // só o detalhe deixava o cartão da Home com o número anterior.
+      void queryClient.invalidateQueries({ queryKey: queryPrefixes.activity(review.activityId) });
+      void queryClient.invalidateQueries({ queryKey: queryPrefixes.activities });
+      void queryClient.invalidateQueries({ queryKey: queryPrefixes.recommended });
     },
   });
 }
