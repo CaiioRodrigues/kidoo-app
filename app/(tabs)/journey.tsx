@@ -143,8 +143,8 @@ export default function JourneyScreen() {
       {journey.activityTally.length === 0 ? (
         <Card bordered elevation="none">
           <Text variant="caption" color={colors.textMuted}>
-            Ainda não há aulas registradas. Faça o check-in na próxima atividade para começar a
-            jornada do {firstName}.
+            Ainda não há aulas registradas. A jornada do {firstName} começa na primeira aula que o
+            professor confirmar.
           </Text>
         </Card>
       ) : (
@@ -152,7 +152,10 @@ export default function JourneyScreen() {
           {journey.activityTally.map((item) => (
             <View
               key={item.category}
-              style={[styles.tallyCard, { backgroundColor: categoryTone(item.category, isDark).soft }]}
+              style={[
+                styles.tallyCard,
+                { backgroundColor: categoryTone(item.category, isDark).soft },
+              ]}
             >
               <CategoryIcon category={item.category} size={26} />
               <Text variant="label" numberOfLines={1}>
@@ -166,30 +169,37 @@ export default function JourneyScreen() {
         </View>
       )}
 
-      <Text variant="subheading" style={styles.sectionTitle}>
-        Minha evolução
-      </Text>
-      <Card bordered elevation="none" style={styles.chartCard}>
-        <EvolutionChart data={journey.weeklyActivity} />
-        <View style={styles.chartFooter}>
-          <View style={styles.stat}>
-            <Text variant="subheading" color={colors.primary}>
-              {journey.totalActivities}
-            </Text>
-            <Text variant="caption" color={colors.textMuted}>
-              {journey.totalActivities === 1 ? 'atividade' : 'atividades'}
-            </Text>
-          </View>
-          <View style={styles.stat}>
-            <Text variant="subheading" color={colors.primary}>
-              {journey.totalCategories}
-            </Text>
-            <Text variant="caption" color={colors.textMuted}>
-              {journey.totalCategories === 1 ? 'modalidade' : 'modalidades'}
-            </Text>
-          </View>
-        </View>
-      </Card>
+      {/* Um gráfico de nada ocupa meia tela para não informar nada — e seria a
+          terceira mensagem de "ainda não há" seguida. A evolução aparece
+          quando existe evolução para mostrar. */}
+      {journey.totalActivities === 0 ? null : (
+        <>
+          <Text variant="subheading" style={styles.sectionTitle}>
+            Minha evolução
+          </Text>
+          <Card bordered elevation="none" style={styles.chartCard}>
+            <EvolutionChart data={journey.weeklyActivity} />
+            <View style={styles.chartFooter}>
+              <View style={styles.stat}>
+                <Text variant="subheading" color={colors.primary}>
+                  {journey.totalActivities}
+                </Text>
+                <Text variant="caption" color={colors.textMuted}>
+                  {journey.totalActivities === 1 ? 'atividade' : 'atividades'}
+                </Text>
+              </View>
+              <View style={styles.stat}>
+                <Text variant="subheading" color={colors.primary}>
+                  {journey.totalCategories}
+                </Text>
+                <Text variant="caption" color={colors.textMuted}>
+                  {journey.totalCategories === 1 ? 'modalidade' : 'modalidades'}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        </>
+      )}
     </Screen>
   );
 }
