@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { logger } from '@/lib/logger';
+import { clearQueryCache } from '@/lib/query-client';
 import { SecureKeys, secureDelete, secureGet, secureSet } from '@/lib/secure-storage';
 import type { SignInInput, SignUpInput } from '@/lib/validation';
 import { api } from '@/services';
@@ -58,6 +59,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   async signIn(input) {
     const session = await api.auth.signIn(input);
+    // Antes de guardar a sessão nova: o que estiver em cache é de outra conta.
+    clearQueryCache();
     await secureSet(SecureKeys.session, session.accessToken);
     set({ status: 'authenticated', session });
   },
@@ -80,6 +83,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       await api.auth.signOut();
     } finally {
       await secureDelete(SecureKeys.session);
+      // Sair tem de levar os dados junto. Sem isto, o nome e a jornada da
+      // criança continuam na memória do app depois do logout.
+      clearQueryCache();
       set({ status: 'unauthenticated', session: null });
     }
   },
