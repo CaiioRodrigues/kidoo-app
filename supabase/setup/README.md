@@ -54,8 +54,14 @@ com o botão direito sobre o endereço.
 ### Conferindo
 
 Depois do `01-banco.sql`, cole [`04-conferir.sql`](04-conferir.sql) numa query
-nova. Os números têm de ser: 13 tabelas, 3 visões, 26 funções, 9 modalidades,
-3 planos e **zero** tabelas sem RLS.
+nova. Os números têm de ser: 13 tabelas, 3 visões, 9 modalidades, 3 planos e
+**zero** tabelas sem RLS.
+
+Funções: **26 nossas**, mais uma (`rls_auto_enable`) se você marcou "Enable
+automatic RLS" na criação do projeto — então 27 ali é o esperado, não um
+problema. Se aparecer qualquer outra coisa a mais, vale investigar: função em
+`public` que ninguém colocou é a forma clássica de uma alteração passar
+despercebida.
 
 O último é o que importa. Uma tabela sem RLS é uma tabela que
 qualquer pessoa com a chave pública lê inteira, e a chave é pública por

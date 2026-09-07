@@ -6,6 +6,8 @@ select
     where table_schema = 'public')                                   as visoes,
   -- Só as nossas: funções que vêm de extensão (pgcrypto e afins) não contam,
   -- senão o número muda conforme onde a extensão foi instalada.
+  -- Esperado: 26. Com a opção "Enable automatic RLS" ligada na criação do
+  -- projeto, o Supabase acrescenta `rls_auto_enable` e são 27.
   (select count(*) from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
