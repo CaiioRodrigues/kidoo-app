@@ -30,6 +30,35 @@ mandado para aquele endereço — e aqui a conta guarda dados de criança.
 enquanto você está testando sozinho e não quer abrir o e-mail a cada conta
 nova.
 
+### O e-mail de confirmação
+
+[`email-confirmacao.html`](email-confirmacao.html) é o modelo do Kidoo, pronto
+para colar em **Authentication → Emails → Confirm sign up**, na aba **Source**.
+Assunto sugerido: `Confirme seu e-mail no Kidoo`.
+
+**Ele só é editável com SMTP próprio.** Com o serviço de e-mail padrão do
+Supabase os campos aparecem mas ficam travados — é o aviso que a própria tela
+mostra no topo.
+
+E o serviço padrão não serve para produção de qualquer forma, por três motivos
+que aparecem em ordem: ele é limitado a poucos e-mails por hora, o remetente é
+do domínio do Supabase (o que joga a mensagem no spam com frequência), e não
+há como você provar que o domínio é seu.
+
+Quando for ligar a confirmação para valer, configure SMTP em
+**Project Settings → Authentication → SMTP Settings**. Resend, Postmark,
+SendGrid e Amazon SES resolvem, todos com camada gratuita suficiente para
+começar. O que muda de verdade na entrega é autenticar o domínio (SPF, DKIM),
+que qualquer um deles explica no cadastro.
+
+Enquanto você testa sozinho, o template padrão do Supabase entrega o link e
+funciona — é feio, não é quebrado.
+
+**Um detalhe que costuma passar batido:** o link de confirmação redireciona
+para o que estiver em **Authentication → URL Configuration → Site URL**. Num
+app de celular, isso precisa apontar para um deep link do Kidoo, senão a pessoa
+confirma e cai numa página em branco. Vale resolver junto com o SMTP.
+
 ## 3. Criar o banco
 
 **SQL Editor → New query**, cole o conteúdo de [`01-banco.sql`](01-banco.sql)
