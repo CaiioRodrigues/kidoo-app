@@ -51,6 +51,23 @@ O que mais importa ali é a **coordenada**: é dela que sai a distância mostrad
 no app e a checagem de proximidade do check-in. Pegue no Google Maps clicando
 com o botão direito sobre o endereço.
 
+### Conferindo
+
+Depois do `01-banco.sql`, cole [`04-conferir.sql`](04-conferir.sql) numa query
+nova. Os números têm de ser: 13 tabelas, 3 visões, 26 funções, 9 modalidades,
+3 planos e **zero** tabelas sem RLS.
+
+O último é o que importa. Uma tabela sem RLS é uma tabela que
+qualquer pessoa com a chave pública lê inteira, e a chave é pública por
+definição. Diferente de zero, pare e me chame.
+
+A contagem de funções ignora o que vem de extensão de propósito: o Supabase
+instala o `pgcrypto` num schema separado, e o número dançaria sem motivo.
+
+O painel vai continuar dizendo **"Last migration: No migrations"** mesmo depois
+de rodar — aquele campo só enxerga migrations aplicadas pelo CLI do Supabase, e
+aqui colamos SQL direto. A verdade está na consulta acima.
+
 Opcional: [`03-primeira-atividade.sql`](03-primeira-atividade.sql) cria uma
 atividade com 7 turmas, para o app não abrir com catálogo vazio. Tudo isso
 também dá para fazer pelo painel, que é como vai ser no dia a dia.
