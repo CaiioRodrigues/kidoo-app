@@ -131,11 +131,30 @@ export function useBookings() {
   });
 }
 
+/**
+ * Uma reserva.
+ *
+ * `waitingConfirmation` liga uma releitura periódica: entre o check-in e a
+ * confirmação do parceiro passam segundos — no primeiro teste real, dois
+ * minutos — com a família de celular na mão esperando o professor ler o
+ * código. É nessa janela que o XP entra, e é do outro lado do balcão que ele
+ * é creditado. Sem reler, a comemoração só apareceria na próxima abertura do
+ * app, quando já não é comemoração de nada.
+ */
 export function useBooking(id: string) {
   return useQuery({
     queryKey: queryKeys.booking(id),
     queryFn: () => api.bookings.get(id),
     enabled: id.length > 0,
+    // A própria resposta decide se vale reler: enquanto a criança entrou e a
+    // confirmação não chegou, sim; em qualquer outro estado, não. Deixar isso
+    // com a tela exigiria um estado espelhando o que a query já sabe.
+    // 6 s é curto o bastante para parecer instantâneo e longo o bastante para
+    // não virar uma consulta por segundo numa tela que fica aberta.
+    refetchInterval: (query) => {
+      const reserva = query.state.data;
+      return reserva?.status === 'checked_in' && !reserva.reward ? 6000 : false;
+    },
   });
 }
 

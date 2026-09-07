@@ -246,6 +246,11 @@ export type Booking = {
   checkInProof: CheckInProof | null;
   /** Avaliação já enviada para esta reserva, se houver. */
   reviewId: Uuid | null;
+  /**
+   * O que a confirmação do parceiro rendeu. Null enquanto ele não confirmou —
+   * e é essa transição que a tela da reserva celebra.
+   */
+  reward: BookingReward | null;
 };
 
 /**
@@ -295,11 +300,31 @@ export type ActivityTally = {
   count: number;
 };
 
-/** O que o check-in rendeu — a tela de check-in celebra a partir disto. */
-export type CheckInResult = {
-  booking: BookingDetails;
+/**
+ * O que a confirmação do parceiro rendeu.
+ *
+ * Fica guardado na reserva porque a comemoração acontece **do outro lado do
+ * balcão**: quem confirma é o parceiro, no painel dele, e o app da família só
+ * descobre na próxima vez que abrir. Sem um registro na reserva, o "você subiu
+ * de nível" nunca chegaria a quem subiu.
+ */
+export type BookingReward = {
   xpEarned: number;
   levelUp: { from: number; to: number; bonusEarned: number } | null;
+};
+
+/**
+ * O que o check-in devolve.
+ *
+ * Só o comprovante. Chegar não vale XP: o portão de distância deixa passar
+ * quem não tem leitura de GPS (negamos com prova contra, nunca por falta de
+ * prova), então creditar aqui faria de "negar a permissão de localização" uma
+ * fábrica de Kidoo Bônus. Quem diz que a criança veio é quem a recebeu.
+ */
+export type CheckInResult = {
+  booking: BookingDetails;
+  /** Quanto entra quando o parceiro confirmar. Nada foi creditado ainda. */
+  xpOnConfirm: number;
   /** Código a apresentar ao parceiro. */
   ticket: CheckInTicket;
 };

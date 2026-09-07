@@ -26,6 +26,34 @@ O que os dois compartilham é o que importa: os tipos de domínio, via o alias
 `@app/*`. `SlotKind`, `ClassSession` e a curva de níveis são os mesmos objetos —
 se fossem copiados, uma mudança no app só apareceria aqui quando quebrasse.
 
+O acoplamento é exatamente isso e nada além: **um arquivo, só de tipos**. As
+quatro importações do painel são `import type`, que a compilação apaga — o
+bundle daqui não carrega uma linha de código do app, e os dois não dividem
+dependências nem `node_modules`.
+
+### Quando separar em dois repositórios
+
+Não é uma decisão fechada, e o sinal para revisá-la não é o tamanho do
+repositório: é **alguém trabalhar só no painel e não no app**. Aí o
+repositório único vira problema de acesso — a pessoa recebe o código inteiro
+para mexer numa parte.
+
+Até lá, três coisas pagam por manter junto:
+
+1. O que muda junto viaja junto. Tirar do parceiro o direito de escolher o tipo
+   da própria vaga tocou banco, painel e app na mesma mudança; separados,
+   seriam três PRs coordenados e uma janela em que as peças discordam.
+2. Tipo copiado é tipo que diverge. A alternativa a um alias é publicar um
+   pacote npm, que é bem mais trabalho.
+3. `supabase/tests/contract.ts` só existe porque estão juntos: ele lê os dois
+   clientes e confere cada nome contra o esquema real. Entre repositórios,
+   exigiria CI cruzado — e na prática ninguém constrói.
+
+Publicação não é motivo para separar: Vercel e Netlify apontam para uma
+subpasta, então `partner/` vira um site com domínio e ritmo próprios sem sair
+daqui. E se um dia separar, o custo é baixo justamente porque a fronteira está
+limpa: mover a pasta e trocar `@app/types/domain` por um pacote publicado.
+
 ## O que o painel não pode fazer
 
 Estas não são omissões, são decisões, e todas valem no banco (não só na tela):

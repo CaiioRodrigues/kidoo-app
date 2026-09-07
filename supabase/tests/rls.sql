@@ -98,14 +98,20 @@ begin
   perform cancel_booking(v_booking.id);
 
   select xp into v_xp_antes from children where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  -- Guardado na sessão porque cada bloco `do` tem escopo próprio, e a
+  -- conferência do crédito acontece só depois da confirmação do parceiro.
+  perform set_config('kidoo.xp_antes', v_xp_antes::text, false);
 
   -- turma daqui a 10 min: dentro da janela
   v_booking := book_session('eeeeeeee-0000-0000-0000-000000000003','aaaaaaaa-0000-0000-0000-000000000001');
   v_booking := check_in_booking(v_booking.id, 40, false);
   assert v_booking.status = 'checked_in', 'o check-in deveria valer';
   assert (v_booking.check_in_proof->>'locationVerified')::boolean, 'leitura a 40 m é verificada';
-  assert (select xp from children where id = 'aaaaaaaa-0000-0000-0000-000000000001') = v_xp_antes + 100,
-         'check-in credita 100 de XP';
+  -- Chegar não vale XP. Quem diz que a criança veio é quem a recebeu — e
+  -- sem isso, negar a permissão de GPS seria uma fábrica de Kidoo Bônus:
+  -- o portão de distância deixa passar quem não tem leitura.
+  assert (select xp from children where id = 'aaaaaaaa-0000-0000-0000-000000000001') = v_xp_antes,
+         'o check-in NÃO credita XP; isso é da confirmação do parceiro';
 
   -- longe demais, com leitura confiável, é recusado
   begin
@@ -116,7 +122,7 @@ begin
   end;
 end $$;
 
--- ---- check-in devolve XP e nível, sem o cliente deduzir ---------------------
+-- ---- o check-in avisa quanto entra depois, e não credita nada --------------
 do $$
 declare v_id uuid; v_out jsonb;
 begin
@@ -126,7 +132,8 @@ begin
 
   -- já entrou: reemite o código e não credita nada
   v_out := check_in(v_id, -19.9702, -43.9803, 15, false);
-  assert (v_out->>'xpEarned')::int = 0, 'repetir o check-in não credita XP de novo';
+  assert (v_out->>'xpOnConfirm')::int = 100, 'o app precisa saber quanto entra na confirmação';
+  assert v_out->'booking'->>'reward' is null, 'nada de recompensa antes de o parceiro confirmar';
   assert v_out->'booking'->>'id' = v_id::text, 'a reserva volta junto com o resultado';
   assert (v_out->'booking'->'check_in'->>'code') is not null, 'o código é reemitido';
   assert (v_out->'booking'->'check_in_proof'->>'distanceM')::numeric < 100,
@@ -168,9 +175,29 @@ begin
 
   assert (select count(*) from partner_payouts) = 0, 'sem confirmação não há repasse';
 
-  perform confirm_by_partner(v_booking.id, v_booking.check_in->>'code');
+  v_booking := confirm_by_partner(v_booking.id, v_booking.check_in->>'code');
+
   select total_cents into v_total from partner_payouts where slot_kind = 'ociosa';
   assert v_total = 800, 'vaga ociosa deveria render 800 centavos, veio ' || coalesce(v_total::text,'nulo');
+
+  -- O parceiro não lê `children` — e não deve mesmo. O que ele enxerga é a
+  -- recompensa gravada na reserva; o XP em si é conferido do lado da família,
+  -- mais abaixo.
+  assert (v_booking.reward->>'xpEarned')::int = 100,
+         'a reserva guarda o que a confirmação rendeu, para o app comemorar depois';
+  assert v_booking.check_in is null, 'o código morre ao ser usado';
+
+  -- Anular o código já barraria a segunda tentativa; a guarda explícita existe
+  -- para o erro dizer a verdade a quem está no balcão.
+  begin
+    perform confirm_by_partner(v_booking.id, '123456');
+    assert false, 'confirmar duas vezes deveria falhar';
+  exception when others then
+    assert sqlerrm = 'already_confirmed', 'esperado already_confirmed, veio: ' || sqlerrm;
+  end;
+  -- e a recompensa gravada continua sendo a de uma confirmação só
+  assert (select (reward->>'xpEarned')::int from bookings where id = v_booking.id) = 100,
+         'a segunda tentativa não pode ter creditado nada';
 end $$;
 
 -- ---- presença confirmada não rende XP de novo -------------------------------
@@ -194,6 +221,11 @@ begin
 
   assert (select xp from children where id = 'aaaaaaaa-0000-0000-0000-000000000001') = v_xp,
          'nenhum XP pode ter sido creditado';
+
+  -- E o crédito que a confirmação gerou, conferido de quem tem direito a ver:
+  -- 100 a mais que antes do check-in.
+  assert v_xp = current_setting('kidoo.xp_antes')::int + 100,
+         'a confirmação do parceiro creditou 100 de XP, veio ' || v_xp;
 end $$;
 
 -- ---- um parceiro não confirma presença de outro ----------------------------

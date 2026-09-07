@@ -11,13 +11,12 @@ import { HintBubble, useOneTimeHint } from '@/features/tutorial';
 import { PreferenceKeys } from '@/lib/preferences';
 import { AchievementCard, shareAchievement, type AchievementShare } from '@/features/share';
 import { levelName } from '@/lib/levels';
-import { PARTNER_SIMULATION_ENABLED } from '@/lib/flags';
 import { formatSessionTime } from '@/lib/format';
 import { canCancel, cancellationMessage, formatDeadline } from '@/lib/cancellation';
 import { canCheckIn, checkInWindow, proximityTo } from '@/lib/check-in';
 import { useLocationStore } from '@/stores/location-store';
 import { toUserMessage } from '@/services';
-import { useBooking, useCancelBooking, useCheckIn, useConfirmByPartner } from '@/hooks/queries';
+import { useBooking, useCancelBooking, useCheckIn } from '@/hooks/queries';
 import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const CONFETTI = ['🎉', '⭐', '🎈', '✨', '🎊', '💜'];
@@ -28,6 +27,8 @@ export default function CheckInScreen() {
   const styles = useStyles(makeStyles);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  // O hook relê sozinho enquanto a confirmação do parceiro não chega: é nessa
+  // janela que o XP entra, e ele entra do outro lado do balcão.
   const { data: booking, isPending } = useBooking(id ?? '');
   const checkIn = useCheckIn();
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export default function CheckInScreen() {
   const requestLocation = useLocationStore((state) => state.request);
 
   const result = checkIn.data ?? null;
-  const confirmPartner = useConfirmByPartner();
+  const reward = booking?.reward ?? null;
   const cancelBooking = useCancelBooking();
   const cardRef = useRef<View>(null);
   const done = booking?.status === 'checked_in' || booking?.status === 'completed';
@@ -109,19 +110,21 @@ export default function CheckInScreen() {
   }, [booking, cancelBooking, cancellation, router]);
 
   // Memoizado para não recriar o objeto a cada render e invalidar o callback.
+  // Só existe depois que o parceiro confirma: é dele que vem o XP, e não faz
+  // sentido compartilhar "cheguei" — compartilha-se "foi".
   const shareData = useMemo<AchievementShare | null>(
     () =>
-      booking
+      booking && reward
         ? {
             booking,
-            xpEarned: result?.xpEarned ?? 0,
-            levelUp: result?.levelUp
-              ? { to: result.levelUp.to, bonusEarned: result.levelUp.bonusEarned }
+            xpEarned: reward.xpEarned,
+            levelUp: reward.levelUp
+              ? { to: reward.levelUp.to, bonusEarned: reward.levelUp.bonusEarned }
               : null,
-            levelName: levelName(result?.levelUp?.to ?? booking.child.level),
+            levelName: levelName(reward.levelUp?.to ?? booking.child.level),
           }
         : null,
-    [booking, result],
+    [booking, reward],
   );
 
   const handleShare = useCallback(async () => {
@@ -253,29 +256,17 @@ export default function CheckInScreen() {
                 router.push({ pathname: '/booking/[id]/review', params: { id: booking.id } })
               }
             />
-            <Button
-              title="Compartilhar conquista"
-              variant="ghost"
-              size="md"
-              onPress={() => void handleShare()}
-            />
-
-            {PARTNER_SIMULATION_ENABLED && ticket && !confirmed ? (
-              // Enquanto o app do parceiro não existe, é assim que dá para
-              // exercitar a confirmação de ponta a ponta. Ligado em dev e nas
-              // builds de preview; desligado em produção.
+            {/* Só depois da confirmação: antes dela não há conquista, e um
+                botão que não faz nada ao ser tocado é pior do que nenhum. */}
+            {shareData ? (
               <Button
-                title="Simular leitura do parceiro"
+                title="Compartilhar conquista"
                 variant="ghost"
-                size="sm"
-                onPress={() =>
-                  void confirmPartner.mutateAsync({
-                    bookingId: booking.id,
-                    code: ticket.code,
-                  })
-                }
+                size="md"
+                onPress={() => void handleShare()}
               />
             ) : null}
+
           </>
         ) : (
           <>
@@ -313,23 +304,23 @@ export default function CheckInScreen() {
         )}
       </View>
 
-      {done && result?.levelUp ? (
+      {reward?.levelUp ? (
         <Card background={palette.yellowSoft} elevation="none" style={styles.levelUpCard}>
           <Text style={styles.levelUpEmoji}>🎖️</Text>
           <View style={styles.flex}>
             <Text variant="bodyStrong" color={colors.text}>
-              Subiu para o nível {result.levelUp.to}!
+              Subiu para o nível {reward.levelUp.to}!
             </Text>
             <Text variant="caption" color={colors.textMuted}>
-              {result.levelUp.bonusEarned === 1
+              {reward.levelUp.bonusEarned === 1
                 ? 'Você ganhou 1 moeda bônus, válida por 30 dias.'
-                : `Você ganhou ${result.levelUp.bonusEarned} moedas bônus, válidas por 30 dias.`}
+                : `Você ganhou ${reward.levelUp.bonusEarned} moedas bônus, válidas por 30 dias.`}
             </Text>
           </View>
         </Card>
       ) : null}
 
-      {done && shareData ? (
+      {shareData ? (
         // Renderizado fora da área visível: existe só para virar imagem.
         <View style={styles.offscreen} pointerEvents="none">
           <AchievementCard ref={cardRef} data={shareData} />
@@ -344,7 +335,9 @@ export default function CheckInScreen() {
               Boa aula, {firstName}!
             </Text>
             <Text variant="caption" color={colors.textMuted}>
-              {result ? `Você ganhou ${result.xpEarned} XP.` : 'XP creditado.'} Continue assim!
+              {reward
+                ? `Você ganhou ${reward.xpEarned} XP. Continue assim!`
+                : `Assim que o professor ler o código, ${result?.xpOnConfirm ?? 100} XP entram na jornada de ${firstName}.`}
             </Text>
           </View>
         </Card>

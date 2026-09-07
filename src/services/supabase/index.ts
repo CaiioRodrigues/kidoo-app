@@ -34,7 +34,6 @@ import type {
   ActivityCategoryId,
   ActivityTally,
   BookingDetails,
-  CheckInResult,
   Child,
   Guardian,
   Session,
@@ -559,17 +558,18 @@ export const supabaseApi: KidooApi = {
           p_mocked: proof?.mocked ?? false,
         }),
         'Não foi possível registrar o check-in.',
-      ) as { booking: BookingRow; xpEarned: number; levelUp: CheckInResult['levelUp'] };
+      ) as { booking: BookingRow; xpOnConfirm: number };
 
       const [details] = await toDetails([result.booking]);
       if (!details?.checkIn) {
         throw new ApiError('unknown', 'O check-in não gerou um código. Tente de novo.');
       }
 
+      // Nada foi creditado ainda: o XP entra quando o parceiro confirmar, e a
+      // reserva passa a carregar o resultado em `reward`.
       return {
         booking: details,
-        xpEarned: result.xpEarned,
-        levelUp: result.levelUp,
+        xpOnConfirm: result.xpOnConfirm,
         ticket: details.checkIn,
       };
     },

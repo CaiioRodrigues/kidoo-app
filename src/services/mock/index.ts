@@ -27,13 +27,13 @@ import type { ActivityFilters, KidooApi } from '../types';
 import { haversineKm, type Coords } from '@/lib/geo';
 import type {
   Activity,
+  BookingReward,
   ActivityCategoryId,
   ActivityTally,
   BonusGrant,
   Booking,
   Review,
   BookingDetails,
-  CheckInResult,
   Child,
   Session,
   SubscriptionState,
@@ -220,6 +220,9 @@ function seedDemoHistory(child: Child): void {
         },
         checkIn: null,
         partnerConfirmedAt: when.toISOString(),
+        // Histórico semeado: já confirmado, e a recompensa já colhida — sem
+        // isto o app "comemoraria" aulas de semanas atrás na primeira abertura.
+        reward: { xpEarned: XP_PER_CHECK_IN, levelUp: null },
         checkInProof: { locationVerified: true, distanceM: 40, mocked: false },
         reviewId: null,
       },
@@ -500,39 +503,15 @@ export const mockApi: KidooApi = {
 
       state.bookings = state.bookings.map((item) => (item.id === bookingId ? checkedIn : item));
 
-      // Check-in credita XP, pode desbloquear conquistas e, ao subir de nível,
-      // gera Kidoo Bônus. Repetir o check-in não credita nada de novo.
-      let levelUp: CheckInResult['levelUp'] = null;
-      let xpEarned = 0;
-
-      if (booking.status !== 'checked_in') {
-        const now = new Date();
-        const { total, byCategory } = attendanceOf(checkedIn.childId);
-        const before = state.children.find((child) => child.id === checkedIn.childId);
-        const levelBefore = before ? levelFromXp(before.xp).level : 1;
-        const xp = (before?.xp ?? 0) + XP_PER_CHECK_IN;
-        const levelAfter = levelFromXp(xp).level;
-        xpEarned = XP_PER_CHECK_IN;
-
-        if (levelAfter > levelBefore) {
-          const bonusEarned = grantLevelBonus(checkedIn.childId, levelBefore, levelAfter, now);
-          levelUp = { from: levelBefore, to: levelAfter, bonusEarned };
-        }
-
-        state.children = state.children.map((child) => {
-          if (child.id !== checkedIn.childId) return child;
-          return {
-            ...child,
-            xp,
-            level: levelAfter,
-            achievements: buildAchievements(total, byCategory, now.toISOString()).filter(
-              (achievement) => achievement.unlockedAt !== null,
-            ).length,
-          };
-        });
-      }
-
-      return delay({ booking: toDetails(checkedIn), xpEarned, levelUp, ticket });
+      // Chegar não credita nada. O portão de distância deixa passar quem não
+      // tem leitura de GPS — de propósito, porque negamos com prova contra e
+      // nunca por falta dela. Creditar aqui faria de "negar a permissão de
+      // localização" uma fábrica de Kidoo Bônus.
+      return delay({
+        booking: toDetails(checkedIn),
+        xpOnConfirm: XP_PER_CHECK_IN,
+        ticket,
+      });
     },
 
     async confirmByPartner({ bookingId, code }) {
@@ -551,12 +530,42 @@ export const mockApi: KidooApi = {
         throw new ApiError('not_found', 'Código inválido para esta reserva.');
       }
 
+      // É aqui que o XP entra: na palavra de quem recebeu a criança. Subir de
+      // nível gera Kidoo Bônus, e o resultado fica guardado na reserva porque
+      // a comemoração acontece do outro lado do balcão — o app da família só
+      // descobre na próxima vez que abrir.
+      const now = new Date();
+      const { total, byCategory } = attendanceOf(booking.childId);
+      const before = state.children.find((child) => child.id === booking.childId);
+      const levelBefore = before ? levelFromXp(before.xp).level : 1;
+      const xp = (before?.xp ?? 0) + XP_PER_CHECK_IN;
+      const levelAfter = levelFromXp(xp).level;
+
+      let levelUp: BookingReward['levelUp'] = null;
+      if (levelAfter > levelBefore) {
+        const bonusEarned = grantLevelBonus(booking.childId, levelBefore, levelAfter, now);
+        levelUp = { from: levelBefore, to: levelAfter, bonusEarned };
+      }
+
+      state.children = state.children.map((child) => {
+        if (child.id !== booking.childId) return child;
+        return {
+          ...child,
+          xp,
+          level: levelAfter,
+          achievements: buildAchievements(total, byCategory, now.toISOString()).filter(
+            (achievement) => achievement.unlockedAt !== null,
+          ).length,
+        };
+      });
+
       const confirmed: Booking = {
         ...booking,
         status: 'completed',
-        partnerConfirmedAt: new Date().toISOString(),
+        partnerConfirmedAt: now.toISOString(),
         // O código morre ao ser usado: não vale para uma segunda aula.
         checkIn: null,
+        reward: { xpEarned: XP_PER_CHECK_IN, levelUp },
       };
       state.bookings = state.bookings.map((item) => (item.id === bookingId ? confirmed : item));
       return delay(toDetails(confirmed));
@@ -669,6 +678,7 @@ export const mockApi: KidooApi = {
         partnerConfirmedAt: null,
         checkInProof: null,
         reviewId: null,
+        reward: null,
       };
       state.bookings = [...state.bookings, booking];
       return delay(booking);
