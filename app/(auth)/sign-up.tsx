@@ -35,8 +35,17 @@ export default function SignUpScreen() {
     setErrors({});
     setSubmitting(true);
     try {
-      await signUp(parsed.data);
-      // Conta criada: segue direto para o cadastro da criança.
+      const result = await signUp(parsed.data);
+      if (result.status === 'needs_confirmation') {
+        // Não é erro: com a confirmação de e-mail ligada, este é o caminho
+        // normal. A sessão só existe depois do clique no link.
+        router.replace({
+          pathname: '/(auth)/confirm-email',
+          params: { email: result.email },
+        });
+        return;
+      }
+      // Conta criada e já autenticada: segue direto para o cadastro da criança.
       router.replace('/(onboarding)/child');
     } catch (error) {
       setFormError(toUserMessage(error));

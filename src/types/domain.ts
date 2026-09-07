@@ -354,6 +354,19 @@ export type Journey = {
   bonus: BonusWallet;
 };
 
+/**
+ * O que sai de um cadastro.
+ *
+ * São dois desfechos legítimos, e nenhum deles é erro. Com a confirmação de
+ * e-mail ligada — que é como tem de ficar antes de qualquer família real,
+ * senão qualquer um cria conta com o e-mail de outra pessoa — a sessão só
+ * existe depois que a pessoa clica no link. Tratar isso como falha era mandar
+ * uma mensagem vermelha para quem acabou de fazer tudo certo.
+ */
+export type SignUpResult =
+  | { status: 'signed_in'; session: Session }
+  | { status: 'needs_confirmation'; email: string };
+
 export type Session = {
   guardian: Guardian;
   /** Token opaco. Nunca é persistido fora do armazenamento seguro do SO. */

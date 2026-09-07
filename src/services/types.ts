@@ -13,6 +13,7 @@ import type {
   RatingSummary,
   Review,
   Session,
+  SignUpResult,
   SubscriptionState,
 } from '@/types/domain';
 import type { ChildProfileInput, SignInInput, SignUpInput } from '@/lib/validation';
@@ -41,7 +42,14 @@ export type ActivityFilters = {
 export type KidooApi = {
   auth: {
     signIn(input: SignInInput): Promise<Session>;
-    signUp(input: SignUpInput): Promise<Session>;
+    /**
+     * Pode não devolver sessão: com confirmação de e-mail ligada, ela só
+     * existe depois do clique no link. Quem chama decide o que fazer com cada
+     * desfecho — a camada de serviço não escolhe tela.
+     */
+    signUp(input: SignUpInput): Promise<SignUpResult>;
+    /** Reenvia o e-mail de confirmação para quem não recebeu. */
+    resendConfirmation(email: string): Promise<void>;
     signOut(): Promise<void>;
     /** Valida a sessão restaurada do armazenamento seguro. */
     restore(token: string): Promise<Session | null>;

@@ -36,6 +36,7 @@ import type {
   BookingDetails,
   Child,
   Session,
+  SignUpResult,
   SubscriptionState,
 } from '@/types/domain';
 
@@ -190,7 +191,14 @@ export const mockApi: KidooApi = {
       return delay(issueSession(name.charAt(0).toUpperCase() + name.slice(1), email));
     },
     async signUp({ name, email }) {
-      return delay(issueSession(name, email));
+      // O backend em memória não manda e-mail, então não há o que confirmar:
+      // devolve a sessão direto. A tela de confirmação existe para o caminho
+      // real e é alcançável pela rota, não por um desfecho simulado aqui.
+      return delay<SignUpResult>({ status: 'signed_in', session: issueSession(name, email) });
+    },
+
+    async resendConfirmation() {
+      return delay(undefined, 200);
     },
     async signOut() {
       state.session = null;
