@@ -83,7 +83,14 @@ async function read(): Promise<LocationProof | null> {
     // `Low` é bairro, não calçada — é tudo que a ordenação por distância pede,
     // e o raio de check-in (250 m) absorve com folga.
     const position = await withTimeout(
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
+      // `Balanced` (~100 m) e não `Low` (antena de celular, quilômetros).
+      // O portão do check-in é de 250 m e a regra desconta a margem de erro a
+      // favor de quem chega: com precisão de 3 km, qualquer um num raio de
+      // 3 km "chegaria", e a checagem de proximidade não checaria nada.
+      //
+      // Não usamos `High` (GPS puro): ele custa bateria e demora mais para
+      // responder, e 100 m já decide um raio de 250 m com folga.
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
       READ_TIMEOUT_MS,
     );
     if (!position) return null;
