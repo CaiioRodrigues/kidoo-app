@@ -1,33 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
-import { PreferenceKeys, readPreference, writePreference } from '@/lib/preferences';
-
-type State = 'checking' | 'show' | 'hidden';
+import { useTutorialStore } from '@/stores/tutorial-store';
 
 /**
  * Decide se o tutorial de boas-vindas aparece.
  *
- * Enquanto a preferência não chega do armazenamento, o estado é 'checking' e
- * nada é exibido — assim quem já viu o tutorial não o vê piscar na tela a cada
- * abertura do app.
+ * O estado vive num store, e não aqui: a Home é remontada ao voltar do
+ * check-in (que faz `replace` para as abas), e com o estado local o tutorial
+ * voltava junto. Enquanto a preferência não chega do armazenamento nada é
+ * exibido, para quem já viu não ver o tutorial piscar a cada abertura.
  */
 export function useTutorial(): { visible: boolean; dismiss: () => void } {
-  const [state, setState] = useState<State>('checking');
+  const status = useTutorialStore((state) => state.status);
+  const hydrate = useTutorialStore((state) => state.hydrate);
+  const dismiss = useTutorialStore((state) => state.dismiss);
 
   useEffect(() => {
-    let active = true;
-    void readPreference(PreferenceKeys.tutorialSeen).then((seen) => {
-      if (active) setState(seen === 'true' ? 'hidden' : 'show');
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+    void hydrate();
+  }, [hydrate]);
 
-  const dismiss = useCallback(() => {
-    setState('hidden');
-    void writePreference(PreferenceKeys.tutorialSeen, 'true');
-  }, []);
-
-  return { visible: state === 'show', dismiss };
+  return { visible: status === 'show', dismiss };
 }

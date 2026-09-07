@@ -1,8 +1,13 @@
 import type { Achievement, ActivityCategoryId } from '@/types/domain';
 
-// As regras de nível e recompensa vivem em @/lib/levels: a UI também precisa
-// delas para a tela de níveis, então não podem ficar dentro do mock.
-export { XP_PER_CHECK_IN, MAX_LEVEL, levelFromXp, bonusForLevel } from '@/lib/levels';
+/**
+ * Conquistas da jornada.
+ *
+ * Vivem aqui, e não dentro do mock, porque **todo backend precisa das mesmas
+ * regras**: são derivadas do histórico de aulas, não guardadas em coluna. O
+ * adapter do Supabase monta a jornada a partir das reservas confirmadas e passa
+ * pela mesma função — se a regra fosse duplicada, mock e produção divergiriam.
+ */
 
 type AchievementRule = {
   id: string;

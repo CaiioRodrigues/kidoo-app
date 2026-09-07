@@ -14,6 +14,7 @@ import {
   useChildren,
   useCreateBooking,
   useJourney,
+  useSessions,
   useSubscription,
 } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
@@ -33,9 +34,20 @@ export default function ConfirmBookingScreen() {
   const { colors, palette } = useTheme();
   const styles = useStyles(makeStyles);
   const router = useRouter();
-  const { activityId } = useLocalSearchParams<{ activityId: string }>();
+  const { activityId, sessionId } = useLocalSearchParams<{
+    activityId: string;
+    sessionId: string;
+  }>();
 
   const { data: activity, isPending } = useActivity(activityId ?? '');
+  const { data: sessions = [], isPending: sessionsPending } = useSessions(activityId ?? '');
+  // O preço é da turma, não da atividade: a vaga ociosa custa menos.
+  // Memoizado para o callback de confirmar não trocar de identidade a cada
+  // render — sem isto o React Compiler recusa a memoização manual abaixo.
+  const session = useMemo(
+    () => sessions.find((item) => item.id === sessionId) ?? null,
+    [sessionId, sessions],
+  );
   const { data: children = [] } = useChildren();
   const { data: subscription } = useSubscription();
   const activeChildId = useOnboardingStore((state) => state.activeChildId);
@@ -82,27 +94,27 @@ export default function ConfirmBookingScreen() {
   const bonusBalance = journey?.bonus.balance ?? 0;
 
   // As moedas bônus entram antes da cota semanal, porque expiram.
-  const payment = activity ? splitPayment(activity.coinCost, bonusBalance) : null;
+  const payment = session ? splitPayment(session.coinCost, bonusBalance) : null;
   const coinsAfter =
     subscription && payment ? subscription.coinsRemaining - payment.fromSubscription : null;
   const notEnoughCoins = coinsAfter !== null && coinsAfter < 0;
 
   const handleConfirm = useCallback(async () => {
-    if (!activity || !child) return;
+    if (!session || !child) return;
     setError(null);
 
     try {
       const booking = await createBooking.mutateAsync({
-        activityId: activity.id,
+        sessionId: session.id,
         childId: child.id,
       });
       router.replace({ pathname: '/booking/[id]/check-in', params: { id: booking.id } });
     } catch (caught) {
       setError(toUserMessage(caught));
     }
-  }, [activity, child, createBooking, router]);
+  }, [child, createBooking, router, session]);
 
-  if (isPending || !activity) {
+  if (isPending || sessionsPending || !activity) {
     return (
       <Screen>
         <HeaderBar />
@@ -154,13 +166,13 @@ export default function ConfirmBookingScreen() {
         <DetailRow icon="football-outline" label={activity.title} sub={activity.partner.name} />
         <DetailRow
           icon="calendar-outline"
-          label={formatSessionTime(activity.nextSessionAt)}
+          label={session ? formatSessionTime(session.startsAt) : 'Turma indisponível'}
           sub={`${activity.partner.neighborhood}, ${activity.partner.city}`}
         />
       </Card>
 
       <View style={styles.coinsRow}>
-        <CoinBadge amount={activity.coinCost} />
+        <CoinBadge amount={session?.coinCost ?? 0} />
         {payment && payment.fromBonus > 0 ? (
           <Text variant="caption" color={colors.textMuted} center style={styles.split}>
             {payment.fromBonus === 1 ? '1 moeda bônus' : `${payment.fromBonus} moedas bônus`}

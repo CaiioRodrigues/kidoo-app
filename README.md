@@ -69,6 +69,21 @@ npm run lint       # eslint, zero warnings tolerados
 npm run format     # prettier
 ```
 
+Painel do parceiro (app separado, `partner/README.md`):
+
+```bash
+cd partner && npm install && npm run dev   # http://localhost:5273
+```
+
+Banco (precisa de um Postgres local; não usa Docker nem rede — veja
+`supabase/README.md`):
+
+```bash
+supabase/tests/run.sh          # migrations, RLS, reserva, check-in, painel,
+                               # paridade SQL↔TS e contrato de nomes
+supabase/tests/concurrency.sh  # duas famílias na mesma última vaga
+```
+
 Para gerar binários, use EAS Build (`eas build -p android|ios`). As pastas
 `android/` e `ios/` não são versionadas: são reconstruídas com
 `npm run prebuild` a partir do `app.json`.
@@ -135,15 +150,35 @@ src/
   stores/                 zustand (sessão, rascunho de onboarding)
   lib/                    validação (zod), formatação, storage seguro, logger
   types/domain.ts         modelo de domínio
+
+supabase/                 migrations SQL e testes contra um Postgres de verdade
+partner/                  painel web do parceiro (Vite + React)
 ```
 
 ### A regra que sustenta tudo
 
 Nenhuma tela conhece HTTP. Toda a UI depende só da interface `KidooApi`
-(`src/services/types.ts`). Hoje ela é atendida por um mock em memória
-(`src/services/mock/`). Quando o backend real existir, basta criar uma nova
-implementação da mesma interface e apontar `src/services/index.ts` para ela —
-nenhuma tela muda.
+(`src/services/types.ts`). Ela tem duas implementações: um backend em memória
+(`src/services/mock/`) e o Supabase (`src/services/supabase/`). A escolha é por
+configuração — com `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+definidos, o app fala com o Supabase; sem elas, com o mock. Nenhuma tela sabe
+qual dos dois respondeu.
+
+O mock continua sendo o padrão de propósito: é ele que mantém o app navegável
+para quem clona o repositório, e é o contrato que a implementação real tem de
+satisfazer — não um rascunho a descartar.
+
+### Três peças, um domínio
+
+O app das famílias, o painel do parceiro e o banco vivem no mesmo repositório e
+compartilham `src/types/domain.ts`. `SlotKind`, `ClassSession` e a curva de
+níveis são os mesmos objetos nos três — se fossem copiados, uma mudança num
+deles só apareceria nos outros quando quebrasse.
+
+O painel **não** é uma tela do Expo: é um app Vite em `partner/`. O app é React
+Native no celular; o painel é ferramenta de balcão, com tabela e formulário num
+navegador. Enfiá-lo no Expo custaria o React Native Web inteiro no bundle das
+famílias e ainda daria um layout de telefone numa tela de recepção.
 
 ---
 
@@ -280,6 +315,63 @@ que aconteceu na primeira verificação em navegador, que fica em `prompt` sem
 chamar nenhum callback. Estourado o tempo do prompt, o estado volta para
 `idle` e não para `denied`: ninguém negou nada, e o próximo toque aproveita a
 resposta que tenha chegado nesse meio-tempo.
+
+### Banco (Supabase)
+
+As migrations vivem em `supabase/migrations/` e o que elas garantem está em
+`supabase/README.md`. Três pontos que valem aqui:
+
+- **A vaga não é vendida duas vezes.** `book_session` trava a linha da turma
+  antes de contar. Há um teste que abre duas conexões e disputa a mesma última
+  vaga — sem o `for update`, as duas passam.
+- **RLS separa os dois públicos** que vivem no mesmo banco: o responsável, no
+  app, e o parceiro, no painel. E um parceiro nunca enxerga outro.
+- **O responsável não confirma a própria presença.** Ele não tem `update` em
+  `bookings`; quem confirma é o parceiro, e é isso que faz o repasse não ser
+  autodeclaração.
+
+- **O dinheiro anda dentro da transação da vaga.** `book_session` debita bônus
+  e cota junto com o `slots_taken`; debitar fora abriria janela para gastar o
+  mesmo coin duas vezes.
+
+As regras de nível existem em SQL e em `src/lib/levels.ts` — o banco credita, a
+tela prevê. `supabase/tests/parity.ts` compara as duas sobre a mesma faixa de XP,
+porque duplicação em duas linguagens é onde isso racha em silêncio.
+
+`supabase/tests/run.sh` sobe um Postgres descartável e roda tudo, sem Docker.
+
+### Turmas, capacidade e vaga ociosa
+
+A reserva era de uma **atividade**, com um horário genérico. Mas quem tem lugar
+é a **turma** — e é o parceiro quem decide quantos lugares abre em cada uma.
+`ClassSession` (`src/types/domain.ts`) carrega dia, hora, capacidade,
+matriculados, vagas liberadas ao Kidoo e o tipo da vaga.
+
+**Vaga ociosa é outro produto, não um desconto.** Numa turma que vai acontecer
+de qualquer jeito e tem lugar sobrando, a criança a mais não custa nada ao
+parceiro: o professor já está pago e a sala já está alugada. É a única fonte de
+custo marginal baixo que existe em atividade infantil — o equivalente à
+musculação no modelo do Wellhub, que consegue ser "ilimitado" justamente porque
+uma visita a mais custa zero à academia.
+
+Duas consequências no código:
+
+- **A capacidade sai da modalidade.** Natação é 1 professor para 8 crianças, por
+  segurança; futebol cabe 20 na quadra. Turma apertada lota, turma grande sobra
+  — então a ocupação simulada é derivada da capacidade, e não um número solto.
+  O resultado é um gradiente real: natação tem 1 turma ociosa em 3, futebol tem
+  as 3. Na primeira versão do gerador **toda** modalidade dava a mesma
+  proporção, o que fazia a elasticidade parecer modelada sem estar.
+- **O `coinCost` da atividade virou "a partir de".** Quem cobra é a turma, e a
+  ociosa custa um coin a menos. O desconto é repassado à família de propósito:
+  é o que a move para o horário vazio, que é justamente o que dá para comprar
+  barato. Sem esse incentivo todo mundo pede sábado de manhã.
+
+`Booking` congela o `slotKind` no momento da reserva. O extrato de repasse do
+parceiro é calculado sobre isso, e a turma pode mudar depois.
+
+Cancelar devolve a vaga (`slotsTaken`), e a reserva rejeita turma cheia ou já
+começada no serviço — duas famílias podem tocar em "confirmar" ao mesmo tempo.
 
 ### Check-in por proximidade
 
@@ -433,9 +525,25 @@ Na primeira abertura, o mascote **Kiddo** apresenta o app em quatro passos, em
 balão de fala (`src/features/tutorial/`). O mascote é SVG e não imagem: escala
 em qualquer densidade e acompanha a paleta do tema.
 
-A preferência de "já vi" é persistida, e enquanto ela não chega do
-armazenamento nada é exibido — assim quem já viu não vê o tutorial piscar a
-cada abertura.
+A preferência de "já vi" é persistida (`src/lib/preferences.ts`), e enquanto
+ela não chega do armazenamento nada é exibido — assim quem já viu não vê o
+tutorial piscar a cada abertura.
+
+O módulo de preferências mantém um **espelho em memória** atualizado *antes* da
+gravação em disco. São dois problemas em um: a gravação podia falhar em
+silêncio, e o "já vi" vivia só no estado local da tela — então qualquer
+remontagem reapresentava o tutorial, sem erro visível em lugar nenhum. Com o
+espelho, a decisão vale para a execução inteira mesmo que o disco falhe. No
+navegador o armazenamento cai para `localStorage`: antes disso as duas funções
+eram no-op fora do aparelho, e o tutorial reaparecia a cada carga da página.
+
+O estado do tutorial vive num store (`src/stores/tutorial-store.ts`), e não no
+estado local da Home. Voltar do check-in faz `replace` para as abas, o que
+**remonta a Home** — com estado local, o tutorial ressuscitava a cada volta.
+
+Em **Perfil › Ajuda** dá para rever a apresentação. Sem isso, quem dispensou
+uma vez nunca mais via o tutorial: a preferência sobrevive à atualização do
+APK, então nem reinstalar por cima trazia ele de volta.
 
 Quatro passos é o teto útil: tutorial longo tem queda forte de conclusão, e
 quem pula não vê justamente o que importa. Por isso o conteúdo é enxuto e a

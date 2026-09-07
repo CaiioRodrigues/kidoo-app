@@ -2,6 +2,7 @@ import type {
   Activity,
   ActivityCategory,
   ActivityCategoryId,
+  ClassSession,
   Booking,
   BookingDetails,
   CheckInResult,
@@ -53,6 +54,8 @@ export type KidooApi = {
     categories(): Promise<ActivityCategory[]>;
     activities(filters?: ActivityFilters): Promise<Activity[]>;
     activity(id: string, origin?: Coords): Promise<Activity>;
+    /** Turmas com vaga aberta, da mais próxima para a mais distante. */
+    sessions(activityId: string): Promise<ClassSession[]>;
     recommended(childId: string, origin?: Coords): Promise<Activity[]>;
     /** Comentários da atividade, mais recentes primeiro, com o resumo das notas. */
     reviews(activityId: string): Promise<{ summary: RatingSummary; reviews: Review[] }>;
@@ -67,7 +70,8 @@ export type KidooApi = {
   bookings: {
     list(): Promise<BookingDetails[]>;
     get(id: string): Promise<BookingDetails>;
-    create(input: { activityId: string; childId: string }): Promise<Booking>;
+    /** A reserva é de uma turma, não de uma atividade: é ela que tem lugar. */
+    create(input: { sessionId: string; childId: string }): Promise<Booking>;
     /**
      * Registra a presença, credita XP e, ao subir de nível, Kidoo Bônus.
      *

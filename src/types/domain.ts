@@ -77,6 +77,48 @@ export type Partner = {
   longitude: number;
 };
 
+/**
+ * Origem da vaga, que decide quanto o parceiro recebe.
+ *
+ * `ociosa` é lugar sobrando numa turma que vai acontecer de qualquer jeito: o
+ * professor já está pago e a sala já está alugada, então a criança a mais não
+ * custa nada ao parceiro — e por isso o repasse é menor. `cheia` é vaga que
+ * desloca um matriculado ou obriga a abrir turma, e custa o valor integral.
+ *
+ * É a única fonte de custo marginal baixo que existe em atividade infantil.
+ */
+export type SlotKind = 'ociosa' | 'cheia';
+
+/**
+ * Uma turma concreta: dia, hora e lugares.
+ *
+ * Antes o catálogo tratava a atividade como uma coisa só, com um horário
+ * genérico. Mas quem tem capacidade é a turma, não a atividade — e é o parceiro
+ * quem decide **quantos lugares libera em cada uma**. Sem esta entidade não
+ * existe vaga ociosa, nem extrato de repasse por tipo de vaga.
+ */
+export type ClassSession = {
+  id: Uuid;
+  activityId: Uuid;
+  startsAt: IsoDateTime;
+  /** Lugares que a turma comporta, pela razão professor/criança da modalidade. */
+  capacity: number;
+  /** Já matriculados direto com o parceiro. Não passam pelo Kidoo. */
+  enrolled: number;
+  /** Quantos lugares o parceiro abriu para o Kidoo nesta turma. */
+  slotsOpen: number;
+  /** Reservas do Kidoo já feitas aqui. */
+  slotsTaken: number;
+  kind: SlotKind;
+  /** Custo em coins. Vaga ociosa custa menos — é o que move a família para o horário vazio. */
+  coinCost: number;
+};
+
+/** Lugares que ainda dá para reservar nesta turma. */
+export function slotsAvailable(session: ClassSession): number {
+  return Math.max(0, session.slotsOpen - session.slotsTaken);
+}
+
 export type Activity = {
   id: Uuid;
   title: string;
@@ -93,7 +135,12 @@ export type Activity = {
    * um número, apenas omite.
    */
   distanceKm: number | null;
+  /**
+   * Menor custo entre as turmas abertas — o "a partir de" dos cartões.
+   * Derivado das turmas; quem cobra de verdade é a turma escolhida.
+   */
   coinCost: number;
+  /** Primeira turma com vaga. Derivado, como o `coinCost`. */
   nextSessionAt: IsoDateTime;
   description: string;
   tags: string[];
@@ -169,11 +216,18 @@ export type BookingStatus = 'confirmed' | 'checked_in' | 'cancelled' | 'complete
 export type Booking = {
   id: Uuid;
   activityId: Uuid;
+  /** Turma reservada. É ela que define horário, preço e o repasse devido. */
+  sessionId: Uuid;
   childId: Uuid;
   status: BookingStatus;
   scheduledAt: IsoDateTime;
   checkedInAt: IsoDateTime | null;
   coinCost: number;
+  /**
+   * Tipo da vaga no momento da reserva, congelado aqui de propósito: o extrato
+   * de repasse do parceiro é calculado sobre isto, e a turma pode mudar depois.
+   */
+  slotKind: SlotKind;
   payment: CoinPayment;
   /**
    * Código que o parceiro lê para confirmar a presença. Só existe depois do

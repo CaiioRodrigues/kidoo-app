@@ -5,11 +5,12 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/CategoryIcon';
+import { SessionPicker } from '@/features/activities';
 import { HeaderBar } from '@/components/navigation';
-import { Badge, Button, Card, CoinBadge, Divider, Screen, Text } from '@/components/ui';
+import { Badge, CoinBadge, Divider, Screen, Text } from '@/components/ui';
 import { RatingSummaryCard, ReviewCard, StarRating } from '@/features/reviews';
-import { formatPlace, formatSessionTime } from '@/lib/format';
-import { useActivity, useReviews } from '@/hooks/queries';
+import { formatPlace } from '@/lib/format';
+import { useActivity, useReviews, useSessions } from '@/hooks/queries';
 import { categoryTone, radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
@@ -22,6 +23,7 @@ export default function ActivityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: activity, isPending, isError } = useActivity(id ?? '');
   const { data: reviewData, isPending: reviewsPending } = useReviews(id ?? '');
+  const { data: sessions = [], isPending: sessionsPending } = useSessions(id ?? '');
   const [tab, setTab] = useState<'sobre' | 'avaliacoes'>('sobre');
 
   if (isPending) {
@@ -134,12 +136,24 @@ export default function ActivityDetailScreen() {
               {activity.description}
             </Text>
 
-            <Card bordered elevation="none" style={styles.sessionCard}>
-              <Ionicons name="time-outline" size={18} color={colors.primary} />
-              <Text variant="label" color={colors.text} style={styles.flex}>
-                Próxima turma: {formatSessionTime(activity.nextSessionAt)}
+            <Text variant="subheading" style={styles.sessionsTitle}>
+              Escolha a turma
+            </Text>
+            {sessionsPending ? (
+              <Text variant="caption" color={colors.textFaint}>
+                Carregando turmas…
               </Text>
-            </Card>
+            ) : (
+              <SessionPicker
+                sessions={sessions}
+                onSelect={(session) =>
+                  router.push({
+                    pathname: '/booking/confirm',
+                    params: { activityId: activity.id, sessionId: session.id },
+                  })
+                }
+              />
+            )}
           </>
         ) : (
           <View style={styles.reviews}>
@@ -169,18 +183,9 @@ export default function ActivityDetailScreen() {
 
         <View style={styles.footer}>
           <CoinBadge amount={activity.coinCost} />
-          <Button
-            title="Reservar"
-            fullWidth={false}
-            size="md"
-            onPress={() =>
-              router.push({
-                pathname: '/booking/confirm',
-                params: { activityId: activity.id },
-              })
-            }
-            style={styles.reserve}
-          />
+          <Text variant="caption" color={colors.textMuted} style={styles.flex}>
+            A partir de — o preço final é o da turma que você escolher.
+          </Text>
         </View>
       </View>
     </Screen>
@@ -234,12 +239,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     tab: { paddingBottom: spacing.md, borderBottomWidth: 2, borderBottomColor: 'transparent' },
     reviews: { marginTop: spacing.lg, gap: spacing.md },
-    sessionCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      marginTop: spacing.base,
-    },
+    sessionsTitle: { marginTop: spacing.lg, marginBottom: spacing.sm },
     footer: {
       flexDirection: 'row',
       alignItems: 'center',

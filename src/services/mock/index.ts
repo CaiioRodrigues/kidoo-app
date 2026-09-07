@@ -1,5 +1,6 @@
-import { ACTIVITIES, CATEGORIES, PLANS } from './data';
+import { ACTIVITIES, CATEGORIES, CLASS_SESSIONS, PLANS } from './data';
 import { REVIEWS, summarize } from './reviews';
+import { slotsAvailable } from '@/types/domain';
 import {
   canCheckIn,
   checkInWindow,
@@ -17,9 +18,10 @@ import {
   splitPayment,
 } from '@/lib/bonus';
 import { MAX_LEVEL, XP_PER_CHECK_IN, bonusForLevel, levelFromXp } from '@/lib/levels';
+import { buildAchievements } from '@/lib/achievements';
+import { rankForChild } from '@/lib/recommendation';
 import { daysUntilReset, startSubscription, withCurrentCycle } from '@/lib/subscription';
 
-import { buildAchievements } from './journey';
 import { ApiError } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
 import { haversineKm, type Coords } from '@/lib/geo';
@@ -203,11 +205,13 @@ function seedDemoHistory(child: Child): void {
       {
         id: randomId('b'),
         activityId: activity.id,
+        sessionId: `${activity.id}-s0`,
         childId: child.id,
         status: 'completed',
         scheduledAt: when.toISOString(),
         checkedInAt: when.toISOString(),
         coinCost: activity.coinCost,
+        slotKind: 'ociosa',
         payment: {
           fromBonus: 0,
           fromSubscription: activity.coinCost,
@@ -323,6 +327,17 @@ export const mockApi: KidooApi = {
       if (!found) throw new ApiError('not_found', 'Atividade não encontrada.');
       return delay(withDistance(found, origin));
     },
+    async sessions(activityId) {
+      const now = Date.now();
+      const open = CLASS_SESSIONS.filter(
+        (session) =>
+          session.activityId === activityId &&
+          slotsAvailable(session) > 0 &&
+          Date.parse(session.startsAt) > now,
+      ).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+      return delay(open);
+    },
+
     async reviews(activityId) {
       const activity = ACTIVITIES.find((item) => item.id === activityId);
       if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
@@ -374,17 +389,7 @@ export const mockApi: KidooApi = {
       const child = state.children.find((item) => item.id === childId);
       if (!child) return delay(measured.slice(0, 3));
 
-      const age = ageInYears(child.birthDate);
-      const ranked = measured
-        .filter((activity) => age >= activity.minAge - 1 && age <= activity.maxAge + 1)
-        .sort((a, b) => {
-          const aLiked = child.interests.includes(a.category) ? 1 : 0;
-          const bLiked = child.interests.includes(b.category) ? 1 : 0;
-          if (aLiked !== bLiked) return bLiked - aLiked;
-          // Sem origem conhecida ninguém "vence" no desempate por distância.
-          return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity);
-        });
-
+      const ranked = rankForChild(measured, child);
       return delay(ranked.length > 0 ? ranked : measured.slice(0, 3));
     },
   },
@@ -433,6 +438,12 @@ export const mockApi: KidooApi = {
       if (!booking) throw new ApiError('not_found', 'Reserva não encontrada.');
       if (booking.status === 'cancelled') {
         throw new ApiError('not_found', 'Esta reserva foi cancelada.');
+      }
+      // Presença confirmada pelo parceiro encerra a reserva. Sem esta guarda o
+      // fluxo abaixo tratava 'completed' como "ainda não entrou" e creditava
+      // XP de novo a cada check-in repetido.
+      if (booking.status === 'completed') {
+        throw new ApiError('not_found', 'Esta presença já foi confirmada pelo parceiro.');
       }
 
       const activity = ACTIVITIES.find((item) => item.id === booking.activityId);
@@ -580,15 +591,33 @@ export const mockApi: KidooApi = {
         );
       }
 
+      // A vaga volta para o parceiro. Sem isto a turma "encheria" com reservas
+      // canceladas e ele perderia lugar que está livre.
+      const session = CLASS_SESSIONS.find((item) => item.id === booking.sessionId);
+      if (session) session.slotsTaken = Math.max(0, session.slotsTaken - 1);
+
       const cancelled: Booking = { ...booking, status: 'cancelled', checkIn: null };
       state.bookings = state.bookings.map((item) => (item.id === bookingId ? cancelled : item));
       return delay(toDetails(cancelled));
     },
 
-    async create({ activityId, childId }) {
+    async create({ sessionId, childId }) {
       requireSession();
-      const activity = ACTIVITIES.find((item) => item.id === activityId);
+      const session = CLASS_SESSIONS.find((item) => item.id === sessionId);
+      if (!session) throw new ApiError('not_found', 'Turma não encontrada.');
+
+      const activity = ACTIVITIES.find((item) => item.id === session.activityId);
       if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
+
+      // A vaga é do parceiro: se ele fechou ou a turma encheu, não há o que
+      // reservar. A checagem é aqui, no serviço, porque duas famílias podem
+      // tocar em "confirmar" ao mesmo tempo.
+      if (slotsAvailable(session) <= 0) {
+        throw new ApiError('not_found', 'Esta turma não tem mais vaga aberta.');
+      }
+      if (Date.parse(session.startsAt) <= Date.now()) {
+        throw new ApiError('not_found', 'Esta turma já começou.');
+      }
 
       // Aplica a virada de semana antes de debitar: uma reserva feita depois da
       // segunda-feira usa a cota nova, não a que já expirou.
@@ -599,9 +628,9 @@ export const mockApi: KidooApi = {
       const lots = bonusLotsFor(
         state.bonusGrants,
         childId,
-        Math.min(wallet.balance, activity.coinCost),
+        Math.min(wallet.balance, session.coinCost),
       );
-      const payment = splitPayment(activity.coinCost, wallet.balance, lots);
+      const payment = splitPayment(session.coinCost, wallet.balance, lots);
 
       if (subscription) {
         if (subscription.coinsRemaining < payment.fromSubscription) {
@@ -623,14 +652,18 @@ export const mockApi: KidooApi = {
         state.bonusGrants = consumeBonus(state.bonusGrants, childId, payment.fromBonus);
       }
 
+      session.slotsTaken += 1;
+
       const booking: Booking = {
         id: randomId('b'),
-        activityId,
+        activityId: activity.id,
+        sessionId: session.id,
         childId,
         status: 'confirmed',
-        scheduledAt: activity.nextSessionAt,
+        scheduledAt: session.startsAt,
         checkedInAt: null,
-        coinCost: activity.coinCost,
+        coinCost: session.coinCost,
+        slotKind: session.kind,
         payment,
         checkIn: null,
         partnerConfirmedAt: null,
@@ -708,15 +741,6 @@ function weeklyActivityOf(childId: string): { label: string; count: number }[] {
   }
 
   return buckets;
-}
-
-function ageInYears(birthDate: string): number {
-  const birth = new Date(birthDate);
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const monthDelta = now.getMonth() - birth.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < birth.getDate())) age -= 1;
-  return age;
 }
 
 /** Usado em testes e no logout para voltar ao estado inicial. */

@@ -17,6 +17,7 @@ export const queryKeys = {
   activities: (filters?: ActivityFilters) => ['activities', filters ?? {}] as const,
   activity: (id: string, origin?: Coords) => ['activity', id, origin ?? null] as const,
   reviews: (activityId: string) => ['reviews', activityId] as const,
+  sessions: (activityId: string) => ['sessions', activityId] as const,
   recommended: (childId: string, origin?: Coords) =>
     ['recommended', childId, origin ?? null] as const,
   booking: (id: string) => ['booking', id] as const,
@@ -67,6 +68,17 @@ export function useActivities(filters?: ActivityFilters, options?: { enabled?: b
  */
 export function useOrigin(): Coords | undefined {
   return useLocationStore((state) => state.proof?.origin);
+}
+
+/** Turmas com vaga aberta de uma atividade. */
+export function useSessions(activityId: string) {
+  return useQuery({
+    queryKey: queryKeys.sessions(activityId),
+    queryFn: () => api.catalog.sessions(activityId),
+    enabled: activityId.length > 0,
+    // Vaga é disputada: cache curto para não oferecer turma que já encheu.
+    staleTime: 1000 * 20,
+  });
 }
 
 export function useActivity(id: string) {
@@ -139,10 +151,13 @@ export function useJourney(childId: string | null) {
 export function useCreateBooking() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { activityId: string; childId: string }) => api.bookings.create(input),
-    onSuccess: (_booking, variables) => {
+    mutationFn: (input: { sessionId: string; childId: string }) => api.bookings.create(input),
+    onSuccess: (booking, variables) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings });
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
+      // Uma vaga a menos na turma: sem invalidar, a tela seguinte ainda
+      // ofereceria o lugar que acabou de ser tomado.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sessions(booking.activityId) });
       // A carteira de bônus vive dentro de journey: sem invalidar aqui, o saldo
       // debitado no servidor continuaria aparecendo cheio na tela.
       void queryClient.invalidateQueries({ queryKey: queryKeys.journey(variables.childId) });
@@ -211,6 +226,8 @@ export function useCancelBooking() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.booking(booking.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
       void queryClient.invalidateQueries({ queryKey: queryKeys.journey(booking.childId) });
+      // A vaga voltou para a turma.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sessions(booking.activityId) });
     },
   });
 }
