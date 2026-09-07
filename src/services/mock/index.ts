@@ -65,6 +65,14 @@ type MockState = {
   bonusGrants: BonusGrant[];
   /** Avaliações enviadas nesta sessão, antes das fixas do catálogo. */
   reviews: Review[];
+  /**
+   * Nota e contagem por atividade, depois das avaliações desta execução.
+   *
+   * Fica aqui, e não dentro de `ACTIVITIES`, porque o catálogo é semente
+   * compartilhada: alterá-lo por dentro muda o objeto que o React Query já tem
+   * em cache, ele compara, conclui que nada mudou, e a tela não redesenha.
+   */
+  ratings: Map<string, { rating: number; reviewCount: number }>;
   subscription: SubscriptionState | null;
 };
 
@@ -74,6 +82,7 @@ const state: MockState = {
   bookings: [],
   bonusGrants: [],
   reviews: [],
+  ratings: new Map(),
   subscription: null,
 };
 
@@ -130,9 +139,18 @@ function requireSession(): Session {
  * já medida, e nenhum componente precisa saber fazer trigonometria.
  */
 function withDistance(activity: Activity, origin: Coords | undefined): Activity {
-  if (!origin) return activity;
+  const stats = state.ratings.get(activity.id);
   const { latitude, longitude } = activity.partner;
-  return { ...activity, distanceKm: haversineKm(origin, { latitude, longitude }) };
+
+  // Sempre um objeto novo, mesmo sem origem nem avaliação. Devolver a mesma
+  // referência fazia a comparação do React Query enxergar "nada mudou" e a
+  // tela ficar com o número anterior — foi exatamente assim que a nota nova
+  // aparecia no Explorar (recém-montado) e não na Home (já montada).
+  return {
+    ...activity,
+    ...(stats ?? {}),
+    distanceKm: origin ? haversineKm(origin, { latitude, longitude }) : activity.distanceKm,
+  };
 }
 
 function matchesFilters(activity: Activity, filters: ActivityFilters | undefined): boolean {
@@ -324,6 +342,24 @@ export const mockApi: KidooApi = {
       state.bookings = state.bookings.map((item) =>
         item.id === bookingId ? { ...item, reviewId: review.id } : item,
       );
+
+      // A nota e a contagem entram na média, como entram no banco
+      // (`submit_review` recalcula o agregado). Sem isto, a avaliação aparecia
+      // na aba de comentários mas o cartão continuava com o número velho — e o
+      // usuário conclui, com razão, que o envio não funcionou.
+      const activity = ACTIVITIES.find((item) => item.id === booking.activityId);
+      if (activity) {
+        const atual = state.ratings.get(activity.id) ?? {
+          rating: activity.rating,
+          reviewCount: activity.reviewCount,
+        };
+        const total = atual.reviewCount + 1;
+        state.ratings.set(activity.id, {
+          rating: Math.round(((atual.rating * atual.reviewCount + review.rating) / total) * 10) / 10,
+          reviewCount: total,
+        });
+      }
+
       return delay(review);
     },
 
@@ -700,5 +736,6 @@ export function resetMockState(): void {
   state.bookings = [];
   state.bonusGrants = [];
   state.reviews = [];
+  state.ratings.clear();
   state.subscription = null;
 }

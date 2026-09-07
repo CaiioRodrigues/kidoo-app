@@ -13,7 +13,7 @@ import { AchievementCard, shareAchievement, type AchievementShare } from '@/feat
 import { levelName } from '@/lib/levels';
 import { formatSessionTime } from '@/lib/format';
 import { canCancel, cancellationMessage, formatDeadline } from '@/lib/cancellation';
-import { canCheckIn, checkInWindow, proximityTo } from '@/lib/check-in';
+import { canCheckIn, checkInWindow, isTicketValid, proximityTo } from '@/lib/check-in';
 import { useLocationStore } from '@/stores/location-store';
 import { toUserMessage } from '@/services';
 import { useBooking, useCancelBooking, useCheckIn } from '@/hooks/queries';
@@ -48,6 +48,11 @@ export default function CheckInScreen() {
   // anular. `result` guarda o comprovante da chamada de check-in, então sem
   // esta guarda o QR continuaria na tela com cara de válido depois de usado.
   const ticket = confirmed ? null : (result?.ticket ?? booking?.checkIn ?? null);
+  // O código vale 30 minutos, mas a janela de check-in vai até 90 depois da
+  // aula: quem entra cedo e espera o professor fica com um código morto na
+  // mão. Reemitir é o próprio check-in de novo — ele não credita nada nem
+  // revalida distância para quem já entrou.
+  const ticketExpirado = ticket !== null && !isTicketValid(ticket);
   // A dica só aparece quando há código na tela — é sobre ele que ela fala.
   const hint = useOneTimeHint(PreferenceKeys.hintCheckIn, Boolean(ticket));
   const firstName = booking?.child.name.split(' ')[0] ?? '';
@@ -295,6 +300,28 @@ export default function CheckInScreen() {
               />
             ) : null}
 
+          </>
+        ) : done ? (
+          <>
+            {/* Entrou, e o professor ainda não confirmou. O código é a única
+                coisa que importa aqui — e ele vale 30 minutos, enquanto a
+                janela de check-in vai até 90 depois da aula. Sem esta saída,
+                quem chega cedo e espera fica com um código morto na mão. */}
+            {ticketExpirado ? (
+              <Button
+                title="Gerar novo código"
+                loading={checkIn.isPending}
+                onPress={() => void handleCheckIn()}
+              />
+            ) : null}
+            <Button
+              title="Ver minhas reservas"
+              variant="secondary"
+              onPress={() => router.replace('/(tabs)/bookings')}
+            />
+            <Text variant="caption" color={colors.textFaint} center>
+              A avaliação abre depois que o professor confirmar a presença.
+            </Text>
           </>
         ) : (
           <>
