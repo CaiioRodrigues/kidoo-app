@@ -14,17 +14,21 @@ No painel do Supabase, **New project**:
 
 Leva uns dois minutos para ficar pronto.
 
-## 2. Desligar a confirmação de e-mail (por enquanto)
+## 2. Confirmação de e-mail
 
-**Authentication → Sign In / Providers → Email → Confirm email: desligado.**
+**Authentication → Sign In / Providers → Email → Confirm email.**
 
-Com ela ligada, o cadastro no app não devolve sessão: a pessoa cria a conta e
-fica presa até clicar num link de e-mail. O app trata esse caso com uma
-mensagem honesta, mas o fluxo fica pela metade.
+O app suporta os dois modos, então a escolha é sua:
 
-Antes de abrir para famílias de verdade, **religue**. Sem confirmação, qualquer
-um cria conta com o e-mail de outra pessoa. Quando chegar a hora, me peça a
-tela de "confirme seu e-mail" — é meia hora de trabalho.
+**Ligada (recomendado a partir de agora).** O cadastro leva para a tela
+"Confirme seu e-mail", com o motivo explicado, botão de reenviar e saída para
+o login. É como tem de ficar antes de qualquer família real: sem confirmação,
+qualquer pessoa cria conta com o e-mail de outra e passa a receber o que for
+mandado para aquele endereço — e aqui a conta guarda dados de criança.
+
+**Desligada.** O cadastro entra direto e cai no cadastro da criança. Útil
+enquanto você está testando sozinho e não quer abrir o e-mail a cada conta
+nova.
 
 ## 3. Criar o banco
 

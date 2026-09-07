@@ -326,17 +326,33 @@ export const supabaseApi: KidooApi = {
           inUse ? 'Este e-mail já tem conta no Kidoo.' : 'Não foi possível criar a conta.',
         );
       }
-      // Com confirmação de e-mail ligada no projeto, o cadastro não devolve
-      // sessão: a pessoa precisa clicar no link antes de entrar.
+      // Sem sessão significa confirmação pendente, e isso não é erro: é o
+      // caminho normal quando o projeto exige confirmar o e-mail. Quem decide
+      // o que mostrar é a tela.
       if (!data.session) {
-        throw new ApiError('unknown', 'Confirme o e-mail que enviamos para entrar.');
+        return { status: 'needs_confirmation', email };
       }
 
-      return sessionFrom(
-        data.session.access_token,
-        data.session.expires_at,
-        await guardianOf(data.session.user.id),
-      );
+      return {
+        status: 'signed_in',
+        session: sessionFrom(
+          data.session.access_token,
+          data.session.expires_at,
+          await guardianOf(data.session.user.id),
+        ),
+      };
+    },
+
+    async resendConfirmation(email) {
+      const { error } = await supabase().auth.resend({ type: 'signup', email });
+      // Reenvio tem limite de frequência no Supabase. A mensagem diz o que
+      // fazer — esperar — em vez de sugerir que algo quebrou.
+      if (error) {
+        throw new ApiError(
+          'unknown',
+          'Não foi possível reenviar agora. Aguarde um minuto e tente de novo.',
+        );
+      }
     },
 
     async signOut() {

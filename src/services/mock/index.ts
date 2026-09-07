@@ -36,6 +36,7 @@ import type {
   BookingDetails,
   Child,
   Session,
+  SignUpResult,
   SubscriptionState,
 } from '@/types/domain';
 
@@ -179,56 +180,6 @@ function attendanceOf(childId: string): {
   return { total, byCategory };
 }
 
-/**
- * Demo: dá um histórico à criança recém-cadastrada para a Jornada não nascer
- * vazia na apresentação. REMOVER ao ligar o backend real.
- */
-function seedDemoHistory(child: Child): void {
-  const seeds: { activityId: string; daysAgo: number }[] = [
-    { activityId: 'a-futebol-kids', daysAgo: 21 },
-    { activityId: 'a-futebol-kids', daysAgo: 14 },
-    { activityId: 'a-natacao-infantil', daysAgo: 10 },
-    { activityId: 'a-futebol-kids', daysAgo: 7 },
-    { activityId: 'a-natacao-infantil', daysAgo: 4 },
-    { activityId: 'a-judo-kids', daysAgo: 2 },
-  ];
-
-  for (const seed of seeds) {
-    const activity = ACTIVITIES.find((item) => item.id === seed.activityId);
-    if (!activity) continue;
-
-    const when = new Date();
-    when.setDate(when.getDate() - seed.daysAgo);
-
-    state.bookings = [
-      ...state.bookings,
-      {
-        id: randomId('b'),
-        activityId: activity.id,
-        sessionId: `${activity.id}-s0`,
-        childId: child.id,
-        status: 'completed',
-        scheduledAt: when.toISOString(),
-        checkedInAt: when.toISOString(),
-        coinCost: activity.coinCost,
-        slotKind: 'ociosa',
-        payment: {
-          fromBonus: 0,
-          fromSubscription: activity.coinCost,
-          total: activity.coinCost,
-          bonusLots: [],
-        },
-        checkIn: null,
-        partnerConfirmedAt: when.toISOString(),
-        // Histórico semeado: já confirmado, e a recompensa já colhida — sem
-        // isto o app "comemoraria" aulas de semanas atrás na primeira abertura.
-        reward: { xpEarned: XP_PER_CHECK_IN, levelUp: null },
-        checkInProof: { locationVerified: true, distanceM: 40, mocked: false },
-        reviewId: null,
-      },
-    ];
-  }
-}
 
 export const mockApi: KidooApi = {
   auth: {
@@ -240,7 +191,14 @@ export const mockApi: KidooApi = {
       return delay(issueSession(name.charAt(0).toUpperCase() + name.slice(1), email));
     },
     async signUp({ name, email }) {
-      return delay(issueSession(name, email));
+      // O backend em memória não manda e-mail, então não há o que confirmar:
+      // devolve a sessão direto. A tela de confirmação existe para o caminho
+      // real e é alcançável pela rota, não por um desfecho simulado aqui.
+      return delay<SignUpResult>({ status: 'signed_in', session: issueSession(name, email) });
+    },
+
+    async resendConfirmation() {
+      return delay(undefined, 200);
     },
     async signOut() {
       state.session = null;
@@ -275,32 +233,14 @@ export const mockApi: KidooApi = {
         level: 1,
         achievements: 0,
       };
+      // A criança nasce zerada, como nasce de verdade. Havia aqui um histórico
+      // semeado — seis aulas passadas, XP e bônus correspondentes — que existia
+      // para as telas de Jornada não abrirem vazias enquanto não havia backend.
+      // Com o Supabase no ar isso passou a mentir: quem cria um perfil hoje vê
+      // aulas que nunca aconteceram, e a primeira coisa que o app diz sobre a
+      // criança dele é falsa.
       state.children = [...state.children, base];
-      seedDemoHistory(base);
-
-      // XP e conquistas coerentes com o histórico semeado acima (demo).
-      const { total, byCategory } = attendanceOf(base.id);
-      const xp = total * XP_PER_CHECK_IN;
-      const child: Child = {
-        ...base,
-        xp,
-        level: levelFromXp(xp).level,
-        achievements: buildAchievements(total, byCategory, new Date().toISOString()).filter(
-          (achievement) => achievement.unlockedAt !== null,
-        ).length,
-      };
-      state.children = state.children.map((item) => (item.id === child.id ? child : item));
-
-      // Demo: os bônus dos níveis já alcançados pelo histórico semeado, datados
-      // no passado para que a validade de 30 dias fique visível na carteira.
-      const level = child.level;
-      for (let reached = 2; reached <= level; reached += 1) {
-        const grantedAt = new Date();
-        grantedAt.setDate(grantedAt.getDate() - (level - reached + 1) * 9);
-        grantLevelBonus(child.id, reached - 1, reached, grantedAt);
-      }
-
-      return delay(child);
+      return delay(base);
     },
   },
 

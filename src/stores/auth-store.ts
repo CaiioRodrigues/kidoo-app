@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 import { SecureKeys, secureDelete, secureGet, secureSet } from '@/lib/secure-storage';
 import type { SignInInput, SignUpInput } from '@/lib/validation';
 import { api } from '@/services';
-import type { Session } from '@/types/domain';
+import type { Session, SignUpResult } from '@/types/domain';
 
 type AuthStatus = 'idle' | 'restoring' | 'authenticated' | 'unauthenticated';
 
@@ -13,7 +13,13 @@ type AuthState = {
   session: Session | null;
   restore: () => Promise<void>;
   signIn: (input: SignInInput) => Promise<void>;
-  signUp: (input: SignUpInput) => Promise<void>;
+  /**
+   * Devolve o desfecho para a tela decidir o caminho: entrar direto, ou pedir
+   * a confirmação do e-mail. A store não navega — quem navega é quem tem tela.
+   */
+  signUp: (input: SignUpInput) => Promise<SignUpResult>;
+  /** Reenvia o e-mail de confirmação. */
+  resendConfirmation: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -57,9 +63,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   async signUp(input) {
-    const session = await api.auth.signUp(input);
-    await secureSet(SecureKeys.session, session.accessToken);
-    set({ status: 'authenticated', session });
+    const result = await api.auth.signUp(input);
+    if (result.status === 'signed_in') {
+      await secureSet(SecureKeys.session, result.session.accessToken);
+      set({ status: 'authenticated', session: result.session });
+    }
+    return result;
+  },
+
+  async resendConfirmation(email) {
+    await api.auth.resendConfirmation(email);
   },
 
   async signOut() {
