@@ -80,12 +80,14 @@ export default function BookingsScreen() {
         renderItem={({ item }) => (
           <BookingRow
             booking={item}
+            // Sempre a tela da reserva, que cobre os três estados: fazer o
+            // check-in, mostrar o código enquanto o professor não confirma, e
+            // celebrar depois. Antes, uma reserva com check-in feito e ainda
+            // sem avaliação ia direto para o formulário de avaliação — e a
+            // família ficava sem conseguir voltar ao código, justamente no
+            // momento em que ele é a única coisa que importa.
             onPress={() =>
-              router.push(
-                (item.status === 'checked_in' || item.status === 'completed') && !item.reviewId
-                  ? { pathname: '/booking/[id]/review', params: { id: item.id } }
-                  : { pathname: '/booking/[id]/check-in', params: { id: item.id } },
-              )
+              router.push({ pathname: '/booking/[id]/check-in', params: { id: item.id } })
             }
           />
         )}
