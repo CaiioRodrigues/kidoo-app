@@ -44,7 +44,10 @@ export default function CheckInScreen() {
   const cardRef = useRef<View>(null);
   const done = booking?.status === 'checked_in' || booking?.status === 'completed';
   const confirmed = booking?.status === 'completed' && booking.partnerConfirmedAt !== null;
-  const ticket = result?.ticket ?? booking?.checkIn ?? null;
+  // Depois da confirmação o banco anula o código — e a tela também tem de
+  // anular. `result` guarda o comprovante da chamada de check-in, então sem
+  // esta guarda o QR continuaria na tela com cara de válido depois de usado.
+  const ticket = confirmed ? null : (result?.ticket ?? booking?.checkIn ?? null);
   // A dica só aparece quando há código na tela — é sobre ele que ela fala.
   const hint = useOneTimeHint(PreferenceKeys.hintCheckIn, Boolean(ticket));
   const firstName = booking?.child.name.split(' ')[0] ?? '';
@@ -172,12 +175,14 @@ export default function CheckInScreen() {
         </Animated.View>
 
         <Text variant="title" center style={styles.title}>
-          {done ? 'Check-in realizado!' : 'Reserva confirmada!'}
+          {confirmed ? 'Presença confirmada!' : done ? 'Check-in realizado!' : 'Reserva confirmada!'}
         </Text>
         <Text variant="body" color={colors.textMuted} center>
-          {done
-            ? `${firstName} começou a atividade 🎉`
-            : `Faça o check-in quando ${firstName} chegar no local.`}
+          {confirmed
+            ? `O professor confirmou que ${firstName} chegou 🎉`
+            : done
+              ? `Mostre o código para o professor confirmar.`
+              : `Faça o check-in quando ${firstName} chegar no local.`}
         </Text>
       </View>
 
@@ -212,11 +217,36 @@ export default function CheckInScreen() {
       ) : null}
 
       {confirmed ? (
-        <Card background={palette.tealSoft} elevation="none" style={styles.confirmedCard}>
-          <Ionicons name="shield-checkmark" size={20} color={colors.success} />
-          <Text variant="label" color={colors.text} style={styles.flex}>
-            Presença confirmada pelo parceiro.
-          </Text>
+        <Animated.View entering={FadeInDown.duration(420)}>
+          <Card background={palette.tealSoft} elevation="none" style={styles.confirmedCard}>
+            <Ionicons name="shield-checkmark" size={22} color={colors.success} />
+            <View style={styles.flex}>
+              <Text variant="bodyStrong" color={colors.text}>
+                {booking.activity.partner.name} confirmou a presença.
+              </Text>
+              {reward ? (
+                <Text variant="caption" color={colors.textMuted}>
+                  +{reward.xpEarned} XP na jornada de {firstName}.
+                </Text>
+              ) : null}
+            </View>
+          </Card>
+        </Animated.View>
+      ) : null}
+
+      {reward?.levelUp ? (
+        <Card background={palette.yellowSoft} elevation="none" style={styles.levelUpCard}>
+          <Text style={styles.levelUpEmoji}>🎖️</Text>
+          <View style={styles.flex}>
+            <Text variant="bodyStrong" color={colors.text}>
+              Subiu para o nível {reward.levelUp.to}!
+            </Text>
+            <Text variant="caption" color={colors.textMuted}>
+              {reward.levelUp.bonusEarned === 1
+                ? 'Você ganhou 1 moeda bônus, válida por 30 dias.'
+                : `Você ganhou ${reward.levelUp.bonusEarned} moedas bônus, válidas por 30 dias.`}
+            </Text>
+          </View>
         </Card>
       ) : null}
 
@@ -238,23 +268,21 @@ export default function CheckInScreen() {
       ) : null}
 
       <View style={styles.actions}>
-        {done ? (
+        {confirmed ? (
           <>
+            {/* Confirmada a presença, sobram duas decisões — e "mais tarde" é
+                uma delas de verdade: a aba Reservas guarda o pedido de
+                avaliação, então adiar não perde nada. */}
             <Button
-              title="Ver detalhes"
-              onPress={() =>
-                router.push({
-                  pathname: '/activity/[id]',
-                  params: { id: booking.activity.id },
-                })
-              }
-            />
-            <Button
-              title="Avaliar o estabelecimento"
-              variant="secondary"
+              title="Avaliar a aula"
               onPress={() =>
                 router.push({ pathname: '/booking/[id]/review', params: { id: booking.id } })
               }
+            />
+            <Button
+              title="Avaliar mais tarde"
+              variant="secondary"
+              onPress={() => router.replace('/(tabs)/bookings')}
             />
             {/* Só depois da confirmação: antes dela não há conquista, e um
                 botão que não faz nada ao ser tocado é pior do que nenhum. */}
@@ -304,21 +332,6 @@ export default function CheckInScreen() {
         )}
       </View>
 
-      {reward?.levelUp ? (
-        <Card background={palette.yellowSoft} elevation="none" style={styles.levelUpCard}>
-          <Text style={styles.levelUpEmoji}>🎖️</Text>
-          <View style={styles.flex}>
-            <Text variant="bodyStrong" color={colors.text}>
-              Subiu para o nível {reward.levelUp.to}!
-            </Text>
-            <Text variant="caption" color={colors.textMuted}>
-              {reward.levelUp.bonusEarned === 1
-                ? 'Você ganhou 1 moeda bônus, válida por 30 dias.'
-                : `Você ganhou ${reward.levelUp.bonusEarned} moedas bônus, válidas por 30 dias.`}
-            </Text>
-          </View>
-        </Card>
-      ) : null}
 
       {shareData ? (
         // Renderizado fora da área visível: existe só para virar imagem.
@@ -327,17 +340,16 @@ export default function CheckInScreen() {
         </View>
       ) : null}
 
-      {done ? (
+      {done && !confirmed ? (
         <Card background={palette.purpleTint} elevation="none" style={styles.mascotCard}>
           <Text style={styles.mascot}>👾</Text>
           <View style={styles.flex}>
             <Text variant="bodyStrong" color={colors.primary}>
-              Boa aula, {firstName}!
+              Falta só o professor confirmar
             </Text>
             <Text variant="caption" color={colors.textMuted}>
-              {reward
-                ? `Você ganhou ${reward.xpEarned} XP. Continue assim!`
-                : `Assim que o professor ler o código, ${result?.xpOnConfirm ?? 100} XP entram na jornada de ${firstName}.`}
+              Assim que ele ler o código, {result?.xpOnConfirm ?? 100} XP entram na jornada de{' '}
+              {firstName}.
             </Text>
           </View>
         </Card>
