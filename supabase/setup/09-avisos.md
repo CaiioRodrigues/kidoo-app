@@ -18,13 +18,29 @@ serviço de push responder — e uma queda dele desfaria o cancelamento da famí
 
 ## 1. Publicar a função
 
-Precisa do [Supabase CLI](https://supabase.com/docs/guides/cli) na sua máquina:
+Precisa do [Supabase CLI](https://supabase.com/docs/guides/cli) na sua máquina.
+
+**Antes de tudo, dois cuidados que valem o erro que eles evitam:**
+
+- Rode **da raiz do repositório**. O CLI procura `supabase/functions/<nome>/index.ts`
+  a partir da pasta onde você está.
+- Traga a branch antes. Se o seu clone estiver atrasado, a função ainda não
+  existe na sua máquina e o deploy falha com
+  `Entrypoint path does not exist`, que parece erro de servidor mas é arquivo
+  faltando no seu lado.
 
 ```bash
+cd /caminho/para/kidoo-app
+git pull origin claude/android-ios-app-design-4n77ap
+ls supabase/functions/enviar-avisos/index.ts   # tem de existir antes de seguir
+
 npx supabase login
 npx supabase link --project-ref efqsiuwqqzpausyemjed
 npx supabase functions deploy enviar-avisos
 ```
+
+O aviso `WARNING: Docker is not running` é esperado e não impede o deploy —
+o empacotamento acontece no servidor do Supabase.
 
 `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` já existem dentro das Edge
 Functions — **não** crie esses segredos à mão, e não coloque a chave de serviço

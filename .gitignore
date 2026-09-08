@@ -50,3 +50,7 @@ yarn-error.*
 *.apk
 *.ipa
 .easignore
+
+# Estado local do CLI do Supabase. `supabase link` grava o ref do projeto e a
+# URL do pooler aqui — é da sua máquina, não do repositório.
+supabase/.temp/
