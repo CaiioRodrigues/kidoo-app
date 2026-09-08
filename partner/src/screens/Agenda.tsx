@@ -1,57 +1,108 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { api, type AgendaRow, type RosterRow } from '@/api';
 import { Card, Erro, EtiquetaVaga, Vazio, useDados } from '@/components/ui';
-import { diaLongo, hora, mesmoDia } from '@/format';
+import { diaCurto, diaLongo, ehHoje, faixaDaSemana, hora, mesmoDia } from '@/format';
+
+type Modo = 'dia' | 'semana';
+
+/** Meia-noite do dia, que é onde toda janela de agenda começa. */
+function zerar(data: Date): Date {
+  const d = new Date(data);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function somarDias(data: Date, dias: number): Date {
+  const d = new Date(data);
+  d.setDate(d.getDate() + dias);
+  return d;
+}
+
+/** O domingo da semana daquele dia — a semana brasileira começa no domingo. */
+function domingoDa(data: Date): Date {
+  return somarDias(zerar(data), -zerar(data).getDay());
+}
 
 /**
- * A tela do dia.
+ * A tela do dia — e, quando ele pede, a da semana.
  *
- * É a única que fica aberta enquanto a aula acontece, então ela responde a uma
- * pergunta só: **quem vem agora, e quem já chegou**. Publicar vaga e conferir
- * repasse são outras telas de propósito — misturá-las aqui encheria de botão
- * a tela que alguém usa com uma criança na frente esperando.
+ * O modo **Dia** é o que fica aberto enquanto a aula acontece, e responde a uma
+ * pergunta só: quem vem agora, e quem já chegou. Publicar vaga e conferir
+ * repasse são outras telas de propósito — misturá-las aqui encheria de botão a
+ * tela que alguém usa com uma criança na frente esperando.
+ *
+ * O modo **Semana** responde a outra pergunta, que só aparece quando o parceiro
+ * tem movimento de verdade: *como está minha semana?* — onde ficou o buraco,
+ * qual turma ninguém reservou, o que falta publicar. Andar de dia em dia para
+ * descobrir isso são sete cliques e nenhuma comparação.
  */
 export function Agenda() {
+  const [modo, setModo] = useState<Modo>('dia');
   const [dia, setDia] = useState(() => new Date());
   const [aberta, setAberta] = useState<string | null>(null);
 
-  const inicio = new Date(dia);
-  inicio.setHours(0, 0, 0, 0);
-  const fim = new Date(inicio);
-  fim.setDate(fim.getDate() + 1);
-  const chave = inicio.toISOString();
+  const inicio = modo === 'dia' ? zerar(dia) : domingoDa(dia);
+  const fim = somarDias(inicio, modo === 'dia' ? 1 : 7);
 
   const { dado: turmas, carregando, erro, recarregar } = useDados(
     () => api.agenda(inicio, fim),
-    [chave],
+    [inicio.toISOString(), fim.toISOString()],
   );
 
-  const anda = (dias: number) => {
-    const proximo = new Date(dia);
-    proximo.setDate(proximo.getDate() + dias);
-    setDia(proximo);
+  const anda = (passos: number) => {
+    setDia(somarDias(dia, passos * (modo === 'dia' ? 1 : 7)));
     setAberta(null);
+  };
+
+  const naSemanaDeHoje = domingoDa(new Date()).getTime() === inicio.getTime();
+  const foraDoAgora = modo === 'dia' ? !mesmoDia(new Date().toISOString(), dia) : !naSemanaDeHoje;
+
+  // Ir para um dia a partir da grade: o cartão da grade não confirma presença,
+  // ele leva para onde se confirma. Duplicar a lista de presença dentro de uma
+  // coluna de 150px seria a mesma tela, pior.
+  const abrirNoDia = (turma: AgendaRow) => {
+    setDia(new Date(turma.startsAt));
+    setAberta(turma.sessionId);
+    setModo('dia');
   };
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Hoje no seu espaço</h1>
-          <p className="page-sub">{diaLongo(dia)}</p>
+          <h1>{modo === 'dia' ? 'Hoje no seu espaço' : 'Sua semana'}</h1>
+          <p className="page-sub">
+            {modo === 'dia' ? diaLongo(dia) : faixaDaSemana(inicio, somarDias(inicio, 6))}
+          </p>
         </div>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <div className="alternador" role="group" aria-label="Como ver a agenda">
+            <button
+              className="alternador-opcao"
+              aria-pressed={modo === 'dia'}
+              onClick={() => setModo('dia')}
+            >
+              Dia
+            </button>
+            <button
+              className="alternador-opcao"
+              aria-pressed={modo === 'semana'}
+              onClick={() => setModo('semana')}
+            >
+              Semana
+            </button>
+          </div>
           <button className="btn btn-ghost btn-sm" onClick={() => anda(-1)}>
-            ← Dia anterior
+            ← {modo === 'dia' ? 'Dia anterior' : 'Semana anterior'}
           </button>
-          {!mesmoDia(new Date().toISOString(), dia) && (
+          {foraDoAgora && (
             <button className="btn btn-ghost btn-sm" onClick={() => setDia(new Date())}>
-              Hoje
+              {modo === 'dia' ? 'Hoje' : 'Esta semana'}
             </button>
           )}
           <button className="btn btn-ghost btn-sm" onClick={() => anda(1)}>
-            Próximo dia →
+            {modo === 'dia' ? 'Próximo dia' : 'Próxima semana'} →
           </button>
         </div>
       </div>
@@ -63,7 +114,11 @@ export function Agenda() {
         </Card>
       )}
 
-      {turmas && turmas.length === 0 && (
+      {modo === 'semana' && turmas && (
+        <GradeDaSemana inicio={inicio} turmas={turmas} aoEscolher={abrirNoDia} />
+      )}
+
+      {modo === 'dia' && turmas && turmas.length === 0 && (
         <Card>
           <Vazio marca="🗓️">
             <h3>Nenhuma turma neste dia</h3>
@@ -74,18 +129,115 @@ export function Agenda() {
         </Card>
       )}
 
-      <div className="stack">
-        {turmas?.map((turma) => (
-          <CartaoTurma
-            key={turma.sessionId}
-            turma={turma}
-            aberta={aberta === turma.sessionId}
-            aoAbrir={() => setAberta(aberta === turma.sessionId ? null : turma.sessionId)}
-            aoConfirmar={recarregar}
-          />
-        ))}
-      </div>
+      {modo === 'dia' && (
+        <div className="stack">
+          {turmas?.map((turma) => (
+            <CartaoTurma
+              key={turma.sessionId}
+              turma={turma}
+              aberta={aberta === turma.sessionId}
+              aoAbrir={() => setAberta(aberta === turma.sessionId ? null : turma.sessionId)}
+              aoConfirmar={recarregar}
+            />
+          ))}
+        </div>
+      )}
     </>
+  );
+}
+
+/**
+ * Sete colunas, uma por dia.
+ *
+ * As sete colunas aparecem sempre, inclusive as vazias — o buraco na
+ * quarta-feira é uma das coisas que ele veio ver aqui, e uma grade que só
+ * mostra os dias com turma esconde exatamente isso.
+ */
+function GradeDaSemana({
+  inicio,
+  turmas,
+  aoEscolher,
+}: {
+  inicio: Date;
+  turmas: AgendaRow[];
+  aoEscolher: (turma: AgendaRow) => void;
+}) {
+  const dias = Array.from({ length: 7 }, (_, i) => somarDias(inicio, i));
+
+  const rolagem = useRef<HTMLDivElement>(null);
+  const colunaDeHoje = useRef<HTMLDivElement>(null);
+
+  // No celular só cabem duas colunas e meia, e a semana começa no domingo:
+  // sem isto, abrir a grade numa quinta mostra domingo e segunda — dois dias
+  // que já passaram — e hoje fica escondido à direita.
+  useEffect(() => {
+    const caixa = rolagem.current;
+    if (!caixa) return;
+    const coluna = colunaDeHoje.current;
+    // Voltar ao domingo quando a semana não tem hoje é parte do trabalho: sem
+    // isso, ir para a semana que vem herdava a rolagem da semana atual e a
+    // grade abria no meio, com domingo e segunda escondidos à esquerda.
+    const passaDaVista = coluna !== null && coluna.offsetLeft + coluna.offsetWidth > caixa.clientWidth;
+    caixa.scrollLeft = passaDaVista && coluna ? Math.max(0, coluna.offsetLeft - 12) : 0;
+  }, [inicio.toISOString()]);
+
+  return (
+    <Card pad={false}>
+      <div className="grade-rolagem" ref={rolagem}>
+        <div className="grade-semana">
+          {dias.map((data) => {
+            const doDia = turmas.filter((t) => mesmoDia(t.startsAt, data));
+            const hoje = ehHoje(data);
+            return (
+              <div
+                key={data.toISOString()}
+                className="grade-coluna"
+                ref={hoje ? colunaDeHoje : undefined}
+              >
+                <div className="grade-cabeca" aria-current={hoje ? 'date' : undefined}>
+                  <span className="grade-dia">{diaCurto(data)}</span>
+                  <span className={hoje ? 'grade-numero grade-numero-hoje' : 'grade-numero'}>
+                    {data.getDate()}
+                  </span>
+                </div>
+
+                {doDia.length === 0 ? (
+                  <p className="grade-vazio">—</p>
+                ) : (
+                  doDia.map((turma) => (
+                    <button
+                      key={turma.sessionId}
+                      type="button"
+                      className="grade-turma"
+                      onClick={() => aoEscolher(turma)}
+                    >
+                      <span className="grade-hora mono">{hora(turma.startsAt)}</span>
+                      <span className="grade-titulo">{turma.activityTitle}</span>
+                      <span className="grade-vagas mono">
+                        {turma.slotsTaken}/{turma.slotsOpen} reservadas
+                      </span>
+                      {/*
+                        Turma cheia de reserva e ninguém confirmado é o que dá
+                        trabalho hoje; e vaga aberta que ninguém pegou é o que
+                        dá prejuízo. As duas precisam saltar da grade sem
+                        precisar abrir o dia.
+                      */}
+                      {turma.checkedIn > turma.confirmed ? (
+                        <span className="badge badge-espera">
+                          {turma.checkedIn - turma.confirmed} a confirmar
+                        </span>
+                      ) : turma.slotsTaken === 0 && turma.slotsOpen > 0 ? (
+                        <span className="badge badge-neutro">sem reserva</span>
+                      ) : null}
+                    </button>
+                  ))
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Card>
   );
 }
 

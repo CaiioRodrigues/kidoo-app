@@ -5,6 +5,7 @@ import type {
   ActivityRow,
   AgendaRow,
   Partner,
+  ResultadoDaSerie,
   RosterRow,
   StatementRow,
 } from './types';
@@ -28,6 +29,8 @@ const MENSAGENS: Record<string, string> = {
   session_in_the_past: 'Não dá para publicar uma turma que já começou.',
   over_capacity: 'A soma de matriculados e vagas abertas passa da capacidade da turma.',
   negative_slots: 'O número de vagas não pode ser negativo.',
+  no_dates: 'Escolha pelo menos um dia da semana para a turma se repetir.',
+  too_many_dates: 'São turmas demais de uma vez. Reduza os dias ou as semanas.',
   slots_already_taken:
     'Já há reservas nestas vagas. Reduza só até o número que já foi reservado.',
   booking_not_found: 'Reserva não encontrada.',
@@ -212,6 +215,42 @@ async function publicarTurma(entrada: {
   if (error) traduz(error, 'Não foi possível publicar a turma.');
 }
 
+/**
+ * Publica a série inteira numa chamada.
+ *
+ * Uma chamada, uma transação: ou as oito semanas entram, ou nenhuma entra.
+ * Oito `publicarTurma` em laço deixariam meia série publicada quando o 4G da
+ * escolinha caísse no meio — e ninguém saberia quais quatro faltam.
+ */
+async function publicarSerie(entrada: {
+  activityId: string;
+  quando: Date[];
+  capacity: number;
+  enrolled: number;
+  slotsOpen: number;
+  coinCost: number;
+}): Promise<ResultadoDaSerie> {
+  type SerieSql = { quando: string; session_id: string | null; pulada: string | null };
+  const linhas = await linhasDe<SerieSql>(
+    'publish_sessions',
+    {
+      p_activity_id: entrada.activityId,
+      p_starts_at: entrada.quando.map((d) => d.toISOString()),
+      p_capacity: entrada.capacity,
+      p_enrolled: entrada.enrolled,
+      p_slots_open: entrada.slotsOpen,
+      p_coin_cost: entrada.coinCost,
+    },
+    'Não foi possível publicar as turmas.',
+  );
+
+  return {
+    publicadas: linhas.filter((l) => l.pulada === null).length,
+    jaExistiam: linhas.filter((l) => l.pulada === 'ja_existia').length,
+    noPassado: linhas.filter((l) => l.pulada === 'no_passado').length,
+  };
+}
+
 async function minhasAtividades(partnerId: string): Promise<ActivityRow[]> {
   const linhas = ok(
     await supabase()
@@ -324,6 +363,7 @@ export const supabaseApi: PainelApi = {
   confirmarPresenca,
   definirVagas,
   publicarTurma,
+  publicarSerie,
   minhasAtividades,
   trocarImagem,
   extrato,

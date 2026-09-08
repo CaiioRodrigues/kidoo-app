@@ -1,5 +1,13 @@
 import { PainelError } from './types';
-import type { ActivityRow, AgendaRow, PainelApi, Partner, RosterRow, StatementRow } from './types';
+import type {
+  ActivityRow,
+  AgendaRow,
+  PainelApi,
+  Partner,
+  ResultadoDaSerie,
+  RosterRow,
+  StatementRow,
+} from './types';
 import type { SlotKind } from '@app/types/domain';
 
 /**
@@ -233,6 +241,55 @@ export const demoApi: PainelApi = {
       slotsOpen: entrada.slotsOpen,
       coinCost: entrada.coinCost,
     });
+  },
+
+  /**
+   * A série, com as mesmas recusas do banco.
+   *
+   * Repete o pulo da data já publicada de propósito: é justamente o caso que
+   * a demonstração precisa mostrar — clicar duas vezes em "publicar" não pode
+   * dobrar a agenda, e um mock que aceita tudo esconderia isso.
+   */
+  async publicarSerie(entrada): Promise<ResultadoDaSerie> {
+    if (entrada.quando.length === 0) {
+      throw new PainelError('Escolha pelo menos um dia da semana para a turma se repetir.');
+    }
+    if (entrada.quando.length > 60) {
+      throw new PainelError('São turmas demais de uma vez. Reduza os dias ou as semanas.');
+    }
+    if (entrada.enrolled + entrada.slotsOpen > entrada.capacity) {
+      throw new PainelError('A soma de matriculados e vagas abertas passa da capacidade da turma.');
+    }
+    if (entrada.coinCost < 1 || entrada.coinCost > 6) {
+      throw new PainelError('O custo em coins precisa ficar entre 1 e 6.');
+    }
+
+    const resultado: ResultadoDaSerie = { publicadas: 0, jaExistiam: 0, noPassado: 0 };
+    await espera(null, 460);
+
+    for (const quando of entrada.quando) {
+      if (quando.getTime() <= Date.now()) {
+        resultado.noPassado += 1;
+        continue;
+      }
+      const iso = quando.toISOString();
+      if (turmas.some((t) => t.activityId === entrada.activityId && t.startsAt === iso)) {
+        resultado.jaExistiam += 1;
+        continue;
+      }
+      turmas.push({
+        sessionId: `s${turmas.length + 1}`,
+        activityId: entrada.activityId,
+        startsAt: iso,
+        capacity: entrada.capacity,
+        enrolled: entrada.enrolled,
+        slotsOpen: entrada.slotsOpen,
+        coinCost: entrada.coinCost,
+      });
+      resultado.publicadas += 1;
+    }
+
+    return resultado;
   },
 
   async minhasAtividades() {
