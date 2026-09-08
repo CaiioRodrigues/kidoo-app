@@ -847,14 +847,65 @@ end $$;
 commit;
 
 -- =====================================================================
--- Conferência. Rode DEPOIS, numa query separada.
+-- O que este arquivo deixou pronto.
+--
+-- Fica DEPOIS do commit e é a última instrução do arquivo de propósito: o
+-- SQL Editor mostra o resultado da última consulta, então esta tabela
+-- aparece sozinha ao clicar em Run. Sem ela, o editor diria só "Success" —
+-- e "Success" é o que ele diz também quando nada foi feito.
+--
+-- Todas as linhas têm de vir "ok". Qualquer "FALTANDO" quer dizer que você
+-- está rodando uma versão antiga deste arquivo, ou que algo falhou.
 -- =====================================================================
---   select count(*) as turmas_visiveis from class_sessions_visible;
---
---   select proname from pg_proc
---    where proname in ('join_waitlist','leave_waitlist','my_waitlist',
---                      'register_push_token','forget_push_token','session_roster')
---    order by proname;                       -- esperado: 6 linhas
---
---   select id, public from storage.buckets where id in ('criancas','atividades');
---   -- esperado: criancas = false (privado), atividades = true
+create temp table if not exists kidoo_status (ordem int, item text, situacao text);
+truncate kidoo_status;
+
+do $status$
+declare v_publico boolean;
+begin
+  insert into kidoo_status values
+    (1, 'visão class_sessions_visible',
+     case when to_regclass('public.class_sessions_visible') is null then 'FALTANDO' else 'ok' end),
+    (2, 'tabela session_waitlist',
+     case when to_regclass('public.session_waitlist') is null then 'FALTANDO' else 'ok' end),
+    (3, 'tabela push_outbox',
+     case when to_regclass('public.push_outbox') is null then 'FALTANDO' else 'ok' end),
+    (4, 'tabela push_tokens',
+     case when to_regclass('public.push_tokens') is null then 'FALTANDO' else 'ok' end),
+    (5, 'coluna bookings.reward',
+     case when exists (select 1 from information_schema.columns
+                        where table_name='bookings' and column_name='reward')
+          then 'ok' else 'FALTANDO' end),
+    (6, 'session_roster com localização',
+     case when exists (select 1 from information_schema.routines r
+                         join information_schema.parameters p on p.specific_name = r.specific_name
+                        where r.routine_name='session_roster'
+                          and p.parameter_name='location_verified')
+          then 'ok' else 'FALTANDO' end);
+
+  -- Os buckets exigem SQL dinâmico: `storage.buckets` é resolvido no plano da
+  -- consulta, então uma referência direta rebenta no Postgres local antes de
+  -- qualquer `case` ser avaliado. E é justamente o caso que motivou esta
+  -- tabela — a migration do Storage se pula sozinha quando não enxerga o
+  -- schema, e no Supabase esse "pulei" saía como um `notice` que o editor não
+  -- mostra: "Success" com nada feito.
+  if to_regclass('storage.buckets') is null then
+    insert into kidoo_status values
+      (7, 'bucket criancas (privado)',   'SEM SCHEMA STORAGE'),
+      (8, 'bucket atividades (público)', 'SEM SCHEMA STORAGE');
+  else
+    execute 'select public from storage.buckets where id = ''criancas''' into v_publico;
+    insert into kidoo_status values (7, 'bucket criancas (privado)',
+      case when v_publico is null then 'FALTANDO'
+           when v_publico then 'ERRADO: está público'
+           else 'ok' end);
+
+    execute 'select public from storage.buckets where id = ''atividades''' into v_publico;
+    insert into kidoo_status values (8, 'bucket atividades (público)',
+      case when v_publico is null then 'FALTANDO'
+           when v_publico then 'ok'
+           else 'ERRADO: está privado' end);
+  end if;
+end $status$;
+
+select item, situacao from kidoo_status order by ordem;
