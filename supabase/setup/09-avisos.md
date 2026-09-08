@@ -34,18 +34,14 @@ Cloud Messaging**. Sem credencial de FCM no projeto do EAS,
    com.kidoo.app
    ```
 
-2. Baixe o `google-services.json` que ele oferece, coloque na **raiz do
-   repositório** e aponte no `app.json`:
-
-   ```json
-   "android": {
-     "package": "com.kidoo.app",
-     "googleServicesFile": "./google-services.json"
-   }
-   ```
+2. Baixe o `google-services.json` que ele oferece e coloque na **raiz do
+   repositório**, ao lado do `package.json`. O `app.json` já aponta para ele
+   (`android.googleServicesFile`).
 
    Este arquivo **não é segredo** — ele vai dentro do APK de qualquer jeito,
-   como a chave publicável do Supabase. Pode ser versionado.
+   como a chave publicável do Supabase. **Versione:** o `eas build` respeita o
+   `.gitignore`, então um arquivo ignorado não sobe e a build falha dizendo
+   que ele não existe.
 
 3. No Firebase: **Configurações do projeto → Contas de serviço → Gerar nova
    chave privada**. Baixe o JSON. **Esse sim é segredo**: não entra no
