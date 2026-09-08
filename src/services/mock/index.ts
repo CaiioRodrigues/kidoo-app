@@ -241,6 +241,26 @@ export const mockApi: KidooApi = {
       const session = requireSession();
       return delay(state.children.filter((child) => child.guardianId === session.guardian.id));
     },
+    /**
+     * No mock não há bucket: a URI local do seletor já é exibível neste
+     * aparelho, e é isso que a tela precisa para desenvolver. O que o mock
+     * espelha do real é o contrato — trocar e remover funcionam —, não o
+     * armazenamento.
+     */
+    async updatePhoto({ childId, photoUri }) {
+      const session = requireSession();
+      const atual = state.children.find(
+        (child) => child.id === childId && child.guardianId === session.guardian.id,
+      );
+      if (!atual) throw new ApiError('not_found', 'Criança não encontrada.');
+
+      const atualizada: Child = { ...atual, photoUri };
+      state.children = state.children.map((child) =>
+        child.id === childId ? atualizada : child,
+      );
+      return delay(atualizada);
+    },
+
     async create(input) {
       const session = requireSession();
       const base: Child = {

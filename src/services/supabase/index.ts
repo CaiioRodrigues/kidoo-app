@@ -30,6 +30,7 @@ import type { ActivityFilters, KidooApi } from '../types';
 import { buildAchievements } from '@/lib/achievements';
 import { MAX_LEVEL, bonusForLevel, levelFromXp } from '@/lib/levels';
 import { rankForChild } from '@/lib/recommendation';
+import { ehArquivoLocal, lerArquivoLocal, tipoDaImagem } from '@/lib/upload';
 import type { Coords } from '@/lib/geo';
 import type {
   Activity,
@@ -138,6 +139,70 @@ function unwrap<T>(
 }
 
 // ------------------------------------------------------------ auxiliares ----
+
+const BUCKET_CRIANCAS = 'criancas';
+/** Uma hora é bem mais que o tempo de uma tela aberta, e curto para um link vazado. */
+const VALIDADE_URL_S = 3600;
+
+/**
+ * Sobe a foto e devolve o CAMINHO no bucket — nunca a URL.
+ *
+ * O caminho é `criancas/<responsável>/<criança>.jpg`, e a primeira pasta é o
+ * que a policy do Storage compara com `auth.uid()`. Guardar a URL assinada no
+ * banco seria guardar algo que expira em uma hora.
+ *
+ * `upsert` porque trocar a foto tem de sobrescrever: sem ele, cada troca
+ * deixaria o arquivo anterior no bucket para sempre — e são fotos de criança
+ * acumulando sem dono.
+ */
+async function subirFotoDaCrianca(
+  guardianId: string,
+  childId: string,
+  localUri: string,
+): Promise<string> {
+  const bytes = await lerArquivoLocal(localUri);
+  if (bytes.byteLength === 0) {
+    throw new ApiError('unknown', 'A foto veio vazia do aparelho. Tente escolher de novo.');
+  }
+
+  const caminho = `${guardianId}/${childId}`;
+  const { error } = await supabase()
+    .storage.from(BUCKET_CRIANCAS)
+    .upload(caminho, bytes, { contentType: tipoDaImagem(localUri), upsert: true });
+
+  if (error) throw new ApiError('unknown', 'Não foi possível enviar a foto.');
+  return `${BUCKET_CRIANCAS}/${caminho}`;
+}
+
+/**
+ * Caminho no bucket → URL que a tela consegue exibir.
+ *
+ * O bucket é privado porque é foto de criança, então cada exibição precisa de
+ * uma URL assinada. Uma família tem duas, três crianças: o custo é irrelevante
+ * perto de deixar um diretório de fotos de criança aberto na internet.
+ *
+ * Valores antigos em `file://` viram `null` de propósito. Eles são o caminho
+ * do arquivo dentro de um aparelho específico e nunca vão carregar em lugar
+ * nenhum — devolver o avatar com a inicial é melhor que uma imagem quebrada.
+ */
+async function urlDaFoto(valor: string | null): Promise<string | null> {
+  if (!valor) return null;
+  if (valor.startsWith('http')) return valor;
+  if (!valor.startsWith(`${BUCKET_CRIANCAS}/`)) return null;
+
+  const caminho = valor.slice(BUCKET_CRIANCAS.length + 1);
+  const { data } = await supabase()
+    .storage.from(BUCKET_CRIANCAS)
+    .createSignedUrl(caminho, VALIDADE_URL_S);
+  return data?.signedUrl ?? null;
+}
+
+/** Assina as fotos de uma lista de uma vez, em paralelo. */
+async function comFotos(children: Child[]): Promise<Child[]> {
+  return Promise.all(
+    children.map(async (child) => ({ ...child, photoUri: await urlDaFoto(child.photoUri) })),
+  );
+}
 
 async function currentUserId(): Promise<string> {
   const { data } = await supabase().auth.getSession();
@@ -401,11 +466,15 @@ export const supabaseApi: KidooApi = {
       );
 
       const attendance = await attendanceByChild();
-      return rows.map((row) => toChild(row, achievementsOf(attendance.get(row.id))));
+      return comFotos(rows.map((row) => toChild(row, achievementsOf(attendance.get(row.id)))));
     },
 
     async create(input) {
       const guardianId = await currentUserId();
+      // A criança entra sem foto e a foto sobe depois, porque o caminho no
+      // bucket precisa do id dela. Nomear o arquivo por qualquer outra coisa
+      // — timestamp, aleatório — deixaria órfãos impossíveis de associar no
+      // dia em que alguém pedir para apagar os dados do filho.
       const row = unwrap(
         await supabase()
           .from('children')
@@ -414,14 +483,63 @@ export const supabaseApi: KidooApi = {
             name: input.name,
             birth_date: input.birthDate,
             gender: genderToDb(input.gender),
-            photo_url: input.photoUri,
+            photo_url: null,
             interests: input.interests,
           })
           .select('*')
           .single<ChildRow>(),
         'Não foi possível salvar o perfil.',
       );
-      return toChild(row, 0);
+
+      if (!ehArquivoLocal(input.photoUri)) return toChild(row, 0);
+
+      // A foto falhar não pode desfazer o cadastro: a criança já existe, e
+      // perder o perfil inteiro por causa de uma imagem seria desproporcional.
+      // Quem quiser tenta de novo pelo Perfil.
+      try {
+        const caminho = await subirFotoDaCrianca(guardianId, row.id, input.photoUri);
+        const atualizada = unwrap(
+          await supabase()
+            .from('children')
+            .update({ photo_url: caminho })
+            .eq('id', row.id)
+            .select('*')
+            .single<ChildRow>(),
+          'Não foi possível salvar a foto.',
+        );
+        const child = toChild(atualizada, 0);
+        return { ...child, photoUri: await urlDaFoto(child.photoUri) };
+      } catch {
+        return toChild(row, 0);
+      }
+    },
+
+    async updatePhoto({ childId, photoUri }) {
+      const guardianId = await currentUserId();
+
+      let caminho: string | null = null;
+      if (ehArquivoLocal(photoUri)) {
+        caminho = await subirFotoDaCrianca(guardianId, childId, photoUri);
+      } else if (photoUri === null) {
+        // Remover apaga o arquivo, não só a referência. Deixar a foto no
+        // bucket depois de a família pedir para tirar seria manter o que ela
+        // acabou de dizer que não quer mais.
+        await supabase().storage.from(BUCKET_CRIANCAS).remove([`${guardianId}/${childId}`]);
+      }
+
+      const row = unwrap(
+        await supabase()
+          .from('children')
+          .update({ photo_url: caminho })
+          .eq('id', childId)
+          .select('*')
+          .single<ChildRow>(),
+        'Não foi possível atualizar a foto.',
+      );
+
+      const attendance = await attendanceByChild();
+      const child = toChild(row, achievementsOf(attendance.get(row.id)));
+      return { ...child, photoUri: await urlDaFoto(child.photoUri) };
     },
   },
 

@@ -9,9 +9,10 @@ import { useTutorialStore } from '@/stores/tutorial-store';
 import { confirmAction } from '@/lib/confirm';
 import { formatAge, formatDaysUntil } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
-import { useChildren, useSubscription } from '@/hooks/queries';
+import { useChildren, useSubscription, useUpdateChildPhoto } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
-import { backendName } from '@/services';
+import { backendName, toUserMessage } from '@/services';
+import * as ImagePicker from 'expo-image-picker';
 import { spacing, useTheme } from '@/theme';
 
 export default function ProfileScreen() {
@@ -23,6 +24,63 @@ export default function ProfileScreen() {
   const { data: subscription } = useSubscription();
   const [signingOut, setSigningOut] = useState(false);
   const restartTutorial = useTutorialStore((state) => state.restart);
+  const updatePhoto = useUpdateChildPhoto();
+  const [trocandoFoto, setTrocandoFoto] = useState<string | null>(null);
+  const [erroFoto, setErroFoto] = useState<string | null>(null);
+
+  const escolherFoto = useCallback(
+    async (childId: string) => {
+      setErroFoto(null);
+      const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissao.granted) {
+        setErroFoto('Precisamos da permissão de fotos para trocar a imagem.');
+        return;
+      }
+      const escolha = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        // O recorte quadrado e a compressão acontecem aqui, antes de subir: é
+        // o avatar de 40 px, e mandar 8 MB do celular para o bucket seria
+        // gastar dado da família para nada.
+        quality: 0.7,
+      });
+      const uri = escolha.canceled ? null : escolha.assets[0]?.uri;
+      if (!uri) return;
+
+      setTrocandoFoto(childId);
+      try {
+        await updatePhoto.mutateAsync({ childId, photoUri: uri });
+      } catch (caught) {
+        setErroFoto(toUserMessage(caught));
+      } finally {
+        setTrocandoFoto(null);
+      }
+    },
+    [updatePhoto],
+  );
+
+  const removerFoto = useCallback(
+    async (childId: string, nome: string) => {
+      const ok = await confirmAction({
+        title: 'Remover a foto?',
+        message: `A foto de ${nome} sai do app e do servidor. Dá para colocar outra depois.`,
+        confirmLabel: 'Remover',
+        destructive: true,
+      });
+      if (!ok) return;
+      setErroFoto(null);
+      setTrocandoFoto(childId);
+      try {
+        await updatePhoto.mutateAsync({ childId, photoUri: null });
+      } catch (caught) {
+        setErroFoto(toUserMessage(caught));
+      } finally {
+        setTrocandoFoto(null);
+      }
+    },
+    [updatePhoto],
+  );
 
   const handleReplayTutorial = useCallback(() => {
     restartTutorial();
@@ -100,7 +158,29 @@ export default function ProfileScreen() {
             <View key={child.id}>
               {index > 0 ? <Divider /> : null}
               <View style={styles.row}>
-                <Avatar name={child.name} uri={child.photoUri} size={40} />
+                {/* O avatar é o botão. Até aqui a foto era escolhida uma vez
+                    no cadastro e nunca mais — não havia tela nenhuma para
+                    trocar, e "a criança cresceu" não é caso raro. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    child.photoUri
+                      ? `Trocar a foto de ${child.name}`
+                      : `Adicionar foto de ${child.name}`
+                  }
+                  disabled={trocandoFoto === child.id}
+                  onPress={() => void escolherFoto(child.id)}
+                  style={styles.avatarBotao}
+                >
+                  <Avatar name={child.name} uri={child.photoUri} size={40} />
+                  <View style={styles.lapis}>
+                    <Ionicons
+                      name={trocandoFoto === child.id ? 'hourglass-outline' : 'camera'}
+                      size={10}
+                      color={colors.textOnPrimary}
+                    />
+                  </View>
+                </Pressable>
                 <View style={styles.flex}>
                   <Text variant="bodyStrong" numberOfLines={1}>
                     {child.name}
@@ -109,10 +189,27 @@ export default function ProfileScreen() {
                     {formatAge(child.birthDate)} • nível {child.level}
                   </Text>
                 </View>
+                {child.photoUri ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remover a foto de ${child.name}`}
+                    onPress={() => void removerFoto(child.id, child.name)}
+                    hitSlop={8}
+                  >
+                    <Text variant="caption" color={colors.textFaint}>
+                      Remover
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           ))
         )}
+        {erroFoto ? (
+          <Text variant="caption" color={colors.danger}>
+            {erroFoto}
+          </Text>
+        ) : null}
       </Card>
 
       <Text variant="subheading" style={styles.sectionTitle}>
@@ -198,6 +295,22 @@ const styles = StyleSheet.create({
   sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md },
   card: { gap: spacing.xs, marginTop: spacing.xl },
   capitalize: { textTransform: 'capitalize' },
+  // A câmera fica a cavalo no canto do avatar: é o que diz "isto se toca"
+  // sem precisar de um botão separado ocupando a linha.
+  avatarBotao: { position: 'relative' },
+  lapis: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6A3FC6',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
