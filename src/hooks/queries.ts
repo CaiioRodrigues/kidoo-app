@@ -16,6 +16,7 @@ export const queryKeys = {
   subscription: ['subscription'] as const,
   children: ['children'] as const,
   bookings: ['bookings'] as const,
+  waitlist: ['waitlist'] as const,
   activities: (filters?: ActivityFilters) => ['activities', filters ?? {}] as const,
   activity: (id: string, origin?: Coords) => ['activity', id, origin ?? null] as const,
   reviews: (activityId: string) => ['reviews', activityId] as const,
@@ -191,6 +192,42 @@ export function useBooking(id: string) {
   });
 }
 
+/**
+ * Em quais turmas esta família pediu aviso.
+ *
+ * Uma consulta só para a família inteira, e não uma por turma: a tela da
+ * atividade precisa marcar várias linhas de uma vez, e uma consulta por linha
+ * seria N+1 numa lista que já é longa.
+ */
+export function useWaitlist() {
+  const authenticated = useAuthStore((state) => state.status === 'authenticated');
+  return useQuery({
+    queryKey: queryKeys.waitlist,
+    queryFn: () => api.waitlist.list(),
+    enabled: authenticated,
+  });
+}
+
+export function useJoinWaitlist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { sessionId: string; childId: string }) => api.waitlist.join(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.waitlist });
+    },
+  });
+}
+
+export function useLeaveWaitlist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { sessionId: string; childId: string }) => api.waitlist.leave(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.waitlist });
+    },
+  });
+}
+
 export function useJourney(childId: string | null) {
   return useQuery({
     queryKey: queryKeys.journey(childId ?? ''),
@@ -213,6 +250,9 @@ export function useCreateBooking() {
       // A carteira de bônus vive dentro de journey: sem invalidar aqui, o saldo
       // debitado no servidor continuaria aparecendo cheio na tela.
       void queryClient.invalidateQueries({ queryKey: queryKeys.journey(variables.childId) });
+      // Quem reserva sai da fila de espera — o gatilho faz isso no servidor, e
+      // sem reler a turma continuaria marcada como "esperando aviso".
+      void queryClient.invalidateQueries({ queryKey: queryKeys.waitlist });
     },
   });
 }
@@ -283,8 +323,9 @@ export function useCancelBooking() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.booking(booking.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
       void queryClient.invalidateQueries({ queryKey: queryKeys.journey(booking.childId) });
-      // A vaga voltou para a turma.
+      // A vaga voltou para a turma — e com ela some o "Avise-me" da linha.
       void queryClient.invalidateQueries({ queryKey: queryKeys.sessions(booking.activityId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.waitlist });
     },
   });
 }

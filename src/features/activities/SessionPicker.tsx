@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Badge, CoinBadge, Text } from '@/components/ui';
+import { Badge, Button, CoinBadge, Text } from '@/components/ui';
 import { formatSessionTime } from '@/lib/format';
 import { slotsAvailable, type ClassSession, type Uuid } from '@/types/domain';
 import { blobRadius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
@@ -17,6 +17,9 @@ import { blobRadius, spacing, useStyles, useTheme, type ThemeColors } from '@/th
 export function SessionPicker({
   sessions,
   reserved,
+  waiting,
+  onToggleWaitlist,
+  waitlistPending,
   onSelect,
 }: {
   sessions: ClassSession[];
@@ -25,6 +28,12 @@ export function SessionPicker({
    * de qual criança estamos falando é a tela, não a lista.
    */
   reserved: Set<Uuid>;
+  /** Turmas cheias em que esta criança já pediu aviso. */
+  waiting: Set<Uuid>;
+  /** Entra ou sai da fila da turma cheia. */
+  onToggleWaitlist: (session: ClassSession, esperando: boolean) => void;
+  /** Verdadeiro enquanto a chamada de entrar/sair da fila está no ar. */
+  waitlistPending?: boolean;
   onSelect: (session: ClassSession) => void;
 }) {
   const { colors } = useTheme();
@@ -46,6 +55,45 @@ export function SessionPicker({
         // Deixar o toque disponível seria oferecer um caminho que termina em
         // erro — e depois de o usuário atravessar a tela de confirmação.
         const jaReservada = reserved.has(session.id);
+        const cheia = free <= 0 && !jaReservada;
+        const esperando = waiting.has(session.id);
+
+        // A turma cheia não é um destino: ela vira um cartão com um pedido de
+        // aviso. Sem isso, a única saída era a família voltar ao app de tempos
+        // em tempos torcendo para dar sorte — e a demanda pelo horário mais
+        // disputado não deixava rastro nenhum para mostrar ao parceiro.
+        if (cheia) {
+          return (
+            // Empilhado, e não lado a lado como as demais: com o botão à
+            // direita o horário não cabia e virava "sáb., 12/09 às 15…" —
+            // truncar justamente o dado que a família usa para decidir.
+            <View key={session.id} style={[styles.row, styles.full]}>
+              <View style={styles.fullHeader}>
+                <Text variant="bodyStrong" color={colors.textMuted} style={styles.flex}>
+                  {formatSessionTime(session.startsAt)}
+                </Text>
+                <Text variant="caption" color={esperando ? colors.primary : colors.textFaint}>
+                  {esperando ? 'Avisamos quando vagar' : 'Turma lotada'}
+                </Text>
+              </View>
+              <Button
+                title={esperando ? 'Esperando aviso' : 'Avise-me quando vagar'}
+                variant="secondary"
+                size="sm"
+                loading={waitlistPending}
+                left={
+                  <Ionicons
+                    name={esperando ? 'notifications' : 'notifications-outline'}
+                    size={15}
+                    color={colors.primary}
+                  />
+                }
+                onPress={() => onToggleWaitlist(session, esperando)}
+              />
+            </View>
+          );
+        }
+
         return (
           <Pressable
             key={session.id}
@@ -123,6 +171,16 @@ const makeStyles = (colors: ThemeColors) =>
     // como informação ("esta é a sua aula de quinta") mas parou de parecer um
     // destino. Opacidade sozinha faria o texto sumir junto.
     reserved: { backgroundColor: colors.backgroundMuted, borderColor: 'transparent' },
+    // Tracejado: diz "existe, mas não está disponível" sem precisar de texto.
+    full: {
+      borderStyle: 'dashed',
+      borderColor: colors.border,
+      flexDirection: 'column',
+      alignItems: 'stretch',
+      gap: spacing.md,
+    },
+    fullHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    flex: { flex: 1 },
     pressed: { opacity: 0.7 },
     info: { flex: 1, gap: spacing.xxs, minWidth: 0 },
     meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },

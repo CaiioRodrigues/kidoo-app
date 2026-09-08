@@ -293,14 +293,14 @@ export const mockApi: KidooApi = {
       return delay(withDistance(found, origin));
     },
     async sessions(activityId) {
+      // Turma cheia também entra: é justamente nela que a família pede aviso.
+      // O horário bom lota primeiro, e esconder a turma lotada era esconder a
+      // que ela mais queria — sem sequer deixar rastro dessa demanda.
       const now = Date.now();
-      const open = CLASS_SESSIONS.filter(
-        (session) =>
-          session.activityId === activityId &&
-          slotsAvailable(session) > 0 &&
-          Date.parse(session.startsAt) > now,
+      const futuras = CLASS_SESSIONS.filter(
+        (session) => session.activityId === activityId && Date.parse(session.startsAt) > now,
       ).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-      return delay(open);
+      return delay(futuras);
     },
 
     async reviews(activityId) {

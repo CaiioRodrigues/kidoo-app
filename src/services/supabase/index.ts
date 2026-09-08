@@ -455,7 +455,11 @@ export const supabaseApi: KidooApi = {
     async sessions(activityId) {
       const rows = unwrap(
         await supabase()
-          .from('class_sessions_open')
+          // `_visible`, e não `_open`: a turma cheia precisa aparecer para a
+          // família poder pedir aviso. A view `_open` continua existindo e
+          // continua significando "dá para reservar" — é dela que o cartão do
+          // catálogo tira o "a partir de".
+          .from('class_sessions_visible')
           .select('*')
           .eq('activity_id', activityId)
           .order('starts_at')
