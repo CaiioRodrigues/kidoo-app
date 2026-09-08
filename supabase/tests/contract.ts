@@ -95,6 +95,42 @@ for (const [, nome, corpo = ''] of rpcs) {
   }
 }
 
+// ------------------------------------------- funções que não devolvem nada --
+
+/*
+  Uma função `returns void` chega do PostgREST como `data: null`, e o `unwrap`
+  do adapter trata `null` como "não encontrado". O resultado é o pior tipo de
+  bug: TODA chamada bem-sucedida vira erro. Foi assim que "sair da fila"
+  acusava falha depois de ter funcionado, e que o registro de push falhava
+  sempre — engolido pelo `catch` que existe para não travar o login, então
+  ninguém nunca recebeu aviso de vaga.
+
+  Nada disso o TypeScript enxerga: do lado dele `unwrap` devolve um `T` que a
+  chamada ignora. Quem sabe se a função devolve algo é o banco, e é ele que
+  responde aqui.
+*/
+const semRetorno = new Set(
+  sql(`select p.proname
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.prorettype = 'void'::regtype`),
+);
+checa(semRetorno.size > 0, 'esperava achar alguma função void no banco');
+
+for (const nome of semRetorno) {
+  for (const chamada of adapter.matchAll(new RegExp(`\\.rpc\\(\\s*'${nome}'`, 'g'))) {
+    const antes = adapter.slice(Math.max(0, chamada.index - 160), chamada.index);
+    const depois = adapter.slice(chamada.index, chamada.index + 200);
+    // `unwrap(` do trecho imediatamente anterior, sem `;` no meio: um `;`
+    // significa que aquele `unwrap` era de outra chamada, não desta.
+    const dentroDeUnwrap = /unwrap\(\s*(?:await\s+)?[^;]*$/.test(antes);
+    checa(!dentroDeUnwrap, `${nome} não devolve nada: chamá-la por unwrap() faz todo sucesso virar erro`);
+    checa(
+      !/\.single</.test(depois),
+      `${nome} não devolve nada: .single() nela devolve erro de "nenhuma linha"`,
+    );
+  }
+}
+
 // ------------------------------------------------- tabelas, visões, colunas --
 
 const colunas = new Map<string, Set<string>>();

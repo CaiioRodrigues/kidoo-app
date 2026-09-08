@@ -494,6 +494,44 @@ do $$ begin
          'e a que ela vê é a da filha dela';
 end $$;
 
+-- Sair da fila. Não havia teste nenhum aqui, e foi por um vizinho desse buraco
+-- que o app passou a acusar "não foi possível sair da fila" DEPOIS de ter
+-- saído: `leave_waitlist` não devolve nada, e o adapter tratava resposta vazia
+-- como erro. O contrato cobre aquele lado; este cobre este.
+select set_config('request.jwt.claim.sub', :'bruno', false);
+do $$ begin
+  -- Ninguém tira a espera de outra família: o delete filtra pelo responsável,
+  -- então pedir a saída da criança da Ana não faz nada — e não falha, porque
+  -- não há o que contar a Bruno sobre a fila dela.
+  perform leave_waitlist('eeeeeeee-0000-0000-0000-000000000001',
+                         'aaaaaaaa-0000-0000-0000-000000000002');
+  assert (select count(*) from my_waitlist()) = 1,
+         'e a própria espera do Bruno continua onde estava';
+
+  perform leave_waitlist('eeeeeeee-0000-0000-0000-000000000001',
+                         'bbbbbbbb-0000-0000-0000-000000000001');
+  assert (select count(*) from my_waitlist()) = 0, 'Bruno saiu da fila';
+
+  -- Sair de novo não é erro: o botão pode ser tocado duas vezes, e a segunda
+  -- não pode virar uma tela vermelha.
+  perform leave_waitlist('eeeeeeee-0000-0000-0000-000000000001',
+                         'bbbbbbbb-0000-0000-0000-000000000001');
+end $$;
+
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$ begin
+  assert (select count(*) from my_waitlist()) = 1,
+         'a espera da Ana sobreviveu à saída do Bruno';
+end $$;
+
+-- Bruno volta para a fila: os testes seguintes contam com dois esperando.
+select set_config('request.jwt.claim.sub', :'bruno', false);
+do $$ begin
+  perform join_waitlist('eeeeeeee-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-000000000001');
+end $$;
+
+select set_config('request.jwt.claim.sub', :'ana', false);
+
 -- A caixa de saída é fechada para o app: quem entrega usa a chave de serviço.
 do $$ begin
   begin

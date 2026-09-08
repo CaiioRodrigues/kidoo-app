@@ -138,6 +138,24 @@ function unwrap<T>(
   return result.data;
 }
 
+/**
+ * Chama uma função do banco que **não devolve nada**.
+ *
+ * `unwrap` não serve para essas, e o estrago era silencioso: uma função
+ * `returns void` chega do PostgREST como `data: null`, que `unwrap` trata como
+ * "não encontrado" — então TODA chamada bem-sucedida virava erro. Entrar e
+ * sair da fila de espera acusavam falha depois de terem funcionado, e o
+ * registro do aparelho para push falhava sempre, engolido pelo `catch` que
+ * existe para não travar o login: ninguém nunca recebeu aviso de vaga.
+ *
+ * A diferença entre as duas é o que o banco promete devolver, não o gosto de
+ * quem escreve — e é por isso que o teste de contrato agora recusa uma função
+ * `void` chamada por dentro do `unwrap`.
+ */
+function run(result: { error: PostgrestError | null }, fallback: string): void {
+  if (result.error) fail(result.error, fallback);
+}
+
 // ------------------------------------------------------------ auxiliares ----
 
 const BUCKET_CRIANCAS = 'criancas';
@@ -761,14 +779,14 @@ export const supabaseApi: KidooApi = {
     },
 
     async join({ sessionId, childId }) {
-      unwrap(
+      run(
         await supabase().rpc('join_waitlist', { p_session_id: sessionId, p_child_id: childId }),
         'Não foi possível entrar na fila desta turma.',
       );
     },
 
     async leave({ sessionId, childId }) {
-      unwrap(
+      run(
         await supabase().rpc('leave_waitlist', { p_session_id: sessionId, p_child_id: childId }),
         'Não foi possível sair da fila desta turma.',
       );
@@ -777,14 +795,14 @@ export const supabaseApi: KidooApi = {
 
   push: {
     async register({ token, platform }) {
-      unwrap(
+      run(
         await supabase().rpc('register_push_token', { p_token: token, p_platform: platform }),
         'Não foi possível registrar o aparelho para avisos.',
       );
     },
 
     async forget(token) {
-      unwrap(
+      run(
         await supabase().rpc('forget_push_token', { p_token: token }),
         'Não foi possível desativar os avisos neste aparelho.',
       );
