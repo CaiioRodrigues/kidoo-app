@@ -54,3 +54,10 @@ yarn-error.*
 # Estado local do CLI do Supabase. `supabase link` grava o ref do projeto e a
 # URL do pooler aqui — é da sua máquina, não do repositório.
 supabase/.temp/
+
+# A chave de conta de serviço do Firebase, usada para entregar push pelo FCM.
+# `google-services.json` NÃO entra aqui de propósito: ele vai dentro do APK de
+# qualquer jeito e não é segredo. Já a chave privada da conta de serviço é, e
+# vazá-la dá a quem pegar o direito de mandar notificação em nome do app.
+*-firebase-adminsdk-*.json
+firebase-service-account*.json
