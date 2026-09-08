@@ -48,12 +48,29 @@ em arquivo nenhum deste repositório.
 
 ## 2. Agendar
 
-No SQL Editor do Supabase, uma vez:
+No SQL Editor do Supabase, uma vez.
+
+**Primeiro guarde a chave de serviço no Vault** — no banco, nunca no
+repositório. (A instrução antiga aqui era
+`alter database postgres set app.settings.service_key = ...`; ela **não
+funciona mais**: exige superusuário, e o `postgres` do Supabase não é mais um.
+O erro é `42501: permission denied to set parameter`.)
 
 ```sql
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
+-- Rodar de novo? Apague antes: o nome do segredo é único.
+delete from vault.secrets where name = 'kidoo_service_key';
+select vault.create_secret('COLE_A_SERVICE_ROLE_AQUI', 'kidoo_service_key');
+```
+
+O Vault guarda cifrado e só o `postgres` lê — a chave não aparece no texto do
+agendamento, que qualquer um com acesso ao banco consegue ler em `cron.job`.
+
+Depois, o agendamento:
+
+```sql
 select cron.schedule(
   'entregar-avisos-de-vaga',
   '*/5 * * * *',
@@ -62,17 +79,21 @@ select cron.schedule(
       url     := 'https://efqsiuwqqzpausyemjed.supabase.co/functions/v1/enviar-avisos',
       headers := jsonb_build_object(
         'Content-Type',  'application/json',
-        'Authorization', 'Bearer ' || current_setting('app.settings.service_key', true)
+        'Authorization', 'Bearer ' || (select decrypted_secret
+                                         from vault.decrypted_secrets
+                                        where name = 'kidoo_service_key')
       )
     );
   $$
 );
 ```
 
-Antes disso, guarde a chave de serviço **no banco**, não no repositório:
+Confira que o segredo é legível de dentro do agendamento antes de esperar cinco
+minutos por nada:
 
 ```sql
-alter database postgres set app.settings.service_key = 'COLE_A_SERVICE_ROLE_AQUI';
+select left(decrypted_secret, 6) || '…' as chave_ok
+  from vault.decrypted_secrets where name = 'kidoo_service_key';
 ```
 
 Cinco minutos é de propósito: vaga em turma infantil não é leilão. Um atraso de
@@ -127,5 +148,7 @@ select title, body from push_outbox order by created_at desc limit 1;
 | --- | --- |
 | `push_outbox` vazio depois de abrir vaga | ninguém na `session_waitlist` daquela turma, ou `notified_at` já preenchido |
 | Pendente e não sai | a função não foi publicada, ou o cron não está agendado (`cron.job_run_details`) |
+| `42501: permission denied to set parameter` ao agendar | instrução antiga: use o Vault, no passo 2 acima |
+| O cron roda mas nada sai | o `Authorization` foi montado vazio — confira o segredo com o `select` do passo 2 |
 | `error = 'sem aparelho registrado'` | a família nunca abriu o app numa build de verdade, ou negou a permissão |
 | `error = 'DeviceNotRegistered'` | app desinstalado; o token já foi removido sozinho |
