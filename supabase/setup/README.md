@@ -186,6 +186,19 @@ Se a primeira consulta der `relation "class_sessions_visible" does not exist`,
 o script não rodou — e o app fica sem listar turma nenhuma, porque é dessa
 visão que ele lê os horários.
 
+## O aviso de vaga não chegou
+
+[`12-conferir-avisos.sql`](12-conferir-avisos.sql) percorre a corrente inteira
+— fila → gatilho → caixa de saída → aparelho → entrega → agendamento — e diz
+em qual elo ela parou. Não muda nada; só lê. A **primeira** etapa que não vier
+"ok" é a causa: as seguintes são consequência dela.
+
+O elo mais comum é o quarto. Push do Expo não existe no navegador nem no Expo
+Go, e até a correção do adapter (`run()` para funções sem retorno) o registro
+do aparelho falhava sempre, calado dentro do `catch` que existe para não travar
+o login. Com a build antiga instalada, `push_tokens` está vazia e o aviso é
+gerado corretamente sem ter para onde ir.
+
 ## Testar o GPS de verdade
 
 O portão de proximidade do check-in nunca foi exercitado com uma leitura real.

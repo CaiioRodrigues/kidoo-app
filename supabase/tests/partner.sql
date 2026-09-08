@@ -346,6 +346,64 @@ begin
   assert v_total = 800, 'o extrato deveria trazer 800 centavos, veio ' || coalesce(v_total::text,'nulo');
 end $$;
 
+-- ---- o parceiro abrindo vaga avisa a fila -----------------------------------
+-- O caminho testado até aqui era o do cancelamento (slots_taken cai). O do
+-- painel é outro — slots_open sobe — e é o mais comum: o parceiro fecha as
+-- vagas, alguém entra na fila, e ele reabre. Sem este teste, uma mudança no
+-- gatilho poderia deixar de avisar exatamente quem estava esperando.
+select set_config('request.jwt.claim.sub', :'arena', false);
+do $$
+declare
+  v_turma uuid := 'eeeeeeee-0000-0000-0000-000000000001';
+  v_taken int;
+  v_open  int;
+begin
+  select slots_taken, slots_open into v_taken, v_open from class_sessions where id = v_turma;
+  -- Fecha até o que já foi reservado: a abertura só vale como aviso se for uma
+  -- TRANSIÇÃO de cheia para com-vaga, que é o que o gatilho observa. Fechar
+  -- assim também rearma o `notified_at` de quem já tinha sido avisado.
+  if v_open > v_taken then
+    perform set_slots_open(v_turma, v_taken);
+  end if;
+  perform set_config('kidoo.taken', v_taken::text, false);
+end $$;
+
+-- A caixa de saída é fechada por RLS: contá-la como `authenticated` devolveria
+-- zero sem erro nenhum, e o teste passaria medindo nada.
+reset role;
+do $$
+declare v_esperando int; v_avisos int;
+begin
+  select count(*) into v_esperando from session_waitlist
+   where session_id = 'eeeeeeee-0000-0000-0000-000000000001' and notified_at is null;
+  assert v_esperando > 0, 'o teste precisa de alguém esperando nesta turma';
+  select count(*) into v_avisos from push_outbox;
+  perform set_config('kidoo.esperando', v_esperando::text, false);
+  perform set_config('kidoo.avisos', v_avisos::text, false);
+end $$;
+
+set role authenticated;
+do $$ begin
+  perform set_slots_open('eeeeeeee-0000-0000-0000-000000000001',
+                         current_setting('kidoo.taken')::int + 1);
+end $$;
+
+reset role;
+do $$
+declare v_esperados int; v_novos int;
+begin
+  v_esperados := current_setting('kidoo.esperando')::int;
+  v_novos := (select count(*) from push_outbox) - current_setting('kidoo.avisos')::int;
+  assert v_novos = v_esperados,
+         'abrir vaga pelo painel tem de avisar a fila: esperava ' || v_esperados
+         || ' aviso(s), vieram ' || v_novos;
+  assert (select count(*) from session_waitlist
+           where session_id = 'eeeeeeee-0000-0000-0000-000000000001'
+             and notified_at is null) = 0,
+         'e quem foi avisado fica marcado, para não receber duas vezes';
+end $$;
+set role authenticated;
+
 -- ---- responsável não tem painel ---------------------------------------------
 select set_config('request.jwt.claim.sub', :'ana', false);
 do $$
