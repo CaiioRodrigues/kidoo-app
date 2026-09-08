@@ -186,6 +186,21 @@ Se a primeira consulta der `relation "class_sessions_visible" does not exist`,
 o script não rodou — e o app fica sem listar turma nenhuma, porque é dessa
 visão que ele lê os horários.
 
+## Testar o GPS de verdade
+
+O portão de proximidade do check-in nunca foi exercitado com uma leitura real.
+[`11-parceiros-teste.sql`](11-parceiros-teste.sql) cria cinco parceiros a
+distâncias medidas de **um ponto que você escolhe** — de onde você vai estar
+na hora do teste — com turma começando em 10 minutos, dentro da janela.
+
+O ponto de ter distâncias conhecidas é saber a resposta antes de tocar no
+botão. Um deles fica de propósito na zona cinzenta (400 m), onde o resultado
+depende da qualidade do sinal: o raio é 250 m, mas a regra desconta a margem de
+erro antes de comparar, e essa margem vai de 130 a 180 m. A dúvida conta a
+favor de quem está chegando — é o desenho, não defeito.
+
+Apagar depois: `delete from partners where name like 'Teste GPS%';`
+
 ## Depois desta primeira vez
 
 O banco passa a mudar por **migrations novas** em `supabase/migrations/`, nunca
