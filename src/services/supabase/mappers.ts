@@ -2,6 +2,7 @@ import { addWeeks } from 'date-fns';
 
 import { activeGrants } from '@/lib/bonus';
 import { levelFromXp } from '@/lib/levels';
+import { imagemDaAtividade } from '@/lib/activity-image';
 import type {
   Activity,
   ActivityCategory,
@@ -200,7 +201,7 @@ export function toActivity(row: ActivityRow, origin?: Coords): Activity {
     title: row.title,
     category: row.category_id as ActivityCategoryId,
     partner,
-    imageUrl: row.image_url ?? '',
+    imageUrl: imagemDaAtividade(row.image_url, row.category_id),
     rating: Number(row.rating),
     reviewCount: row.review_count,
     minAge: row.min_age,

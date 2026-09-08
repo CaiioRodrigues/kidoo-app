@@ -58,6 +58,18 @@ export type KidooApi = {
   children: {
     list(): Promise<Child[]>;
     create(input: ChildProfileInput & { interests: ActivityCategoryId[] }): Promise<Child>;
+    /**
+     * Troca a foto.
+     *
+     * `photoUri` é o arquivo local que o seletor devolveu; quem sobe para o
+     * Storage é o serviço. `null` remove a foto — e remover tem de ser possível
+     * com um toque, porque é foto de criança e quem se arrepende não deveria
+     * precisar apagar a conta.
+     *
+     * Devolve a criança já com a URI pronta para exibir, não o caminho no
+     * bucket: nenhuma tela precisa saber que existe Storage no meio.
+     */
+    updatePhoto(input: { childId: string; photoUri: string | null }): Promise<Child>;
   };
   catalog: {
     categories(): Promise<ActivityCategory[]>;

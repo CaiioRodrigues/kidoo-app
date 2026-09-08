@@ -1,5 +1,13 @@
 import { PainelError } from './types';
-import type { ActivityRow, AgendaRow, PainelApi, Partner, RosterRow, StatementRow } from './types';
+import type {
+  ActivityRow,
+  AgendaRow,
+  PainelApi,
+  Partner,
+  ResultadoDaSerie,
+  RosterRow,
+  StatementRow,
+} from './types';
 import type { SlotKind } from '@app/types/domain';
 
 /**
@@ -21,10 +29,17 @@ const PARCEIRO: Partner = {
   role: 'owner',
 };
 
+// Uma com imagem própria e duas sem: é como o painel fica de verdade no
+// começo, e é o que deixa a diferença visível na demonstração.
 const ATIVIDADES: ActivityRow[] = [
-  { id: 'a-futebol', title: 'Futebol Kids', category: 'futebol' },
-  { id: 'a-judo', title: 'Judô para Pequenos', category: 'judo' },
-  { id: 'a-ginastica', title: 'Ginástica Divertida', category: 'ginastica' },
+  {
+    id: 'a-futebol',
+    title: 'Futebol Kids',
+    category: 'futebol',
+    imageUrl: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=400&q=70',
+  },
+  { id: 'a-judo', title: 'Judô para Pequenos', category: 'judo', imageUrl: null },
+  { id: 'a-ginastica', title: 'Ginástica Divertida', category: 'ginastica', imageUrl: null },
 ];
 
 /** A mesma regra do banco (`slot_kind_for`): a turma já acontece sozinha? */
@@ -228,8 +243,69 @@ export const demoApi: PainelApi = {
     });
   },
 
+  /**
+   * A série, com as mesmas recusas do banco.
+   *
+   * Repete o pulo da data já publicada de propósito: é justamente o caso que
+   * a demonstração precisa mostrar — clicar duas vezes em "publicar" não pode
+   * dobrar a agenda, e um mock que aceita tudo esconderia isso.
+   */
+  async publicarSerie(entrada): Promise<ResultadoDaSerie> {
+    if (entrada.quando.length === 0) {
+      throw new PainelError('Escolha pelo menos um dia da semana para a turma se repetir.');
+    }
+    if (entrada.quando.length > 60) {
+      throw new PainelError('São turmas demais de uma vez. Reduza os dias ou as semanas.');
+    }
+    if (entrada.enrolled + entrada.slotsOpen > entrada.capacity) {
+      throw new PainelError('A soma de matriculados e vagas abertas passa da capacidade da turma.');
+    }
+    if (entrada.coinCost < 1 || entrada.coinCost > 6) {
+      throw new PainelError('O custo em coins precisa ficar entre 1 e 6.');
+    }
+
+    const resultado: ResultadoDaSerie = { publicadas: 0, jaExistiam: 0, noPassado: 0 };
+    await espera(null, 460);
+
+    for (const quando of entrada.quando) {
+      if (quando.getTime() <= Date.now()) {
+        resultado.noPassado += 1;
+        continue;
+      }
+      const iso = quando.toISOString();
+      if (turmas.some((t) => t.activityId === entrada.activityId && t.startsAt === iso)) {
+        resultado.jaExistiam += 1;
+        continue;
+      }
+      turmas.push({
+        sessionId: `s${turmas.length + 1}`,
+        activityId: entrada.activityId,
+        startsAt: iso,
+        capacity: entrada.capacity,
+        enrolled: entrada.enrolled,
+        slotsOpen: entrada.slotsOpen,
+        coinCost: entrada.coinCost,
+      });
+      resultado.publicadas += 1;
+    }
+
+    return resultado;
+  },
+
   async minhasAtividades() {
     return espera(ATIVIDADES);
+  },
+
+  /**
+   * No modo demonstração não há bucket: o navegador mesmo gera uma URL local
+   * para o arquivo escolhido, que já serve para a tela mostrar o resultado.
+   * O que o demo espelha do real é o contrato, não o armazenamento.
+   */
+  async trocarImagem(activityId, arquivo) {
+    const url = URL.createObjectURL(arquivo);
+    const atividade = ATIVIDADES.find((a) => a.id === activityId);
+    if (atividade) atividade.imageUrl = url;
+    return espera(url);
   },
 
   async extrato() {

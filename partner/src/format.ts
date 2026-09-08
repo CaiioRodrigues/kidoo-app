@@ -41,6 +41,27 @@ export function mesmoDia(iso: string, data: Date): boolean {
   return isSameDay(new Date(iso), data);
 }
 
+export function ehHoje(data: Date): boolean {
+  return isToday(data);
+}
+
+/** "seg", "ter" — o rótulo da coluna na grade da semana. */
+export function diaCurto(data: Date): string {
+  return comMaiuscula(format(data, 'EEEEEE', { locale: ptBR }));
+}
+
+/**
+ * "9 a 15 de março", "30 de março a 5 de abril".
+ *
+ * Repetir o mês nos dois lados quando ele é o mesmo ("9 de março a 15 de
+ * março") faz o cabeçalho ficar mais longo que o conteúdo da coluna.
+ */
+export function faixaDaSemana(inicio: Date, fim: Date): string {
+  const ate = format(fim, "d 'de' MMMM", { locale: ptBR });
+  if (inicio.getMonth() === fim.getMonth()) return `${format(inicio, 'd')} a ${ate}`;
+  return `${format(inicio, "d 'de' MMMM", { locale: ptBR })} a ${ate}`;
+}
+
 /** Valor para um `<input type="datetime-local">`, que não aceita ISO com fuso. */
 export function paraCampoLocal(data: Date): string {
   return format(data, "yyyy-MM-dd'T'HH:mm");

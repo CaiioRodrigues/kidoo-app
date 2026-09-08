@@ -64,7 +64,27 @@ export type StatementRow = {
   totalCents: number;
 };
 
-export type ActivityRow = { id: string; title: string; category: ActivityCategoryId };
+/**
+ * O que aconteceu com cada data de uma série.
+ *
+ * Vem em contagem, e não só num "deu certo", porque publicar oito semanas tem
+ * três desfechos diferentes ao mesmo tempo: entrou, já existia, já passou.
+ * Dizer só "publicado" esconderia justamente o caso em que o parceiro pediu
+ * oito e recebeu duas.
+ */
+export type ResultadoDaSerie = {
+  publicadas: number;
+  jaExistiam: number;
+  noPassado: number;
+};
+
+export type ActivityRow = {
+  id: string;
+  title: string;
+  category: ActivityCategoryId;
+  /** `null` quando o parceiro ainda não subiu a dele — o app cai na foto da modalidade. */
+  imageUrl: string | null;
+};
 
 export type PainelApi = {
   entrar(email: string, senha: string): Promise<void>;
@@ -83,7 +103,29 @@ export type PainelApi = {
     slotsOpen: number;
     coinCost: number;
   }): Promise<void>;
+  /**
+   * Publica a mesma turma em várias datas, numa transação só.
+   *
+   * As datas chegam prontas: quem sabe que "toda terça às 18h" é 18h no
+   * relógio de Belo Horizonte é o navegador do parceiro, não o servidor.
+   */
+  publicarSerie(entrada: {
+    activityId: string;
+    quando: Date[];
+    capacity: number;
+    enrolled: number;
+    slotsOpen: number;
+    coinCost: number;
+  }): Promise<ResultadoDaSerie>;
   minhasAtividades(partnerId: string): Promise<ActivityRow[]>;
+  /**
+   * Troca a foto de capa da atividade e devolve a URL nova.
+   *
+   * É a imagem que a família vê no catálogo antes de decidir. Até aqui era uma
+   * foto de banco de imagens escolhida por modalidade, igual para toda
+   * escolinha de futebol do país — e não havia tela nenhuma para trocar.
+   */
+  trocarImagem(activityId: string, arquivo: File): Promise<string>;
   extrato(meses?: number): Promise<StatementRow[]>;
   /** Há uma sessão ativa agora? */
   sessaoAtiva(): Promise<boolean>;

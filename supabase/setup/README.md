@@ -167,6 +167,53 @@ verdade nunca.
 
 ---
 
+## Atualizar um banco que já existe
+
+**O `01-banco.sql` roda uma vez só.** Ele tem `create table` sem
+`if not exists`, então a segunda execução falha na primeira tabela. Para um
+banco que já está de pé, use **`10-atualizar.sql`** — só o que entrou depois
+da primeira subida, todo idempotente, seguro de rodar duas vezes.
+
+Cole inteiro no SQL Editor e clique em Run. Depois confira:
+
+```sql
+select count(*) from class_sessions_visible;
+select proname from pg_proc where proname in
+  ('join_waitlist','leave_waitlist','my_waitlist','register_push_token','session_roster');
+```
+
+Se a primeira consulta der `relation "class_sessions_visible" does not exist`,
+o script não rodou — e o app fica sem listar turma nenhuma, porque é dessa
+visão que ele lê os horários.
+
+## O aviso de vaga não chegou
+
+[`12-conferir-avisos.sql`](12-conferir-avisos.sql) percorre a corrente inteira
+— fila → gatilho → caixa de saída → aparelho → entrega → agendamento — e diz
+em qual elo ela parou. Não muda nada; só lê. A **primeira** etapa que não vier
+"ok" é a causa: as seguintes são consequência dela.
+
+O elo mais comum é o quarto. Push do Expo não existe no navegador nem no Expo
+Go, e até a correção do adapter (`run()` para funções sem retorno) o registro
+do aparelho falhava sempre, calado dentro do `catch` que existe para não travar
+o login. Com a build antiga instalada, `push_tokens` está vazia e o aviso é
+gerado corretamente sem ter para onde ir.
+
+## Testar o GPS de verdade
+
+O portão de proximidade do check-in nunca foi exercitado com uma leitura real.
+[`11-parceiros-teste.sql`](11-parceiros-teste.sql) cria cinco parceiros a
+distâncias medidas de **um ponto que você escolhe** — de onde você vai estar
+na hora do teste — com turma começando em 10 minutos, dentro da janela.
+
+O ponto de ter distâncias conhecidas é saber a resposta antes de tocar no
+botão. Um deles fica de propósito na zona cinzenta (400 m), onde o resultado
+depende da qualidade do sinal: o raio é 250 m, mas a regra desconta a margem de
+erro antes de comparar, e essa margem vai de 130 a 180 m. A dúvida conta a
+favor de quem está chegando — é o desenho, não defeito.
+
+Apagar depois: `delete from partners where name like 'Teste GPS%';`
+
 ## Depois desta primeira vez
 
 O banco passa a mudar por **migrations novas** em `supabase/migrations/`, nunca
@@ -174,4 +221,6 @@ editando as antigas — uma migration já aplicada é história, e reescrevê-la
 o banco de produção divergir em silêncio do que está no repositório.
 
 O `01-banco.sql` é derivado: regenere com `supabase/setup/gerar.sh` em vez de
-editá-lo à mão.
+editá-lo à mão. O `10-atualizar.sql` também é derivado, e a lista de quais
+migrations ele carrega está no cabeçalho dele — ao criar uma migration nova,
+acrescente-a lá.

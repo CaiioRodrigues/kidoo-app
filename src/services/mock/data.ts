@@ -9,6 +9,8 @@ import {
   type Plan,
 } from '@/types/domain';
 
+import { imagemDaAtividade } from '@/lib/activity-image';
+
 export const CATEGORIES: ActivityCategory[] = [
   { id: 'futebol', label: 'Futebol', emoji: '⚽' },
   { id: 'natacao', label: 'Natação', emoji: '🏊' },
@@ -162,22 +164,6 @@ const PARTNERS = {
 } satisfies Record<string, Partner>;
 
 type PartnerKey = keyof typeof PARTNERS;
-
-/**
- * Imagens de demonstração (Unsplash). São placeholders por modalidade — a
- * mídia real de cada parceiro entra no lugar quando o catálogo for de verdade.
- */
-const IMAGES: Record<string, string> = {
-  futebol: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=800&q=70',
-  natacao: 'https://images.unsplash.com/photo-1600965962361-9035dbfd1c50?w=800&q=70',
-  judo: 'https://images.unsplash.com/photo-1555597673-b21d5c935865?w=800&q=70',
-  danca: 'https://images.unsplash.com/photo-1518834107812-67b0b7c58434?w=800&q=70',
-  ginastica: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=800&q=70',
-  tenis: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&q=70',
-  basquete: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&q=70',
-  volei: 'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=800&q=70',
-  artes: 'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&q=70',
-};
 
 /** Horário fixo do dia, para o mock não "envelhecer" entre execuções. */
 function sessionAt(hour: number, dayOffset: number): string {
@@ -622,7 +608,7 @@ export const ACTIVITIES: Activity[] = SEEDS.map((seed) => ({
   title: seed.title,
   category: seed.category,
   partner: PARTNERS[seed.partner],
-  imageUrl: IMAGES[seed.category] ?? IMAGES.futebol!,
+  imageUrl: imagemDaAtividade(null, seed.category),
   rating: seed.rating,
   reviewCount: seed.reviewCount,
   minAge: seed.minAge,

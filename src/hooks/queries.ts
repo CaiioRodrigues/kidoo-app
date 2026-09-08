@@ -144,6 +144,24 @@ export function useCreateChild() {
   });
 }
 
+/**
+ * Troca (ou remove) a foto da criança.
+ *
+ * Invalida `children` e a jornada: o avatar aparece no Perfil, na Home e na
+ * jornada, e sem invalidar as três a foto nova apareceria numa tela só.
+ */
+export function useUpdateChildPhoto() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { childId: string; photoUri: string | null }) =>
+      api.children.updatePhoto(input),
+    onSuccess: (child) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.children });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.journey(child.id) });
+    },
+  });
+}
+
 export function useSubscribe() {
   const queryClient = useQueryClient();
   return useMutation({

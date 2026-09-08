@@ -20,6 +20,7 @@ export type {
   AgendaRow,
   PainelApi,
   Partner,
+  ResultadoDaSerie,
   RosterRow,
   StatementRow,
 } from './types';

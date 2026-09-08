@@ -63,7 +63,9 @@ export default function HomeScreen() {
   const firstName = guardian?.name.split(' ')[0];
   const childName = activeChild?.name.split(' ')[0];
   const authenticated = useAuthStore((state) => state.status === 'authenticated');
-  const tutorial = useTutorial();
+  // Só depois da vitrine carregar: ver o tutorial por cima de esqueletos
+  // cinzentos é a pior primeira impressão que o app pode dar.
+  const tutorial = useTutorial(!loadingHighlights);
 
   return (
     <Screen scroll padded={false} edges={['top']} contentContainerStyle={styles.scroll}>

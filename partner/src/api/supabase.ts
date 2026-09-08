@@ -5,6 +5,7 @@ import type {
   ActivityRow,
   AgendaRow,
   Partner,
+  ResultadoDaSerie,
   RosterRow,
   StatementRow,
 } from './types';
@@ -28,6 +29,8 @@ const MENSAGENS: Record<string, string> = {
   session_in_the_past: 'Não dá para publicar uma turma que já começou.',
   over_capacity: 'A soma de matriculados e vagas abertas passa da capacidade da turma.',
   negative_slots: 'O número de vagas não pode ser negativo.',
+  no_dates: 'Escolha pelo menos um dia da semana para a turma se repetir.',
+  too_many_dates: 'São turmas demais de uma vez. Reduza os dias ou as semanas.',
   slots_already_taken:
     'Já há reservas nestas vagas. Reduza só até o número que já foi reservado.',
   booking_not_found: 'Reserva não encontrada.',
@@ -212,18 +215,113 @@ async function publicarTurma(entrada: {
   if (error) traduz(error, 'Não foi possível publicar a turma.');
 }
 
+/**
+ * Publica a série inteira numa chamada.
+ *
+ * Uma chamada, uma transação: ou as oito semanas entram, ou nenhuma entra.
+ * Oito `publicarTurma` em laço deixariam meia série publicada quando o 4G da
+ * escolinha caísse no meio — e ninguém saberia quais quatro faltam.
+ */
+async function publicarSerie(entrada: {
+  activityId: string;
+  quando: Date[];
+  capacity: number;
+  enrolled: number;
+  slotsOpen: number;
+  coinCost: number;
+}): Promise<ResultadoDaSerie> {
+  type SerieSql = { quando: string; session_id: string | null; pulada: string | null };
+  const linhas = await linhasDe<SerieSql>(
+    'publish_sessions',
+    {
+      p_activity_id: entrada.activityId,
+      p_starts_at: entrada.quando.map((d) => d.toISOString()),
+      p_capacity: entrada.capacity,
+      p_enrolled: entrada.enrolled,
+      p_slots_open: entrada.slotsOpen,
+      p_coin_cost: entrada.coinCost,
+    },
+    'Não foi possível publicar as turmas.',
+  );
+
+  return {
+    publicadas: linhas.filter((l) => l.pulada === null).length,
+    jaExistiam: linhas.filter((l) => l.pulada === 'ja_existia').length,
+    noPassado: linhas.filter((l) => l.pulada === 'no_passado').length,
+  };
+}
+
 async function minhasAtividades(partnerId: string): Promise<ActivityRow[]> {
   const linhas = ok(
     await supabase()
       .from('activities')
-      .select('id, title, category_id')
+      .select('id, title, category_id, image_url, partner_id')
       .eq('partner_id', partnerId)
       .eq('active', true)
       .order('title')
-      .returns<{ id: string; title: string; category_id: string }[]>(),
+      .returns<
+        { id: string; title: string; category_id: string; image_url: string | null }[]
+      >(),
     'Não foi possível carregar suas atividades.',
   );
-  return linhas.map((l) => ({ id: l.id, title: l.title, category: l.category_id as ActivityCategoryId }));
+  return linhas.map((l) => ({
+    id: l.id,
+    title: l.title,
+    category: l.category_id as ActivityCategoryId,
+    imageUrl: l.image_url,
+  }));
+}
+
+const BUCKET_ATIVIDADES = 'atividades';
+
+/**
+ * Sobe a capa da atividade e devolve a URL pública.
+ *
+ * O bucket é público porque é vitrine: cada cartão do catálogo mostra esta
+ * imagem, e assinar uma URL por cartão seria dezenas de idas ao servidor para
+ * montar uma tela de lista.
+ *
+ * O caminho é `atividades/<parceiro>/<atividade>` porque é a primeira pasta
+ * que a policy do Storage compara com `is_partner_member`. Sem o id do
+ * parceiro no caminho, um parceiro poderia sobrescrever a foto do outro.
+ *
+ * `upsert` para a troca substituir de verdade: sem ele, cada troca deixaria a
+ * imagem anterior no bucket para sempre.
+ */
+async function trocarImagem(activityId: string, arquivo: File): Promise<string> {
+  const parceiro = ok(
+    await supabase()
+      .from('activities')
+      .select('partner_id')
+      .eq('id', activityId)
+      .single<{ partner_id: string }>(),
+    'Não foi possível identificar a atividade.',
+  );
+
+  const caminho = `${parceiro.partner_id}/${activityId}`;
+  const { error: erroUpload } = await supabase()
+    .storage.from(BUCKET_ATIVIDADES)
+    .upload(caminho, arquivo, { contentType: arquivo.type, upsert: true });
+  if (erroUpload) throw new Error('Não foi possível enviar a imagem.');
+
+  const { data } = supabase().storage.from(BUCKET_ATIVIDADES).getPublicUrl(caminho);
+
+  // A hora entra na URL de propósito. A URL pública de um caminho é sempre a
+  // mesma, e navegador e CDN guardam em cache: sem isso, trocar a foto não
+  // mudaria nada na tela de ninguém até o cache expirar.
+  const url = `${data.publicUrl}?v=${Date.now()}`;
+
+  ok(
+    await supabase()
+      .from('activities')
+      .update({ image_url: url })
+      .eq('id', activityId)
+      .select('id')
+      .single<{ id: string }>(),
+    'A imagem subiu, mas não foi possível salvá-la na atividade.',
+  );
+
+  return url;
 }
 
 // ----------------------------------------------------------------- repasse --
@@ -265,7 +363,9 @@ export const supabaseApi: PainelApi = {
   confirmarPresenca,
   definirVagas,
   publicarTurma,
+  publicarSerie,
   minhasAtividades,
+  trocarImagem,
   extrato,
   sessaoAtiva,
 };

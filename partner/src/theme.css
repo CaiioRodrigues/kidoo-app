@@ -136,7 +136,10 @@ input, select { font: inherit; color: inherit; }
 .sidebar-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
 .sidebar-who { font-size: 12px; color: var(--text-faint); padding: 0 12px 10px; }
 
-.main { padding: 30px 34px 60px; max-width: 1060px; }
+/* `min-width: 0` não é enfeite: sem ele, a coluna `1fr` do grid cresce para
+   caber o filho mais largo — a grade da semana — e a PÁGINA INTEIRA ganha
+   barra horizontal, em vez de a grade rolar dentro do próprio cartão. */
+.main { padding: 30px 34px 60px; max-width: 1060px; min-width: 0; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
 .page-sub { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
 
@@ -206,6 +209,80 @@ input, select { font: inherit; color: inherit; }
 @media (max-width: 760px) {
   .turma-nums { width: 100%; justify-content: space-between; }
   .turma-head > .btn { width: 100%; }
+}
+
+/* ------------------------------------------------------- alternar dia/semana */
+
+.alternador {
+  display: inline-flex; padding: 3px; gap: 3px;
+  background: var(--card-muted); border-radius: 10px;
+}
+.alternador-opcao {
+  border: 0; background: transparent; color: var(--text-muted);
+  padding: 5px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+}
+.alternador-opcao[aria-pressed='true'] {
+  background: var(--card); color: var(--text); box-shadow: var(--shadow);
+}
+
+/* ------------------------------------------------------------ grade da semana */
+
+/* Sete colunas não cabem num celular, e espremer cada uma a 40px não mostraria
+   nem a hora. Rolagem horizontal na grade — e só nela — mantém a página inteira
+   sem barra lateral, que é o que estraga uma tela de balcão. */
+/* `position: relative` para as colunas medirem a posição delas DENTRO da
+   caixa que rola — é o que a grade usa para trazer o dia de hoje para a vista
+   quando ele não cabe. */
+.grade-rolagem { overflow-x: auto; padding: 6px; position: relative; }
+.grade-semana {
+  /* 130px é a menor coluna em que "Judô para Pequenos" ainda cabe em duas
+     linhas — e é o que faz a semana inteira caber num monitor de 1280 sem
+     rolar. Abaixo disso o nome quebraria em quatro linhas; acima, sábado
+     ficaria fora da tela, que é justamente o dia que ele veio conferir. */
+  display: grid; grid-template-columns: repeat(7, minmax(130px, 1fr)); gap: 8px;
+}
+.grade-coluna {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 8px; border-radius: 12px; background: var(--card-muted);
+}
+.grade-cabeca { display: flex; align-items: baseline; gap: 6px; padding: 0 4px 2px; }
+.grade-dia {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.grade-numero { font-size: 15px; font-weight: 700; }
+.grade-numero-hoje {
+  background: var(--purple); color: var(--on-purple);
+  border-radius: 999px; padding: 1px 8px; font-size: 13px;
+}
+.grade-vazio { color: var(--text-faint); font-size: 13px; padding: 6px 4px; margin: 0; }
+
+.grade-turma {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  width: 100%; text-align: left;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 9px 10px;
+}
+.grade-turma:hover { border-color: var(--purple); }
+.grade-hora { font-size: 13px; font-weight: 700; color: var(--purple); }
+/* Nome de turma é longo ("Ginástica Divertida"), a coluna é estreita, e cortar
+   com reticências esconderia justamente o que diferencia duas turmas. */
+.grade-titulo { font-size: 13px; font-weight: 600; line-height: 1.25; }
+.grade-vagas { font-size: 12px; color: var(--text-faint); }
+
+/* --------------------------------------------------- dias da semana (série) */
+
+.dias { display: flex; gap: 6px; flex-wrap: wrap; }
+.dia-chip {
+  width: 46px; height: 42px; border-radius: 10px;
+  border: 1px solid var(--border-strong); background: var(--card);
+  font-size: 13px; font-weight: 700; color: var(--text-muted);
+}
+.dia-chip:hover:not(:disabled) { border-color: var(--purple); }
+/* `aria-pressed` é o estado de verdade do botão, então é ele que pinta: assim
+   não há como a cor dizer uma coisa e o leitor de tela dizer outra. */
+.dia-chip[aria-pressed='true'] {
+  background: var(--purple); border-color: var(--purple); color: var(--on-purple);
 }
 
 /* ------------------------------------------------------------------ tabela */

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
-import { api, type AgendaRow, type Partner } from '@/api';
+import { api, type ActivityRow, type AgendaRow, type Partner, type ResultadoDaSerie } from '@/api';
 import { Card, Erro, EtiquetaVaga, Vazio, useDados } from '@/components/ui';
 import { paraCampoLocal, quando } from '@/format';
+import { LIMITE_DA_SERIE, datasDaSerie, resumoDaSerie } from '@/recorrencia';
 
 /**
  * Turmas e vagas — o coração do modelo.
@@ -15,6 +16,7 @@ import { paraCampoLocal, quando } from '@/format';
  */
 export function Turmas({ parceiro }: { parceiro: Partner }) {
   const [criando, setCriando] = useState(false);
+  const [recado, setRecado] = useState<string | null>(null);
 
   const de = new Date();
   de.setHours(0, 0, 0, 0);
@@ -43,12 +45,27 @@ export function Turmas({ parceiro }: { parceiro: Partner }) {
       {criando && (
         <NovaTurma
           parceiro={parceiro}
-          aoPublicar={() => {
+          aoPublicar={(mensagem) => {
             setCriando(false);
+            setRecado(mensagem);
             recarregar();
           }}
         />
       )}
+
+      {/*
+        O aviso fica aqui, e não dentro do formulário, porque o formulário
+        fecha ao publicar. Uma série pode terminar com um resultado que não é
+        "deu certo" nem "deu erro" — pedi oito e entraram duas porque seis já
+        estavam publicadas —, e esse é justamente o caso que precisa ser lido.
+      */}
+      {recado && (
+        <div className="alert alert-ok" style={{ marginBottom: 14 }} role="status">
+          {recado}
+        </div>
+      )}
+
+      <CapasDasAtividades parceiro={parceiro} />
 
       {erro && <Erro>{erro}</Erro>}
       {carregando && !turmas && (
@@ -169,7 +186,55 @@ function LinhaTurma({ turma, aoSalvar }: { turma: AgendaRow; aoSalvar: () => voi
   );
 }
 
-function NovaTurma({ parceiro, aoPublicar }: { parceiro: Partner; aoPublicar: () => void }) {
+/** Domingo primeiro, como o calendário brasileiro. */
+const DIAS_DA_SEMANA = [
+  { valor: 0, curto: 'D', nome: 'domingo' },
+  { valor: 1, curto: 'S', nome: 'segunda-feira' },
+  { valor: 2, curto: 'T', nome: 'terça-feira' },
+  { valor: 3, curto: 'Q', nome: 'quarta-feira' },
+  { valor: 4, curto: 'Q', nome: 'quinta-feira' },
+  { valor: 5, curto: 'S', nome: 'sexta-feira' },
+  { valor: 6, curto: 'S', nome: 'sábado' },
+];
+
+/**
+ * O que dizer depois de publicar uma série.
+ *
+ * "Publicado!" seria mentira nos dois casos que mais acontecem: republicar as
+ * mesmas semanas (nada entra) e publicar de novo com uma semana a mais (entra
+ * uma). Quem está no balcão precisa saber quantas turmas existem agora, não
+ * quantas ele pediu.
+ */
+function recadoDaSerie(r: ResultadoDaSerie): string {
+  const partes: string[] = [];
+
+  if (r.publicadas === 0) partes.push('Nenhuma turma nova foi publicada.');
+  else if (r.publicadas === 1) partes.push('1 turma publicada.');
+  else partes.push(`${r.publicadas} turmas publicadas.`);
+
+  if (r.jaExistiam > 0) {
+    partes.push(
+      r.jaExistiam === 1
+        ? '1 data já estava na agenda e foi mantida como estava.'
+        : `${r.jaExistiam} datas já estavam na agenda e foram mantidas como estavam.`,
+    );
+  }
+  if (r.noPassado > 0) {
+    partes.push(
+      r.noPassado === 1 ? '1 data já passou e ficou de fora.' : `${r.noPassado} datas já passaram e ficaram de fora.`,
+    );
+  }
+
+  return partes.join(' ');
+}
+
+function NovaTurma({
+  parceiro,
+  aoPublicar,
+}: {
+  parceiro: Partner;
+  aoPublicar: (mensagem: string) => void;
+}) {
   const { dado: atividades } = useDados(() => api.minhasAtividades(parceiro.id), [parceiro.id]);
 
   const daquiUmDia = new Date();
@@ -184,21 +249,56 @@ function NovaTurma({ parceiro, aoPublicar }: { parceiro: Partner; aoPublicar: ()
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
+  const [repete, setRepete] = useState(false);
+  const [diasDaSemana, setDiasDaSemana] = useState<number[]>([]);
+  const [semanas, setSemanas] = useState('8');
+
   const escolhida = activityId || atividades?.[0]?.id || '';
+
+  // A hora da série sai do mesmo campo de sempre: "toda terça às 18h" é a hora
+  // que ele já digitou ali. Um segundo campo de hora seria uma chance a mais de
+  // publicar oito turmas no horário errado.
+  const horaDaSerie = startsAt.slice(11, 16);
+
+  const datas = useMemo(
+    () => (repete ? datasDaSerie({ diasDaSemana, hora: horaDaSerie, semanas: Number(semanas) }) : []),
+    [repete, diasDaSemana, horaDaSerie, semanas],
+  );
+  const passaDoTeto = datas.length > LIMITE_DA_SERIE;
+
+  const alternarDia = (valor: number) => {
+    setDiasDaSemana((atual) =>
+      atual.includes(valor) ? atual.filter((d) => d !== valor) : [...atual, valor].sort(),
+    );
+  };
+
+  const ligarRepeticao = (ligado: boolean) => {
+    setRepete(ligado);
+    // Começa marcado no dia da semana que ele já escolheu no campo de data:
+    // é quase sempre um dos dias da série, e evita abrir a seção vazia.
+    if (ligado && diasDaSemana.length === 0) {
+      const escolhido = new Date(startsAt);
+      if (!Number.isNaN(escolhido.getTime())) setDiasDaSemana([escolhido.getDay()]);
+    }
+  };
 
   const publicar = async () => {
     setEnviando(true);
     setErro(null);
     try {
-      await api.publicarTurma({
+      const comum = {
         activityId: escolhida,
-        startsAt,
         capacity: Number(capacity),
         enrolled: Number(enrolled),
         slotsOpen: Number(slotsOpen),
         coinCost: Number(coinCost),
-      });
-      aoPublicar();
+      };
+      if (repete) {
+        aoPublicar(recadoDaSerie(await api.publicarSerie({ ...comum, quando: datas })));
+      } else {
+        await api.publicarTurma({ ...comum, startsAt });
+        aoPublicar('Turma publicada.');
+      }
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não foi possível publicar.');
     } finally {
@@ -231,7 +331,17 @@ function NovaTurma({ parceiro, aoPublicar }: { parceiro: Partner; aoPublicar: ()
           </select>
         </div>
 
-        <div className="field">
+        {/*
+          Ocupa duas colunas porque `datetime-local` desenha data E hora dentro
+          do campo: numa coluna de 160px o navegador corta a data pela esquerda,
+          e o parceiro publica oito semanas sem conseguir ler o dia.
+
+          O rótulo não muda quando a série está ligada. Chamar de "primeiro dia"
+          seria mentira: com a série, o que vale deste campo é a HORA — os dias
+          são os marcados abaixo, e a primeira aula pode ser antes ou depois
+          desta data.
+        */}
+        <div className="field" style={{ gridColumn: 'span 2' }}>
           <label htmlFor="quando">Dia e hora</label>
           <input
             id="quando"
@@ -263,6 +373,80 @@ function NovaTurma({ parceiro, aoPublicar }: { parceiro: Partner; aoPublicar: ()
         </div>
       </div>
 
+      {/*
+        A repetição é o que faz o painel servir a um parceiro de verdade: ele
+        não tem "uma turma", tem terça e quinta às 18h o ano inteiro. Publicar
+        uma a uma é o motivo pelo qual a agenda ficaria vazia depois da primeira
+        semana.
+      */}
+      <div style={{ borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 16 }}>
+        <label className="row" style={{ gap: 9, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={repete}
+            onChange={(e) => ligarRepeticao(e.target.checked)}
+            style={{ width: 17, height: 17 }}
+          />
+          <strong style={{ fontSize: 14 }}>Esta turma se repete toda semana</strong>
+        </label>
+
+        {repete && (
+          <div style={{ marginTop: 14, display: 'grid', gap: 14 }}>
+            <div className="field">
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>
+                Em quais dias, sempre às {horaDaSerie || '--:--'}
+              </span>
+              <div className="dias">
+                {DIAS_DA_SEMANA.map((dia) => (
+                  <button
+                    key={dia.valor}
+                    type="button"
+                    className="dia-chip"
+                    aria-pressed={diasDaSemana.includes(dia.valor)}
+                    aria-label={dia.nome}
+                    onClick={() => alternarDia(dia.valor)}
+                  >
+                    {dia.curto}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="field" style={{ maxWidth: 220 }}>
+              <label htmlFor="semanas">Por quantas semanas</label>
+              <select
+                id="semanas"
+                className="input"
+                value={semanas}
+                onChange={(e) => setSemanas(e.target.value)}
+              >
+                <option value="2">2 semanas</option>
+                <option value="4">4 semanas</option>
+                <option value="8">8 semanas</option>
+                <option value="12">12 semanas</option>
+              </select>
+            </div>
+
+            {datas.length > 0 && (
+              <p className="faint" style={{ margin: 0 }}>
+                {datas.length === 1 ? '1 turma' : `${datas.length} turmas`}: {resumoDaSerie(datas)}
+              </p>
+            )}
+            {passaDoTeto && (
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--danger)' }}>
+                São {datas.length} turmas de uma vez, e o limite é {LIMITE_DA_SERIE}. Reduza os dias
+                ou as semanas.
+              </p>
+            )}
+            {diasDaSemana.length > 0 && datas.length === 0 && (
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--danger)' }}>
+                Nenhuma data futura com esses dias e esse horário.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {erro && (
         <div style={{ marginTop: 14 }}>
           <Erro>{erro}</Erro>
@@ -270,13 +454,175 @@ function NovaTurma({ parceiro, aoPublicar }: { parceiro: Partner; aoPublicar: ()
       )}
 
       <div className="row" style={{ marginTop: 18 }}>
-        <button className="btn" disabled={!escolhida || enviando} onClick={() => void publicar()}>
-          {enviando ? 'Publicando…' : 'Publicar turma'}
+        <button
+          className="btn"
+          disabled={!escolhida || enviando || (repete && (datas.length === 0 || passaDoTeto))}
+          onClick={() => void publicar()}
+        >
+          {enviando
+            ? 'Publicando…'
+            : repete && datas.length > 1
+              ? `Publicar ${datas.length} turmas`
+              : 'Publicar turma'}
         </button>
         <span className="faint">
           Matriculados + vagas não podem passar dos lugares da turma.
         </span>
       </div>
     </Card>
+  );
+}
+
+/**
+ * As capas das atividades.
+ *
+ * Ficou numa seção própria, e não dentro do formulário de publicar turma, por
+ * um motivo que só apareceu ao ver a tela pronta: capa é propriedade da
+ * ATIVIDADE, não daquela publicação. Escondida atrás do "+ Publicar turma",
+ * ela só existiria para quem estivesse criando uma turma nova — e quem já
+ * publicou tudo nunca mais acharia.
+ *
+ * Até aqui era uma foto de banco de imagens escolhida por modalidade, igual
+ * para toda escolinha de futebol do país, e não havia tela nenhuma para
+ * trocar. A decisão de reservar acontece olhando esse cartão, e a foto da
+ * quadra do parceiro vende melhor que qualquer foto genérica.
+ */
+function CapasDasAtividades({ parceiro }: { parceiro: Partner }) {
+  const { dado: atividades, recarregar } = useDados(
+    () => api.minhasAtividades(parceiro.id),
+    [parceiro.id],
+  );
+
+  if (!atividades || atividades.length === 0) return null;
+
+  return (
+    <Card>
+      <h3 style={{ marginBottom: 4 }}>Suas atividades no app</h3>
+      <p className="faint" style={{ marginBottom: 16 }}>
+        Esta é a imagem que a família vê antes de decidir. Sem uma foto sua, o app usa uma
+        genérica da modalidade.
+      </p>
+      <div style={{ display: 'grid', gap: 16 }}>
+        {atividades.map((a) => (
+          <CapaDaAtividade key={a.id} atividade={a} aoTrocar={recarregar} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/** Uma linha: miniatura, nome e o botão de trocar. */
+/**
+ * A capa que a família vê no catálogo.
+ *
+ * Até aqui era uma foto de banco de imagens escolhida por modalidade — igual
+ * para toda escolinha de futebol — e não havia tela nenhuma para trocar. Mas a
+ * decisão de reservar acontece olhando esse cartão, e a foto da quadra do
+ * parceiro vende melhor que qualquer foto genérica.
+ */
+function CapaDaAtividade({
+  atividade,
+  aoTrocar,
+}: {
+  atividade: ActivityRow | null;
+  aoTrocar: () => void;
+}) {
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const entrada = useRef<HTMLInputElement>(null);
+
+  if (!atividade) return null;
+
+  const escolher = async (arquivo: File | undefined) => {
+    if (!arquivo) return;
+    setErro(null);
+
+    // O bucket recusa acima de 5 MB, e recusa depois do upload inteiro subir.
+    // Barrar aqui poupa a espera e explica o motivo antes de gastar os dados
+    // de quem está num 4G de escolinha.
+    if (arquivo.size > 5 * 1024 * 1024) {
+      setErro('A imagem passa de 5 MB. Escolha uma menor.');
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      await api.trocarImagem(atividade.id, arquivo);
+      aoTrocar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível trocar a imagem.');
+    } finally {
+      setEnviando(false);
+      // Limpa a seleção: sem isto, escolher o MESMO arquivo de novo não dispara
+      // o `change` e o botão parece morto.
+      if (entrada.current) entrada.current.value = '';
+    }
+  };
+
+  return (
+    <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+        {atividade.imageUrl ? (
+          <img
+            src={atividade.imageUrl}
+            alt={`Capa de ${atividade.title}`}
+            // `flex: none` e fundo: sem isto, uma imagem que não carrega
+            // (rede caiu, URL velha) desenha o texto alternativo e estica a
+            // linha inteira, empurrando o botão para fora do lugar.
+            style={{
+              width: 72,
+              height: 54,
+              flex: 'none',
+              objectFit: 'cover',
+              borderRadius: 8,
+              background: 'var(--card-muted)',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 72,
+              height: 54,
+              flex: 'none',
+              borderRadius: 8,
+              border: '1.5px dashed var(--border)',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 11,
+              color: 'var(--text-faint)',
+            }}
+          >
+            sem foto
+          </div>
+        )}
+
+        <div style={{ flex: 1 }}>
+          <strong style={{ display: 'block', fontSize: 14, marginBottom: 6 }}>
+            {atividade.title}
+          </strong>
+          <input
+            ref={entrada}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={(e) => void escolher(e.target.files?.[0])}
+          />
+          <button
+            type="button"
+            className="btn btn-secundario"
+            disabled={enviando}
+            onClick={() => entrada.current?.click()}
+          >
+            {enviando ? 'Enviando…' : atividade.imageUrl ? 'Trocar imagem' : 'Escolher imagem'}
+          </button>
+          <p className="faint" style={{ fontSize: 12, marginTop: 6 }}>
+            {atividade.imageUrl
+              ? 'JPG, PNG ou WebP, até 5 MB.'
+              : 'Sem imagem, o app usa uma foto genérica da modalidade.'}
+          </p>
+          {erro ? (
+            <p style={{ fontSize: 12, marginTop: 4, color: 'var(--danger)' }}>{erro}</p>
+          ) : null}
+        </div>
+    </div>
   );
 }

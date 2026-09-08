@@ -65,6 +65,80 @@ begin
   end;
 end $$;
 
+-- ---- turma que se repete ----------------------------------------------------
+-- Uma chamada publica a série inteira, e republicar a mesma série não pode
+-- dobrar a agenda: turma duplicada divide as reservas entre duas cópias, e
+-- quem está no balcão só descobre com a criança na porta.
+do $$
+declare
+  v_ativ  uuid := 'dddddddd-0000-0000-0000-00000000000a';
+  v_datas timestamptz[] := array[
+    date_trunc('hour', now() + interval '8 days'),
+    date_trunc('hour', now() + interval '15 days'),
+    date_trunc('hour', now() + interval '22 days')
+  ];
+  v_criadas int;
+  v_puladas int;
+  v_antes   int;
+begin
+  select count(*) into v_antes from class_sessions where activity_id = v_ativ;
+
+  select count(*) filter (where pulada is null), count(*) filter (where pulada is not null)
+    into v_criadas, v_puladas
+    from publish_sessions(v_ativ, v_datas, 20, 9, 5, 2);
+  assert v_criadas = 3, 'a série de 3 deveria publicar 3, veio ' || v_criadas;
+  assert v_puladas = 0, 'nada a pular na primeira vez, veio ' || v_puladas;
+  assert (select count(*) from class_sessions where activity_id = v_ativ) = v_antes + 3,
+         'as 3 turmas deveriam estar no banco';
+
+  -- de novo, as mesmas datas: nenhuma nova, e o id devolvido é o da que existe
+  select count(*) filter (where pulada is null), count(*) filter (where pulada = 'ja_existia')
+    into v_criadas, v_puladas
+    from publish_sessions(v_ativ, v_datas, 20, 9, 5, 2);
+  assert v_criadas = 0, 'republicar não pode criar nada, criou ' || v_criadas;
+  assert v_puladas = 3, 'as 3 deveriam voltar como já existentes, vieram ' || v_puladas;
+  assert (select count(*) from class_sessions where activity_id = v_ativ) = v_antes + 3,
+         'republicar a série não pode dobrar a agenda';
+  assert (select bool_and(session_id is not null)
+            from publish_sessions(v_ativ, v_datas, 20, 9, 5, 2)),
+         'a turma pulada devolve o id da que já existe, para a tela poder apontá-la';
+
+  -- uma data no passado no meio da série não derruba as outras
+  select count(*) filter (where pulada is null), count(*) filter (where pulada = 'no_passado')
+    into v_criadas, v_puladas
+    from publish_sessions(
+      v_ativ,
+      array[now() - interval '2 hours', date_trunc('hour', now() + interval '29 days')],
+      20, 9, 5, 2);
+  assert v_criadas = 1, 'a data futura deveria entrar, entraram ' || v_criadas;
+  assert v_puladas = 1, 'a data passada deveria ser pulada, foram ' || v_puladas;
+
+  -- e os limites continuam sendo do banco, não da tela
+  begin
+    perform publish_sessions(v_ativ, array[]::timestamptz[], 20, 9, 5, 2);
+    assert false, 'série vazia deveria falhar';
+  exception when others then
+    assert sqlerrm = 'no_dates', 'esperado no_dates, veio: ' || sqlerrm;
+  end;
+
+  begin
+    perform publish_sessions(
+      v_ativ,
+      (select array_agg(now() + make_interval(days => 40 + i)) from generate_series(1, 61) i),
+      20, 9, 5, 2);
+    assert false, '61 datas deveria falhar';
+  exception when others then
+    assert sqlerrm = 'too_many_dates', 'esperado too_many_dates, veio: ' || sqlerrm;
+  end;
+
+  begin
+    perform publish_sessions(v_ativ, array[now() + interval '9 days'], 10, 8, 5, 2);
+    assert false, 'abrir mais do que cabe deveria falhar na série também';
+  exception when others then
+    assert sqlerrm = 'over_capacity', 'esperado over_capacity, veio: ' || sqlerrm;
+  end;
+end $$;
+
 -- ---- turma de outro parceiro ------------------------------------------------
 select set_config('request.jwt.claim.sub', :'pampulha', false);
 do $$
@@ -84,6 +158,15 @@ begin
     perform publish_session('dddddddd-0000-0000-0000-00000000000a',
                             now() + interval '2 days', 20, 9, 5, 2);
     assert false, 'Pampulha não pode publicar turma na atividade da Arena';
+  exception when others then
+    assert sqlerrm = 'not_this_partner', 'esperado not_this_partner, veio: ' || sqlerrm;
+  end;
+
+  begin
+    perform publish_sessions('dddddddd-0000-0000-0000-00000000000a',
+                             array[now() + interval '2 days', now() + interval '9 days'],
+                             20, 9, 5, 2);
+    assert false, 'nem uma série inteira na atividade da Arena';
   exception when others then
     assert sqlerrm = 'not_this_partner', 'esperado not_this_partner, veio: ' || sqlerrm;
   end;
@@ -262,6 +345,64 @@ begin
   select total_cents into v_total from partner_statement(6) where slot_kind = 'ociosa';
   assert v_total = 800, 'o extrato deveria trazer 800 centavos, veio ' || coalesce(v_total::text,'nulo');
 end $$;
+
+-- ---- o parceiro abrindo vaga avisa a fila -----------------------------------
+-- O caminho testado até aqui era o do cancelamento (slots_taken cai). O do
+-- painel é outro — slots_open sobe — e é o mais comum: o parceiro fecha as
+-- vagas, alguém entra na fila, e ele reabre. Sem este teste, uma mudança no
+-- gatilho poderia deixar de avisar exatamente quem estava esperando.
+select set_config('request.jwt.claim.sub', :'arena', false);
+do $$
+declare
+  v_turma uuid := 'eeeeeeee-0000-0000-0000-000000000001';
+  v_taken int;
+  v_open  int;
+begin
+  select slots_taken, slots_open into v_taken, v_open from class_sessions where id = v_turma;
+  -- Fecha até o que já foi reservado: a abertura só vale como aviso se for uma
+  -- TRANSIÇÃO de cheia para com-vaga, que é o que o gatilho observa. Fechar
+  -- assim também rearma o `notified_at` de quem já tinha sido avisado.
+  if v_open > v_taken then
+    perform set_slots_open(v_turma, v_taken);
+  end if;
+  perform set_config('kidoo.taken', v_taken::text, false);
+end $$;
+
+-- A caixa de saída é fechada por RLS: contá-la como `authenticated` devolveria
+-- zero sem erro nenhum, e o teste passaria medindo nada.
+reset role;
+do $$
+declare v_esperando int; v_avisos int;
+begin
+  select count(*) into v_esperando from session_waitlist
+   where session_id = 'eeeeeeee-0000-0000-0000-000000000001' and notified_at is null;
+  assert v_esperando > 0, 'o teste precisa de alguém esperando nesta turma';
+  select count(*) into v_avisos from push_outbox;
+  perform set_config('kidoo.esperando', v_esperando::text, false);
+  perform set_config('kidoo.avisos', v_avisos::text, false);
+end $$;
+
+set role authenticated;
+do $$ begin
+  perform set_slots_open('eeeeeeee-0000-0000-0000-000000000001',
+                         current_setting('kidoo.taken')::int + 1);
+end $$;
+
+reset role;
+do $$
+declare v_esperados int; v_novos int;
+begin
+  v_esperados := current_setting('kidoo.esperando')::int;
+  v_novos := (select count(*) from push_outbox) - current_setting('kidoo.avisos')::int;
+  assert v_novos = v_esperados,
+         'abrir vaga pelo painel tem de avisar a fila: esperava ' || v_esperados
+         || ' aviso(s), vieram ' || v_novos;
+  assert (select count(*) from session_waitlist
+           where session_id = 'eeeeeeee-0000-0000-0000-000000000001'
+             and notified_at is null) = 0,
+         'e quem foi avisado fica marcado, para não receber duas vezes';
+end $$;
+set role authenticated;
 
 -- ---- responsável não tem painel ---------------------------------------------
 select set_config('request.jwt.claim.sub', :'ana', false);
