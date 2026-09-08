@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
-import { api, type AgendaRow, type Partner } from '@/api';
+import { api, type ActivityRow, type AgendaRow, type Partner } from '@/api';
 import { Card, Erro, EtiquetaVaga, Vazio, useDados } from '@/components/ui';
 import { paraCampoLocal, quando } from '@/format';
 
@@ -49,6 +49,8 @@ export function Turmas({ parceiro }: { parceiro: Partner }) {
           }}
         />
       )}
+
+      <CapasDasAtividades parceiro={parceiro} />
 
       {erro && <Erro>{erro}</Erro>}
       {carregando && !turmas && (
@@ -278,5 +280,159 @@ function NovaTurma({ parceiro, aoPublicar }: { parceiro: Partner; aoPublicar: ()
         </span>
       </div>
     </Card>
+  );
+}
+
+/**
+ * As capas das atividades.
+ *
+ * Ficou numa seção própria, e não dentro do formulário de publicar turma, por
+ * um motivo que só apareceu ao ver a tela pronta: capa é propriedade da
+ * ATIVIDADE, não daquela publicação. Escondida atrás do "+ Publicar turma",
+ * ela só existiria para quem estivesse criando uma turma nova — e quem já
+ * publicou tudo nunca mais acharia.
+ *
+ * Até aqui era uma foto de banco de imagens escolhida por modalidade, igual
+ * para toda escolinha de futebol do país, e não havia tela nenhuma para
+ * trocar. A decisão de reservar acontece olhando esse cartão, e a foto da
+ * quadra do parceiro vende melhor que qualquer foto genérica.
+ */
+function CapasDasAtividades({ parceiro }: { parceiro: Partner }) {
+  const { dado: atividades, recarregar } = useDados(
+    () => api.minhasAtividades(parceiro.id),
+    [parceiro.id],
+  );
+
+  if (!atividades || atividades.length === 0) return null;
+
+  return (
+    <Card>
+      <h3 style={{ marginBottom: 4 }}>Suas atividades no app</h3>
+      <p className="faint" style={{ marginBottom: 16 }}>
+        Esta é a imagem que a família vê antes de decidir. Sem uma foto sua, o app usa uma
+        genérica da modalidade.
+      </p>
+      <div style={{ display: 'grid', gap: 16 }}>
+        {atividades.map((a) => (
+          <CapaDaAtividade key={a.id} atividade={a} aoTrocar={recarregar} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/** Uma linha: miniatura, nome e o botão de trocar. */
+/**
+ * A capa que a família vê no catálogo.
+ *
+ * Até aqui era uma foto de banco de imagens escolhida por modalidade — igual
+ * para toda escolinha de futebol — e não havia tela nenhuma para trocar. Mas a
+ * decisão de reservar acontece olhando esse cartão, e a foto da quadra do
+ * parceiro vende melhor que qualquer foto genérica.
+ */
+function CapaDaAtividade({
+  atividade,
+  aoTrocar,
+}: {
+  atividade: ActivityRow | null;
+  aoTrocar: () => void;
+}) {
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const entrada = useRef<HTMLInputElement>(null);
+
+  if (!atividade) return null;
+
+  const escolher = async (arquivo: File | undefined) => {
+    if (!arquivo) return;
+    setErro(null);
+
+    // O bucket recusa acima de 5 MB, e recusa depois do upload inteiro subir.
+    // Barrar aqui poupa a espera e explica o motivo antes de gastar os dados
+    // de quem está num 4G de escolinha.
+    if (arquivo.size > 5 * 1024 * 1024) {
+      setErro('A imagem passa de 5 MB. Escolha uma menor.');
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      await api.trocarImagem(atividade.id, arquivo);
+      aoTrocar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível trocar a imagem.');
+    } finally {
+      setEnviando(false);
+      // Limpa a seleção: sem isto, escolher o MESMO arquivo de novo não dispara
+      // o `change` e o botão parece morto.
+      if (entrada.current) entrada.current.value = '';
+    }
+  };
+
+  return (
+    <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+        {atividade.imageUrl ? (
+          <img
+            src={atividade.imageUrl}
+            alt={`Capa de ${atividade.title}`}
+            // `flex: none` e fundo: sem isto, uma imagem que não carrega
+            // (rede caiu, URL velha) desenha o texto alternativo e estica a
+            // linha inteira, empurrando o botão para fora do lugar.
+            style={{
+              width: 72,
+              height: 54,
+              flex: 'none',
+              objectFit: 'cover',
+              borderRadius: 8,
+              background: 'var(--card-muted)',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 72,
+              height: 54,
+              flex: 'none',
+              borderRadius: 8,
+              border: '1.5px dashed var(--border)',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 11,
+              color: 'var(--text-faint)',
+            }}
+          >
+            sem foto
+          </div>
+        )}
+
+        <div style={{ flex: 1 }}>
+          <strong style={{ display: 'block', fontSize: 14, marginBottom: 6 }}>
+            {atividade.title}
+          </strong>
+          <input
+            ref={entrada}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={(e) => void escolher(e.target.files?.[0])}
+          />
+          <button
+            type="button"
+            className="btn btn-secundario"
+            disabled={enviando}
+            onClick={() => entrada.current?.click()}
+          >
+            {enviando ? 'Enviando…' : atividade.imageUrl ? 'Trocar imagem' : 'Escolher imagem'}
+          </button>
+          <p className="faint" style={{ fontSize: 12, marginTop: 6 }}>
+            {atividade.imageUrl
+              ? 'JPG, PNG ou WebP, até 5 MB.'
+              : 'Sem imagem, o app usa uma foto genérica da modalidade.'}
+          </p>
+          {erro ? (
+            <p style={{ fontSize: 12, marginTop: 4, color: 'var(--danger)' }}>{erro}</p>
+          ) : null}
+        </div>
+    </div>
   );
 }

@@ -21,10 +21,17 @@ const PARCEIRO: Partner = {
   role: 'owner',
 };
 
+// Uma com imagem própria e duas sem: é como o painel fica de verdade no
+// começo, e é o que deixa a diferença visível na demonstração.
 const ATIVIDADES: ActivityRow[] = [
-  { id: 'a-futebol', title: 'Futebol Kids', category: 'futebol' },
-  { id: 'a-judo', title: 'Judô para Pequenos', category: 'judo' },
-  { id: 'a-ginastica', title: 'Ginástica Divertida', category: 'ginastica' },
+  {
+    id: 'a-futebol',
+    title: 'Futebol Kids',
+    category: 'futebol',
+    imageUrl: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=400&q=70',
+  },
+  { id: 'a-judo', title: 'Judô para Pequenos', category: 'judo', imageUrl: null },
+  { id: 'a-ginastica', title: 'Ginástica Divertida', category: 'ginastica', imageUrl: null },
 ];
 
 /** A mesma regra do banco (`slot_kind_for`): a turma já acontece sozinha? */
@@ -230,6 +237,18 @@ export const demoApi: PainelApi = {
 
   async minhasAtividades() {
     return espera(ATIVIDADES);
+  },
+
+  /**
+   * No modo demonstração não há bucket: o navegador mesmo gera uma URL local
+   * para o arquivo escolhido, que já serve para a tela mostrar o resultado.
+   * O que o demo espelha do real é o contrato, não o armazenamento.
+   */
+  async trocarImagem(activityId, arquivo) {
+    const url = URL.createObjectURL(arquivo);
+    const atividade = ATIVIDADES.find((a) => a.id === activityId);
+    if (atividade) atividade.imageUrl = url;
+    return espera(url);
   },
 
   async extrato() {

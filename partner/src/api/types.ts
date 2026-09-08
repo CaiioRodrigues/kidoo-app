@@ -64,7 +64,13 @@ export type StatementRow = {
   totalCents: number;
 };
 
-export type ActivityRow = { id: string; title: string; category: ActivityCategoryId };
+export type ActivityRow = {
+  id: string;
+  title: string;
+  category: ActivityCategoryId;
+  /** `null` quando o parceiro ainda não subiu a dele — o app cai na foto da modalidade. */
+  imageUrl: string | null;
+};
 
 export type PainelApi = {
   entrar(email: string, senha: string): Promise<void>;
@@ -84,6 +90,14 @@ export type PainelApi = {
     coinCost: number;
   }): Promise<void>;
   minhasAtividades(partnerId: string): Promise<ActivityRow[]>;
+  /**
+   * Troca a foto de capa da atividade e devolve a URL nova.
+   *
+   * É a imagem que a família vê no catálogo antes de decidir. Até aqui era uma
+   * foto de banco de imagens escolhida por modalidade, igual para toda
+   * escolinha de futebol do país — e não havia tela nenhuma para trocar.
+   */
+  trocarImagem(activityId: string, arquivo: File): Promise<string>;
   extrato(meses?: number): Promise<StatementRow[]>;
   /** Há uma sessão ativa agora? */
   sessaoAtiva(): Promise<boolean>;
