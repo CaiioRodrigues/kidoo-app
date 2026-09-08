@@ -26,6 +26,11 @@ type LocationState = {
   request: () => Promise<boolean>;
   /** Relê a posição se a permissão já existe. Nunca abre prompt. */
   refresh: () => Promise<void>;
+  /**
+   * Garante uma leitura para o check-in: relê se já pode, e **pergunta** se
+   * ainda não perguntou.
+   */
+  ensure: () => Promise<void>;
   setNearbyOnly: (value: boolean) => void;
   setRadiusKm: (value: RadiusKm) => void;
 };
@@ -148,6 +153,39 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       if (proof) set({ status: 'granted', proof });
     } catch {
       // Uma releitura que falha não derruba o que já sabíamos.
+    }
+  },
+
+  /**
+   * O prompt na hora do check-in.
+   *
+   * `hydrate` e `refresh` só leem uma permissão que já existe — nenhum dos dois
+   * pergunta nada. O resultado era que o app nunca pedia localização no caminho
+   * do check-in: mostrava "Ativar" ao lado de um botão de check-in liberado, e
+   * ninguém tocava. Nos cinco primeiros check-ins reais, cinco vieram sem
+   * coordenada, e o portão de 250 m não checou nada.
+   *
+   * Perguntar aqui é diferente de perguntar na Home: a pessoa acabou de chegar
+   * no local, e o motivo de o app querer saber onde ela está é evidente. É a
+   * diferença entre uma permissão concedida e uma negada por reflexo.
+   *
+   * Não insiste: quem já negou de vez (`canAskAgain` falso) não é perguntado de
+   * novo, e o check-in segue sem verificação, como sempre seguiu.
+   */
+  ensure: async () => {
+    try {
+      const { granted, canAskAgain } = await Location.getForegroundPermissionsAsync();
+      if (granted) {
+        const proof = await read();
+        if (proof) set({ status: 'granted', proof });
+        return;
+      }
+      // `denied` nesta sessão já foi uma recusa nossa: não vira um segundo
+      // diálogo na mesma visita à tela.
+      if (!canAskAgain || get().status === 'denied') return;
+      await get().request();
+    } catch {
+      set({ status: 'unavailable' });
     }
   },
 

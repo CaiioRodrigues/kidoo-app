@@ -141,7 +141,107 @@ begin
     from information_schema.routines r
     join information_schema.parameters p on p.specific_name = r.specific_name
    where r.routine_name = 'session_roster' and p.parameter_mode = 'OUT';
-  assert v_colunas = 8, 'session_roster mudou de forma: ' || v_colunas || ' colunas';
+  assert v_colunas = 9, 'session_roster mudou de forma: ' || v_colunas || ' colunas';
+
+  -- A nona coluna foi decidida assim: o parceiro recebe se a localização foi
+  -- conferida, e NUNCA a distância. Saber "não conferida" é o que ele precisa
+  -- para olhar a criança na frente dele; saber "estava a 12 km" é saber onde a
+  -- família estava, e isso não é assunto dele. A distância continua só na
+  -- reserva, para auditoria nossa.
+  assert exists (
+    select 1 from information_schema.routines r
+      join information_schema.parameters p on p.specific_name = r.specific_name
+     where r.routine_name = 'session_roster' and p.parameter_mode = 'OUT'
+       and p.parameter_name = 'location_verified' and p.data_type = 'boolean'
+  ), 'a coluna de localização precisa ser booleana';
+  assert not exists (
+    select 1 from information_schema.routines r
+      join information_schema.parameters p on p.specific_name = r.specific_name
+     where r.routine_name = 'session_roster' and p.parameter_mode = 'OUT'
+       and (p.parameter_name ilike '%distance%' or p.parameter_name ilike '%distancia%'
+            or p.parameter_name ilike '%latitude%' or p.parameter_name ilike '%longitude%')
+  ), 'o parceiro não recebe distância nem coordenada da família';
+end $$;
+
+-- ---- os três estados da localização ----------------------------------------
+-- Nulo importa: quem ainda não chegou não pode aparecer como suspeito.
+--
+-- O preparo do estado sai do papel de parceiro: a RLS de `bookings` não deixa
+-- ele escrever direto, e um `update` filtrado pela RLS não falha — ele
+-- simplesmente não faz nada, e o teste passaria medindo o valor antigo.
+reset role;
+do $$
+declare v_reserva uuid;
+begin
+  select id into v_reserva from bookings
+   where check_in_proof is not null and status <> 'cancelled' limit 1;
+  perform set_config('kidoo.reserva_loc', coalesce(v_reserva::text, ''), false);
+end $$;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'arena', false);
+
+do $$
+declare v_sessao uuid; v_reserva uuid; v_valor boolean;
+begin
+  -- Sem check-in: desconhecido, e não "não conferido". Colapsar os dois
+  -- marcaria de suspeita toda criança que ainda não chegou.
+  select b.session_id, b.id into v_sessao, v_reserva
+    from bookings b
+    join activities a on a.id = b.activity_id
+   where b.check_in_proof is null and b.status <> 'cancelled'
+     and is_partner_member(a.partner_id)
+   limit 1;
+  if found then
+    select location_verified into v_valor from session_roster(v_sessao)
+     where booking_id = v_reserva;
+    assert v_valor is null, 'sem check-in, a localização é desconhecida, não falsa';
+  end if;
+end $$;
+
+reset role;
+do $$
+declare v_reserva uuid := nullif(current_setting('kidoo.reserva_loc', true), '')::uuid;
+begin
+  if v_reserva is not null then
+    update bookings set check_in_proof = jsonb_build_object('locationVerified', false)
+     where id = v_reserva;
+  end if;
+end $$;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'arena', false);
+do $$
+declare v_reserva uuid := nullif(current_setting('kidoo.reserva_loc', true), '')::uuid;
+  v_sessao uuid; v_valor boolean; v_achou boolean := false;
+begin
+  if v_reserva is null then return; end if;
+  select session_id into v_sessao from bookings where id = v_reserva;
+  select location_verified, true into v_valor, v_achou
+    from session_roster(v_sessao) where booking_id = v_reserva;
+  assert v_achou, 'a reserva preparada precisa estar na lista deste parceiro';
+  assert v_valor = false, 'check-in sem localização aparece como não conferido';
+end $$;
+
+reset role;
+do $$
+declare v_reserva uuid := nullif(current_setting('kidoo.reserva_loc', true), '')::uuid;
+begin
+  if v_reserva is not null then
+    update bookings
+       set check_in_proof = jsonb_build_object('locationVerified', true, 'distanceM', 40)
+     where id = v_reserva;
+  end if;
+end $$;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'arena', false);
+do $$
+declare v_reserva uuid := nullif(current_setting('kidoo.reserva_loc', true), '')::uuid;
+  v_sessao uuid; v_valor boolean;
+begin
+  if v_reserva is null then return; end if;
+  select session_id into v_sessao from bookings where id = v_reserva;
+  select location_verified into v_valor from session_roster(v_sessao)
+   where booking_id = v_reserva;
+  assert v_valor = true, 'check-in com localização aparece como conferido';
 end $$;
 
 -- ---- a agenda conta o que o parceiro precisa saber --------------------------
