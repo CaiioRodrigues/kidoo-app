@@ -119,6 +119,40 @@ export function slotsAvailable(session: ClassSession): number {
   return Math.max(0, session.slotsOpen - session.slotsTaken);
 }
 
+/**
+ * Turmas em que esta criança já tem lugar.
+ *
+ * Espelha o índice `one_seat_per_child` do banco, inclusive na exclusão das
+ * canceladas: desistir de uma aula tem de liberar a turma de volta. Vive aqui,
+ * e não em cada tela, porque a regra é a mesma para a lista de turmas e para a
+ * tela de confirmação — e porque discordar do banco aqui significaria oferecer
+ * um botão que o servidor recusa.
+ *
+ * É por criança, não por família: dois irmãos podem ocupar dois lugares na
+ * mesma turma, e essa é justamente a reserva que não pode ser bloqueada.
+ */
+export function bookedSessionIds(bookings: Booking[], childId: string | null): Set<Uuid> {
+  if (!childId) return new Set();
+  return new Set(
+    bookings
+      .filter((booking) => booking.childId === childId && booking.status !== 'cancelled')
+      .map((booking) => booking.sessionId),
+  );
+}
+
+/**
+ * Um pedido de aviso: esta criança quer esta turma quando abrir vaga.
+ *
+ * Guardado por criança, e não por família, porque é a criança que ocuparia o
+ * lugar — e porque com dois filhos a mesma família pode querer avisos de
+ * turmas diferentes.
+ */
+export type WaitlistEntry = {
+  sessionId: Uuid;
+  childId: Uuid;
+  createdAt: IsoDateTime;
+};
+
 export type Activity = {
   id: Uuid;
   title: string;

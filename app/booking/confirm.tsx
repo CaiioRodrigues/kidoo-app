@@ -10,15 +10,16 @@ import { daysUntilReset } from '@/lib/subscription';
 import { splitPayment } from '@/lib/bonus';
 import { toUserMessage } from '@/services';
 import {
+  useActiveChild,
   useActivity,
-  useChildren,
+  useBookings,
   useCreateBooking,
   useJourney,
   useSessions,
   useSubscription,
 } from '@/hooks/queries';
+import { bookedSessionIds } from '@/types/domain';
 import { useAuthStore } from '@/stores/auth-store';
-import { useOnboardingStore } from '@/stores/onboarding-store';
 import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 type Blocker = {
@@ -48,16 +49,20 @@ export default function ConfirmBookingScreen() {
     () => sessions.find((item) => item.id === sessionId) ?? null,
     [sessionId, sessions],
   );
-  const { data: children = [] } = useChildren();
   const { data: subscription } = useSubscription();
-  const activeChildId = useOnboardingStore((state) => state.activeChildId);
   const authenticated = useAuthStore((state) => state.status === 'authenticated');
   const createBooking = useCreateBooking();
   const [error, setError] = useState<string | null>(null);
 
-  const child = useMemo(
-    () => children.find((item) => item.id === activeChildId) ?? children[0] ?? null,
-    [activeChildId, children],
+  const child = useActiveChild();
+
+  // A lista de turmas já desabilita o que a criança reservou, mas esta tela é
+  // alcançável por link direto e pela lista em cache de antes da reserva. Sem
+  // repetir a checagem aqui, o caminho existiria — só ficaria mais escondido.
+  const { data: bookings = [] } = useBookings();
+  const jaReservada = useMemo(
+    () => bookedSessionIds(bookings, child?.id ?? null).has(sessionId ?? ''),
+    [bookings, child?.id, sessionId],
   );
 
   /**
@@ -203,15 +208,20 @@ export default function ConfirmBookingScreen() {
 
       {blocker ? null : (
         <Button
-          title="Confirmar reserva"
+          title={jaReservada ? 'Você já reservou esta turma' : 'Confirmar reserva'}
           loading={createBooking.isPending}
-          disabled={notEnoughCoins}
+          disabled={notEnoughCoins || jaReservada}
           onPress={() => void handleConfirm()}
           style={styles.cta}
         />
       )}
 
-      {coinsAfter !== null && subscription ? (
+      {jaReservada ? (
+        <Text variant="caption" color={colors.textMuted} center>
+          {child ? `${child.name} já tem lugar nesta turma.` : 'Esta turma já está reservada.'} Veja
+          na aba Reservas ou escolha outro horário.
+        </Text>
+      ) : coinsAfter !== null && subscription ? (
         <Text variant="caption" color={notEnoughCoins ? colors.danger : colors.textFaint} center>
           {notEnoughCoins
             ? `Seus coins desta semana acabaram. A cota volta ao cheio ${formatDaysUntil(

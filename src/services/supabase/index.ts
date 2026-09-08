@@ -11,6 +11,7 @@ import {
   toPlan,
   toReview,
   toSession,
+  toWaitlistEntry,
   toSubscription,
   toWallet,
   type ActivityRow,
@@ -21,6 +22,7 @@ import {
   type PlanRow,
   type ReviewRow,
   type SessionRow,
+  type WaitlistRow,
   type SubscriptionRow,
 } from './mappers';
 import { ApiError, type ApiErrorCode } from '../errors';
@@ -71,6 +73,11 @@ const RPC_MESSAGES: Record<string, { code: ApiErrorCode; message: string }> = {
   session_not_found: { code: 'not_found', message: 'Turma não encontrada.' },
   session_already_started: { code: 'not_found', message: 'Esta turma já começou.' },
   session_full: { code: 'not_found', message: 'Esta turma não tem mais vaga aberta.' },
+  already_booked: { code: 'already_booked', message: 'Você já reservou esta turma.' },
+  session_has_room: {
+    code: 'session_has_room',
+    message: 'Esta turma ainda tem vaga — é só reservar.',
+  },
   no_subscription: { code: 'not_found', message: 'Você ainda não tem um plano ativo.' },
   insufficient_coins: {
     code: 'insufficient_coins',
@@ -105,6 +112,14 @@ const RPC_MESSAGES: Record<string, { code: ApiErrorCode; message: string }> = {
 function fail(error: PostgrestError, fallback: string): never {
   const known = RPC_MESSAGES[error.message];
   if (known) throw new ApiError(known.code, known.message);
+
+  // O índice `one_seat_per_child` é a garantia real contra duas requisições
+  // simultâneas — `book_session` checa antes, mas entre a checagem e o insert
+  // ainda cabe outra transação. Quando ele dispara, a causa é a mesma do
+  // `already_booked` e a família merece a mesma frase, não um texto genérico.
+  if (error.code === '23505' && error.message.includes('one_seat_per_child')) {
+    throw new ApiError('already_booked', 'Você já reservou esta turma.');
+  }
 
   // Falha de rede não é erro de regra: a tela oferece "tentar de novo" num
   // caso e explica o motivo no outro, então a distinção precisa chegar até lá.
@@ -440,7 +455,11 @@ export const supabaseApi: KidooApi = {
     async sessions(activityId) {
       const rows = unwrap(
         await supabase()
-          .from('class_sessions_open')
+          // `_visible`, e não `_open`: a turma cheia precisa aparecer para a
+          // família poder pedir aviso. A view `_open` continua existindo e
+          // continua significando "dá para reservar" — é dela que o cartão do
+          // catálogo tira o "a partir de".
+          .from('class_sessions_visible')
           .select('*')
           .eq('activity_id', activityId)
           .order('starts_at')
@@ -610,6 +629,47 @@ export const supabaseApi: KidooApi = {
       const [details] = await toDetails([row]);
       if (!details) throw new ApiError('not_found', 'Reserva não encontrada.');
       return details;
+    },
+  },
+
+  waitlist: {
+    async list() {
+      // `returns<T[]>` num rpc que devolve conjunto confunde a inferência do
+      // supabase-js, que suspeita de `.single()` na cadeia. O cast fica aqui,
+      // num lugar só, em vez de espalhar `any` pelo mapeamento.
+      const { data, error } = await supabase().rpc('my_waitlist');
+      if (error) fail(error, 'Não foi possível carregar suas esperas.');
+      return ((data ?? []) as WaitlistRow[]).map(toWaitlistEntry);
+    },
+
+    async join({ sessionId, childId }) {
+      unwrap(
+        await supabase().rpc('join_waitlist', { p_session_id: sessionId, p_child_id: childId }),
+        'Não foi possível entrar na fila desta turma.',
+      );
+    },
+
+    async leave({ sessionId, childId }) {
+      unwrap(
+        await supabase().rpc('leave_waitlist', { p_session_id: sessionId, p_child_id: childId }),
+        'Não foi possível sair da fila desta turma.',
+      );
+    },
+  },
+
+  push: {
+    async register({ token, platform }) {
+      unwrap(
+        await supabase().rpc('register_push_token', { p_token: token, p_platform: platform }),
+        'Não foi possível registrar o aparelho para avisos.',
+      );
+    },
+
+    async forget(token) {
+      unwrap(
+        await supabase().rpc('forget_push_token', { p_token: token }),
+        'Não foi possível desativar os avisos neste aparelho.',
+      );
     },
   },
 

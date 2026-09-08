@@ -38,6 +38,7 @@ import type {
   Session,
   SignUpResult,
   SubscriptionState,
+  WaitlistEntry,
 } from '@/types/domain';
 
 /**
@@ -74,6 +75,8 @@ type MockState = {
    */
   ratings: Map<string, { rating: number; reviewCount: number }>;
   subscription: SubscriptionState | null;
+  /** Quem está esperando vaga. Chave: `sessionId:childId`, como a PK do banco. */
+  waitlist: Map<string, WaitlistEntry>;
 };
 
 const state: MockState = {
@@ -84,6 +87,7 @@ const state: MockState = {
   reviews: [],
   ratings: new Map(),
   subscription: null,
+  waitlist: new Map(),
 };
 
 /** Credita os bônus de todos os níveis cruzados entre `from` e `to`. */
@@ -289,14 +293,14 @@ export const mockApi: KidooApi = {
       return delay(withDistance(found, origin));
     },
     async sessions(activityId) {
+      // Turma cheia também entra: é justamente nela que a família pede aviso.
+      // O horário bom lota primeiro, e esconder a turma lotada era esconder a
+      // que ela mais queria — sem sequer deixar rastro dessa demanda.
       const now = Date.now();
-      const open = CLASS_SESSIONS.filter(
-        (session) =>
-          session.activityId === activityId &&
-          slotsAvailable(session) > 0 &&
-          Date.parse(session.startsAt) > now,
+      const futuras = CLASS_SESSIONS.filter(
+        (session) => session.activityId === activityId && Date.parse(session.startsAt) > now,
       ).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-      return delay(open);
+      return delay(futuras);
     },
 
     async reviews(activityId) {
@@ -594,14 +598,29 @@ export const mockApi: KidooApi = {
       const activity = ACTIVITIES.find((item) => item.id === session.activityId);
       if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
 
+      if (Date.parse(session.startsAt) <= Date.now()) {
+        throw new ApiError('not_found', 'Esta turma já começou.');
+      }
+
+      // Antes de olhar lotação: quem já está na turma não está diante de um
+      // problema de vaga. Espelha o índice `one_seat_per_child` do banco —
+      // cancelada não conta, senão desistir de uma aula trancaria a turma para
+      // sempre. Sem esta linha o mock aceitava a segunda reserva e cobrava os
+      // coins de novo, enquanto o Supabase recusava: as duas implementações
+      // discordavam justamente no caso que a tela precisa prever.
+      const jaReservada = state.bookings.some(
+        (item) =>
+          item.sessionId === sessionId && item.childId === childId && item.status !== 'cancelled',
+      );
+      if (jaReservada) {
+        throw new ApiError('already_booked', 'Você já reservou esta turma.');
+      }
+
       // A vaga é do parceiro: se ele fechou ou a turma encheu, não há o que
       // reservar. A checagem é aqui, no serviço, porque duas famílias podem
       // tocar em "confirmar" ao mesmo tempo.
       if (slotsAvailable(session) <= 0) {
         throw new ApiError('not_found', 'Esta turma não tem mais vaga aberta.');
-      }
-      if (Date.parse(session.startsAt) <= Date.now()) {
-        throw new ApiError('not_found', 'Esta turma já começou.');
       }
 
       // Aplica a virada de semana antes de debitar: uma reserva feita depois da
@@ -657,7 +676,69 @@ export const mockApi: KidooApi = {
         reward: null,
       };
       state.bookings = [...state.bookings, booking];
+      // Espelha o gatilho `bookings_leave_waitlist`: quem pegou a vaga não
+      // espera mais por ela.
+      state.waitlist.delete(`${sessionId}:${childId}`);
       return delay(booking);
+    },
+  },
+
+  /**
+   * Fila de espera.
+   *
+   * O mock não tem gatilho nem push: aqui a fila só guarda o pedido e some
+   * quando a reserva acontece. É o suficiente para a tela — quem prova o aviso
+   * é o teste do Postgres, onde o gatilho existe de verdade.
+   */
+  waitlist: {
+    async list() {
+      requireSession();
+      return delay([...state.waitlist.values()]);
+    },
+
+    async join({ sessionId, childId }) {
+      requireSession();
+      const session = CLASS_SESSIONS.find((item) => item.id === sessionId);
+      if (!session) throw new ApiError('not_found', 'Turma não encontrada.');
+      if (Date.parse(session.startsAt) <= Date.now()) {
+        throw new ApiError('not_found', 'Esta turma já começou.');
+      }
+      const jaReservada = state.bookings.some(
+        (item) =>
+          item.sessionId === sessionId && item.childId === childId && item.status !== 'cancelled',
+      );
+      if (jaReservada) throw new ApiError('already_booked', 'Você já reservou esta turma.');
+      // Turma com vaga não entra na fila: o aviso nasce da abertura, então
+      // esperar aqui seria aguardar algo que não vai acontecer.
+      if (slotsAvailable(session) > 0) {
+        throw new ApiError('session_has_room', 'Esta turma ainda tem vaga — é só reservar.');
+      }
+      state.waitlist.set(`${sessionId}:${childId}`, {
+        sessionId,
+        childId,
+        createdAt: new Date().toISOString(),
+      });
+      return delay(undefined, 200);
+    },
+
+    async leave({ sessionId, childId }) {
+      requireSession();
+      state.waitlist.delete(`${sessionId}:${childId}`);
+      return delay(undefined, 200);
+    },
+  },
+
+  /**
+   * Sem servidor não há para onde mandar aviso, então registrar é um no-op.
+   * A implementação existe para a tela poder chamar sempre, sem perguntar qual
+   * backend está ligado.
+   */
+  push: {
+    async register() {
+      return delay(undefined, 100);
+    },
+    async forget() {
+      return delay(undefined, 100);
     },
   },
 

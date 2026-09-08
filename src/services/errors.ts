@@ -13,6 +13,10 @@ export type ApiErrorCode =
   | 'invalid_credentials'
   | 'email_in_use'
   | 'not_found'
+  /** A criança já tem lugar nesta turma. A tela desabilita em vez de deixar tentar. */
+  | 'already_booked'
+  /** Pediu aviso numa turma que ainda tem vaga: o caminho é reservar. */
+  | 'session_has_room'
   | 'insufficient_coins'
   | 'network'
   | 'unknown';

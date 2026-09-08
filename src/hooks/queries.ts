@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { api, type ActivityFilters } from '@/services';
 import { useAuthStore } from '@/stores/auth-store';
 import { useLocationStore } from '@/stores/location-store';
+import { useOnboardingStore } from '@/stores/onboarding-store';
 import type { Coords } from '@/lib/geo';
 import type { ActivityCategoryId, PlanId } from '@/types/domain';
 import type { ChildProfileInput } from '@/lib/validation';
@@ -14,6 +16,7 @@ export const queryKeys = {
   subscription: ['subscription'] as const,
   children: ['children'] as const,
   bookings: ['bookings'] as const,
+  waitlist: ['waitlist'] as const,
   activities: (filters?: ActivityFilters) => ['activities', filters ?? {}] as const,
   activity: (id: string, origin?: Coords) => ['activity', id, origin ?? null] as const,
   reviews: (activityId: string) => ['reviews', activityId] as const,
@@ -66,6 +69,23 @@ export function useChildren() {
     queryFn: () => api.children.list(),
     enabled: authenticated,
   });
+}
+
+/**
+ * A criança de quem estamos falando agora.
+ *
+ * O app é de uma família, mas quase toda tela fala de uma criança só: a jornada
+ * é dela, os coins saem do bolso dela, e a turma já reservada é dela. Sem a
+ * queda para a primeira da lista, quem nunca abriu o seletor não teria criança
+ * ativa nenhuma e as telas ficariam vazias sem motivo aparente.
+ */
+export function useActiveChild() {
+  const { data: children = [] } = useChildren();
+  const activeChildId = useOnboardingStore((state) => state.activeChildId);
+  return useMemo(
+    () => children.find((item) => item.id === activeChildId) ?? children[0] ?? null,
+    [activeChildId, children],
+  );
 }
 
 export function useActivities(filters?: ActivityFilters, options?: { enabled?: boolean }) {
@@ -172,6 +192,42 @@ export function useBooking(id: string) {
   });
 }
 
+/**
+ * Em quais turmas esta família pediu aviso.
+ *
+ * Uma consulta só para a família inteira, e não uma por turma: a tela da
+ * atividade precisa marcar várias linhas de uma vez, e uma consulta por linha
+ * seria N+1 numa lista que já é longa.
+ */
+export function useWaitlist() {
+  const authenticated = useAuthStore((state) => state.status === 'authenticated');
+  return useQuery({
+    queryKey: queryKeys.waitlist,
+    queryFn: () => api.waitlist.list(),
+    enabled: authenticated,
+  });
+}
+
+export function useJoinWaitlist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { sessionId: string; childId: string }) => api.waitlist.join(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.waitlist });
+    },
+  });
+}
+
+export function useLeaveWaitlist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { sessionId: string; childId: string }) => api.waitlist.leave(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.waitlist });
+    },
+  });
+}
+
 export function useJourney(childId: string | null) {
   return useQuery({
     queryKey: queryKeys.journey(childId ?? ''),
@@ -194,6 +250,9 @@ export function useCreateBooking() {
       // A carteira de bônus vive dentro de journey: sem invalidar aqui, o saldo
       // debitado no servidor continuaria aparecendo cheio na tela.
       void queryClient.invalidateQueries({ queryKey: queryKeys.journey(variables.childId) });
+      // Quem reserva sai da fila de espera — o gatilho faz isso no servidor, e
+      // sem reler a turma continuaria marcada como "esperando aviso".
+      void queryClient.invalidateQueries({ queryKey: queryKeys.waitlist });
     },
   });
 }
@@ -264,8 +323,9 @@ export function useCancelBooking() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.booking(booking.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
       void queryClient.invalidateQueries({ queryKey: queryKeys.journey(booking.childId) });
-      // A vaga voltou para a turma.
+      // A vaga voltou para a turma — e com ela some o "Avise-me" da linha.
       void queryClient.invalidateQueries({ queryKey: queryKeys.sessions(booking.activityId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.waitlist });
     },
   });
 }

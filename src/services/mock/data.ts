@@ -572,6 +572,12 @@ function sessionsFor(seed: Seed, activityId: string, firstStart: string): ClassS
     // O parceiro não abre tudo: guarda folga para a própria matrícula.
     const slotsOpen = Math.max(1, Math.round(free * 0.6));
 
+    // A última turma da semana já sai lotada. Um catálogo em que tudo tem vaga
+    // não é catálogo nenhum — é justamente o horário bom que enche primeiro, e
+    // sem uma turma cheia na semente o "Avise-me" não aparece em lugar nenhum
+    // no modo demonstração.
+    const slotsTaken = index === 2 ? slotsOpen : 0;
+
     return {
       id: `${activityId}-s${index}`,
       activityId,
@@ -579,7 +585,7 @@ function sessionsFor(seed: Seed, activityId: string, firstStart: string): ClassS
       capacity,
       enrolled,
       slotsOpen,
-      slotsTaken: 0,
+      slotsTaken,
       kind,
       coinCost: kind === 'ociosa' ? idleCost(COIN_TIERS[seed.tier]) : COIN_TIERS[seed.tier],
     } satisfies ClassSession;

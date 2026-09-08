@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/CategoryIcon';
@@ -10,7 +10,18 @@ import { HeaderBar } from '@/components/navigation';
 import { Badge, CoinBadge, Divider, Screen, Text } from '@/components/ui';
 import { RatingSummaryCard, ReviewCard, StarRating } from '@/features/reviews';
 import { formatPlace } from '@/lib/format';
-import { useActivity, useReviews, useSessions } from '@/hooks/queries';
+import { toUserMessage } from '@/services';
+import {
+  useActiveChild,
+  useActivity,
+  useBookings,
+  useJoinWaitlist,
+  useLeaveWaitlist,
+  useReviews,
+  useSessions,
+  useWaitlist,
+} from '@/hooks/queries';
+import { bookedSessionIds, type ClassSession } from '@/types/domain';
 import { categoryTone, radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
@@ -24,6 +35,47 @@ export default function ActivityDetailScreen() {
   const { data: activity, isPending, isError } = useActivity(id ?? '');
   const { data: reviewData, isPending: reviewsPending } = useReviews(id ?? '');
   const { data: sessions = [], isPending: sessionsPending } = useSessions(id ?? '');
+  // Quais destas turmas a criança ativa já tem. `useBookings` só consulta com
+  // sessão aberta, então quem está navegando deslogado recebe um conjunto
+  // vazio — e nada fica marcado, que é o correto: não há criança ainda.
+  const { data: bookings = [] } = useBookings();
+  const child = useActiveChild();
+  const reserved = useMemo(
+    () => bookedSessionIds(bookings, child?.id ?? null),
+    [bookings, child?.id],
+  );
+
+  const { data: waitlist = [] } = useWaitlist();
+  const waiting = useMemo(
+    () =>
+      new Set(
+        waitlist.filter((item) => item.childId === child?.id).map((item) => item.sessionId),
+      ),
+    [waitlist, child?.id],
+  );
+  const joinWaitlist = useJoinWaitlist();
+  const leaveWaitlist = useLeaveWaitlist();
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
+
+  const handleWaitlist = useCallback(
+    (session: ClassSession, esperando: boolean) => {
+      if (!child) {
+        // Sem criança cadastrada não há por quem esperar. O caminho é o mesmo
+        // da reserva: a tela de confirmação sabe pedir o cadastro que falta.
+        router.push({
+          pathname: '/booking/confirm',
+          params: { activityId: id ?? '', sessionId: session.id },
+        });
+        return;
+      }
+      setWaitlistError(null);
+      const input = { sessionId: session.id, childId: child.id };
+      const acao = esperando ? leaveWaitlist : joinWaitlist;
+      acao.mutate(input, { onError: (caught) => setWaitlistError(toUserMessage(caught)) });
+    },
+    [child, id, joinWaitlist, leaveWaitlist, router],
+  );
+
   const [tab, setTab] = useState<'sobre' | 'avaliacoes'>('sobre');
 
   if (isPending) {
@@ -144,15 +196,26 @@ export default function ActivityDetailScreen() {
                 Carregando turmas…
               </Text>
             ) : (
-              <SessionPicker
-                sessions={sessions}
-                onSelect={(session) =>
-                  router.push({
-                    pathname: '/booking/confirm',
-                    params: { activityId: activity.id, sessionId: session.id },
-                  })
-                }
-              />
+              <>
+                <SessionPicker
+                  sessions={sessions}
+                  reserved={reserved}
+                  waiting={waiting}
+                  waitlistPending={joinWaitlist.isPending || leaveWaitlist.isPending}
+                  onToggleWaitlist={handleWaitlist}
+                  onSelect={(session) =>
+                    router.push({
+                      pathname: '/booking/confirm',
+                      params: { activityId: activity.id, sessionId: session.id },
+                    })
+                  }
+                />
+                {waitlistError ? (
+                  <Text variant="caption" color={colors.danger} style={styles.description}>
+                    {waitlistError}
+                  </Text>
+                ) : null}
+              </>
             )}
           </>
         ) : (
