@@ -594,14 +594,29 @@ export const mockApi: KidooApi = {
       const activity = ACTIVITIES.find((item) => item.id === session.activityId);
       if (!activity) throw new ApiError('not_found', 'Atividade não encontrada.');
 
+      if (Date.parse(session.startsAt) <= Date.now()) {
+        throw new ApiError('not_found', 'Esta turma já começou.');
+      }
+
+      // Antes de olhar lotação: quem já está na turma não está diante de um
+      // problema de vaga. Espelha o índice `one_seat_per_child` do banco —
+      // cancelada não conta, senão desistir de uma aula trancaria a turma para
+      // sempre. Sem esta linha o mock aceitava a segunda reserva e cobrava os
+      // coins de novo, enquanto o Supabase recusava: as duas implementações
+      // discordavam justamente no caso que a tela precisa prever.
+      const jaReservada = state.bookings.some(
+        (item) =>
+          item.sessionId === sessionId && item.childId === childId && item.status !== 'cancelled',
+      );
+      if (jaReservada) {
+        throw new ApiError('already_booked', 'Você já reservou esta turma.');
+      }
+
       // A vaga é do parceiro: se ele fechou ou a turma encheu, não há o que
       // reservar. A checagem é aqui, no serviço, porque duas famílias podem
       // tocar em "confirmar" ao mesmo tempo.
       if (slotsAvailable(session) <= 0) {
         throw new ApiError('not_found', 'Esta turma não tem mais vaga aberta.');
-      }
-      if (Date.parse(session.startsAt) <= Date.now()) {
-        throw new ApiError('not_found', 'Esta turma já começou.');
       }
 
       // Aplica a virada de semana antes de debitar: uma reserva feita depois da

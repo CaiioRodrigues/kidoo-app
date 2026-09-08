@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/CategoryIcon';
@@ -10,7 +10,8 @@ import { HeaderBar } from '@/components/navigation';
 import { Badge, CoinBadge, Divider, Screen, Text } from '@/components/ui';
 import { RatingSummaryCard, ReviewCard, StarRating } from '@/features/reviews';
 import { formatPlace } from '@/lib/format';
-import { useActivity, useReviews, useSessions } from '@/hooks/queries';
+import { useActiveChild, useActivity, useBookings, useReviews, useSessions } from '@/hooks/queries';
+import { bookedSessionIds } from '@/types/domain';
 import { categoryTone, radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
@@ -24,6 +25,15 @@ export default function ActivityDetailScreen() {
   const { data: activity, isPending, isError } = useActivity(id ?? '');
   const { data: reviewData, isPending: reviewsPending } = useReviews(id ?? '');
   const { data: sessions = [], isPending: sessionsPending } = useSessions(id ?? '');
+  // Quais destas turmas a criança ativa já tem. `useBookings` só consulta com
+  // sessão aberta, então quem está navegando deslogado recebe um conjunto
+  // vazio — e nada fica marcado, que é o correto: não há criança ainda.
+  const { data: bookings = [] } = useBookings();
+  const child = useActiveChild();
+  const reserved = useMemo(
+    () => bookedSessionIds(bookings, child?.id ?? null),
+    [bookings, child?.id],
+  );
   const [tab, setTab] = useState<'sobre' | 'avaliacoes'>('sobre');
 
   if (isPending) {
@@ -146,6 +156,7 @@ export default function ActivityDetailScreen() {
             ) : (
               <SessionPicker
                 sessions={sessions}
+                reserved={reserved}
                 onSelect={(session) =>
                   router.push({
                     pathname: '/booking/confirm',

@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { api, type ActivityFilters } from '@/services';
 import { useAuthStore } from '@/stores/auth-store';
 import { useLocationStore } from '@/stores/location-store';
+import { useOnboardingStore } from '@/stores/onboarding-store';
 import type { Coords } from '@/lib/geo';
 import type { ActivityCategoryId, PlanId } from '@/types/domain';
 import type { ChildProfileInput } from '@/lib/validation';
@@ -66,6 +68,23 @@ export function useChildren() {
     queryFn: () => api.children.list(),
     enabled: authenticated,
   });
+}
+
+/**
+ * A criança de quem estamos falando agora.
+ *
+ * O app é de uma família, mas quase toda tela fala de uma criança só: a jornada
+ * é dela, os coins saem do bolso dela, e a turma já reservada é dela. Sem a
+ * queda para a primeira da lista, quem nunca abriu o seletor não teria criança
+ * ativa nenhuma e as telas ficariam vazias sem motivo aparente.
+ */
+export function useActiveChild() {
+  const { data: children = [] } = useChildren();
+  const activeChildId = useOnboardingStore((state) => state.activeChildId);
+  return useMemo(
+    () => children.find((item) => item.id === activeChildId) ?? children[0] ?? null,
+    [activeChildId, children],
+  );
 }
 
 export function useActivities(filters?: ActivityFilters, options?: { enabled?: boolean }) {

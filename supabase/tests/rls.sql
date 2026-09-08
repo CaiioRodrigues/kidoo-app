@@ -10,7 +10,9 @@
 set role authenticated;
 select set_config('request.jwt.claim.sub', :'ana', false);
 do $$ begin
-  assert (select count(*) from children)  = 1, 'Ana deveria ver só 1 filho';
+  -- Ana tem dois filhos e a Lia é do Bruno: a asserção prova que a RLS corta
+  -- por responsável, e não que a tabela tem uma linha só.
+  assert (select count(*) from children)  = 2, 'Ana deveria ver os 2 filhos dela, e só';
   assert (select count(*) from guardians) = 1, 'Ana deveria ver só o próprio cadastro';
   assert (select count(*) from activities) = 2, 'catálogo deveria ser público';
 end $$;
@@ -41,9 +43,11 @@ begin
   assert (select slots_taken from class_sessions where id='eeeeeeee-0000-0000-0000-000000000001') = 1,
          'reservar precisa ocupar a vaga';
 
-  -- turma sem vaga recusa antes de qualquer outra coisa
+  -- Turma sem vaga recusa. Com a IRMÃ, não com a mesma criança: repetir o
+  -- Joao aqui dispararia `already_booked` antes, e o teste passaria a medir a
+  -- ordem das checagens em vez da lotação.
   begin
-    perform book_session('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
+    perform book_session('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000002');
     assert false, 'turma cheia deveria recusar';
   exception when others then
     assert sqlerrm = 'session_full', 'esperado session_full, veio: ' || sqlerrm;
@@ -63,15 +67,79 @@ end $$;
 do $$
 declare v_booking bookings%rowtype;
 begin
-  -- a turma do Pampulha tem 2 vagas: aqui quem barra é a unique, não a capacidade
+  -- a turma do Pampulha tem 2 vagas: aqui quem barra é a regra, não a capacidade
   v_booking := book_session('eeeeeeee-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000001');
   begin
     perform book_session('eeeeeeee-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000001');
     assert false, 'a mesma criança não pode ocupar dois lugares na mesma turma';
-  exception when unique_violation then null;
+  exception when others then
+    assert sqlerrm = 'already_booked', 'esperado already_booked, veio: ' || sqlerrm;
+  end;
+
+  -- A vaga não pode ser consumida pela tentativa recusada: `book_session`
+  -- incrementa slots_taken antes do insert, e se a recusa acontecesse depois
+  -- disso sem rollback, cada toque a mais comeria um lugar do parceiro.
+  assert (select slots_taken from class_sessions where id='eeeeeeee-0000-0000-0000-000000000002') = 1,
+         'tentativa recusada não pode consumir vaga';
+
+  perform cancel_booking(v_booking.id);
+
+  -- Depois de cancelar, o índice libera: a coluna status entra na condição
+  -- parcial, e desistir de uma aula não pode trancar a turma para sempre.
+  v_booking := book_session('eeeeeeee-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000001');
+  assert v_booking.id is not null, 'cancelada não pode contar como lugar ocupado';
+  perform cancel_booking(v_booking.id);
+
+  -- Irmãos na mesma turma: a regra é por criança, não por família. Se fosse por
+  -- família, o segundo filho ficaria de fora da aula do primeiro.
+  v_booking := book_session('eeeeeeee-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000001');
+  declare v_irma bookings%rowtype;
+  begin
+    v_irma := book_session('eeeeeeee-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000002');
+    assert v_irma.id is not null, 'dois irmãos podem ocupar dois lugares na mesma turma';
+    perform cancel_booking(v_irma.id);
   end;
   perform cancel_booking(v_booking.id);
 end $$;
+
+-- ---- o índice, e não a função, é a garantia contra corrida ----------------
+-- `book_session` checa antes de inserir, mas entre a checagem e o insert cabe
+-- outra transação. Quem impede de verdade é `one_seat_per_child`. Provar isso
+-- exige furar a RLS, que barraria o insert direto antes de a unique ser
+-- consultada — daí o `reset role`.
+reset role;
+do $$
+declare v_id uuid;
+begin
+  insert into bookings (guardian_id, child_id, session_id, activity_id,
+                        scheduled_at, coin_cost, slot_kind, payment)
+  values ('11111111-1111-1111-1111-111111111111','aaaaaaaa-0000-0000-0000-000000000001',
+          'eeeeeeee-0000-0000-0000-000000000003','dddddddd-0000-0000-0000-00000000000a',
+          now() + interval '10 minutes', 2, 'ociosa', '{}'::jsonb)
+  returning id into v_id;
+
+  begin
+    insert into bookings (guardian_id, child_id, session_id, activity_id,
+                          scheduled_at, coin_cost, slot_kind, payment)
+    values ('11111111-1111-1111-1111-111111111111','aaaaaaaa-0000-0000-0000-000000000001',
+            'eeeeeeee-0000-0000-0000-000000000003','dddddddd-0000-0000-0000-00000000000a',
+            now() + interval '10 minutes', 2, 'ociosa', '{}'::jsonb);
+    assert false, 'one_seat_per_child precisa barrar o segundo lugar';
+  exception when unique_violation then null;
+  end;
+
+  -- Cancelada sai da condição parcial do índice: o mesmo par volta a caber.
+  update bookings set status = 'cancelled' where id = v_id;
+  insert into bookings (guardian_id, child_id, session_id, activity_id,
+                        scheduled_at, coin_cost, slot_kind, payment)
+  values ('11111111-1111-1111-1111-111111111111','aaaaaaaa-0000-0000-0000-000000000001',
+          'eeeeeeee-0000-0000-0000-000000000003','dddddddd-0000-0000-0000-00000000000a',
+          now() + interval '10 minutes', 2, 'ociosa', '{}'::jsonb)
+  returning id into v_id;
+  delete from bookings where session_id = 'eeeeeeee-0000-0000-0000-000000000003';
+end $$;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
 
 -- ---- criança dos outros ----------------------------------------------------
 do $$ begin

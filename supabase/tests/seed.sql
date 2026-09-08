@@ -14,6 +14,10 @@ on conflict (id) do update set name = excluded.name;
 
 insert into children (id, guardian_id, name, birth_date) values
   ('aaaaaaaa-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','Joao','2018-03-15'),
+  -- Segunda criança da Ana: é o que permite provar "turma cheia" sem esbarrar
+  -- em "já reservou". Com uma criança só, os dois motivos coincidiam e o teste
+  -- de lotação passava por causa da ordem das checagens, não da lotação.
+  ('aaaaaaaa-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','Maria','2019-08-20'),
   ('bbbbbbbb-0000-0000-0000-000000000001','22222222-2222-2222-2222-222222222222','Lia','2017-06-01');
 
 insert into partners (id, name, neighborhood, city, verified, latitude, longitude) values

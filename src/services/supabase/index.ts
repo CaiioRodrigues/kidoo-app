@@ -71,6 +71,7 @@ const RPC_MESSAGES: Record<string, { code: ApiErrorCode; message: string }> = {
   session_not_found: { code: 'not_found', message: 'Turma não encontrada.' },
   session_already_started: { code: 'not_found', message: 'Esta turma já começou.' },
   session_full: { code: 'not_found', message: 'Esta turma não tem mais vaga aberta.' },
+  already_booked: { code: 'already_booked', message: 'Você já reservou esta turma.' },
   no_subscription: { code: 'not_found', message: 'Você ainda não tem um plano ativo.' },
   insufficient_coins: {
     code: 'insufficient_coins',
@@ -105,6 +106,14 @@ const RPC_MESSAGES: Record<string, { code: ApiErrorCode; message: string }> = {
 function fail(error: PostgrestError, fallback: string): never {
   const known = RPC_MESSAGES[error.message];
   if (known) throw new ApiError(known.code, known.message);
+
+  // O índice `one_seat_per_child` é a garantia real contra duas requisições
+  // simultâneas — `book_session` checa antes, mas entre a checagem e o insert
+  // ainda cabe outra transação. Quando ele dispara, a causa é a mesma do
+  // `already_booked` e a família merece a mesma frase, não um texto genérico.
+  if (error.code === '23505' && error.message.includes('one_seat_per_child')) {
+    throw new ApiError('already_booked', 'Você já reservou esta turma.');
+  }
 
   // Falha de rede não é erro de regra: a tela oferece "tentar de novo" num
   // caso e explica o motivo no outro, então a distinção precisa chegar até lá.
