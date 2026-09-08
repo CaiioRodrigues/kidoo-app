@@ -10,7 +10,7 @@ import { useTutorialStore } from '@/stores/tutorial-store';
  * voltava junto. Enquanto a preferência não chega do armazenamento nada é
  * exibido, para quem já viu não ver o tutorial piscar a cada abertura.
  */
-export function useTutorial(): { visible: boolean; dismiss: () => void } {
+export function useTutorial(ready = true): { visible: boolean; dismiss: () => void } {
   const status = useTutorialStore((state) => state.status);
   const hydrate = useTutorialStore((state) => state.hydrate);
   const dismiss = useTutorialStore((state) => state.dismiss);
@@ -19,5 +19,9 @@ export function useTutorial(): { visible: boolean; dismiss: () => void } {
     void hydrate();
   }, [hydrate]);
 
-  return { visible: status === 'show', dismiss };
+  // `ready` existe para o tutorial não cobrir uma tela que ainda está
+  // carregando: a apresentação fala de aulas perto de casa, e cair por cima de
+  // esqueletos cinzentos é a pior primeira impressão possível. Ele espera a
+  // Home ter o que mostrar por trás.
+  return { visible: ready && status === 'show', dismiss };
 }

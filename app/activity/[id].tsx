@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { DayStrip, SessionPicker } from '@/features/activities';
+import { HintBubble, useOneTimeHint } from '@/features/tutorial';
 import { HeaderBar } from '@/components/navigation';
 import { Badge, CoinBadge, Divider, Screen, Text } from '@/components/ui';
 import { RatingSummaryCard, ReviewCard, StarRating } from '@/features/reviews';
@@ -29,6 +30,7 @@ import {
   useSessions,
   useWaitlist,
 } from '@/hooks/queries';
+import { PreferenceKeys } from '@/lib/preferences';
 import { bookedSessionIds, type ClassSession } from '@/types/domain';
 import { categoryTone, radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
@@ -52,6 +54,16 @@ export default function ActivityDetailScreen() {
     () => bookedSessionIds(bookings, child?.id ?? null),
     [bookings, child?.id],
   );
+
+  /*
+    A dica só aparece depois de existir turma na tela, e uma vez só.
+    A agenda por dia e o sino de "me avise quando abrir vaga" são as duas
+    novidades que ninguém procura: quem abre a tela vê uma fileira de dias e
+    presume que é decoração, e turma cheia parece um beco sem saída. Explicar
+    isso no carrossel de boas-vindas não adiantaria — dias antes de alguém
+    chegar aqui.
+  */
+  const dicaDaAgenda = useOneTimeHint(PreferenceKeys.hintAgenda, sessions.length > 0);
 
   const { data: waitlist = [] } = useWaitlist();
   const waiting = useMemo(
@@ -230,6 +242,19 @@ export default function ActivityDetailScreen() {
               </Text>
             ) : (
               <>
+                {/* O envoltório só existe junto com a dica: deixá-lo fixo
+                    somaria um respiro de 16px acima da fileira de dias para
+                    todo mundo que já dispensou o aviso. */}
+                {dicaDaAgenda.visible ? (
+                  <View style={styles.dicaDaAgenda}>
+                    <HintBubble
+                      visible
+                      onDismiss={dicaDaAgenda.dismiss}
+                      text="Toque num dia para ver as turmas dele. Se a turma estiver cheia, toque no sininho: a gente te avisa quando abrir vaga."
+                    />
+                  </View>
+                ) : null}
+
                 <DayStrip schedule={schedule} selected={diaAtivo} onSelect={setDiaEscolhido} />
 
                 {dia ? (
@@ -372,6 +397,7 @@ const makeStyles = (colors: ThemeColors) =>
     tab: { paddingBottom: spacing.md, borderBottomWidth: 2, borderBottomColor: 'transparent' },
     reviews: { marginTop: spacing.lg, gap: spacing.md },
     sessionsTitle: { marginTop: spacing.lg, marginBottom: spacing.md },
+    dicaDaAgenda: { marginBottom: spacing.md },
     dayTitle: { marginTop: spacing.lg, marginBottom: spacing.sm },
     emptyDay: {
       alignItems: 'center',

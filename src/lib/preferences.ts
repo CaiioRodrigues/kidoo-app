@@ -15,6 +15,8 @@ export const PreferenceKeys = {
   tutorialSeen: 'kidoo.pref.tutorialSeen',
   /** Dica contextual da tela de check-in, mostrada uma vez. */
   hintCheckIn: 'kidoo.pref.hint.checkIn',
+  /** Dica da agenda por dia e do sino da fila de espera, mostrada uma vez. */
+  hintAgenda: 'kidoo.pref.hint.agenda',
 } as const;
 
 type PreferenceKey = (typeof PreferenceKeys)[keyof typeof PreferenceKeys];
