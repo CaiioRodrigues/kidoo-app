@@ -37,7 +37,7 @@ function domingoDa(data: Date): Date {
  * qual turma ninguém reservou, o que falta publicar. Andar de dia em dia para
  * descobrir isso são sete cliques e nenhuma comparação.
  */
-export function Agenda() {
+export function Agenda({ varios }: { varios: boolean }) {
   const [modo, setModo] = useState<Modo>('dia');
   const [dia, setDia] = useState(() => new Date());
   const [aberta, setAberta] = useState<string | null>(null);
@@ -115,7 +115,7 @@ export function Agenda() {
       )}
 
       {modo === 'semana' && turmas && (
-        <GradeDaSemana inicio={inicio} turmas={turmas} aoEscolher={abrirNoDia} />
+        <GradeDaSemana inicio={inicio} turmas={turmas} varios={varios} aoEscolher={abrirNoDia} />
       )}
 
       {modo === 'dia' && turmas && turmas.length === 0 && (
@@ -135,6 +135,7 @@ export function Agenda() {
             <CartaoTurma
               key={turma.sessionId}
               turma={turma}
+              varios={varios}
               aberta={aberta === turma.sessionId}
               aoAbrir={() => setAberta(aberta === turma.sessionId ? null : turma.sessionId)}
               aoConfirmar={recarregar}
@@ -156,10 +157,12 @@ export function Agenda() {
 function GradeDaSemana({
   inicio,
   turmas,
+  varios,
   aoEscolher,
 }: {
   inicio: Date;
   turmas: AgendaRow[];
+  varios: boolean;
   aoEscolher: (turma: AgendaRow) => void;
 }) {
   const dias = Array.from({ length: 7 }, (_, i) => somarDias(inicio, i));
@@ -213,6 +216,7 @@ function GradeDaSemana({
                     >
                       <span className="grade-hora mono">{hora(turma.startsAt)}</span>
                       <span className="grade-titulo">{turma.activityTitle}</span>
+                      {varios && <span className="grade-onde">{turma.partnerName}</span>}
                       <span className="grade-vagas mono">
                         {turma.slotsTaken}/{turma.slotsOpen} reservadas
                       </span>
@@ -243,11 +247,13 @@ function GradeDaSemana({
 
 function CartaoTurma({
   turma,
+  varios,
   aberta,
   aoAbrir,
   aoConfirmar,
 }: {
   turma: AgendaRow;
+  varios: boolean;
   aberta: boolean;
   aoAbrir: () => void;
   aoConfirmar: () => void;
@@ -265,6 +271,10 @@ function CartaoTurma({
               <EtiquetaVaga kind={turma.kind} />
             </div>
             <p className="faint">
+              {/* O estabelecimento vem primeiro quando há mais de um: é o que
+                  responde "esta turma é de qual lugar?" antes de qualquer
+                  outra coisa. */}
+              {varios ? `${turma.partnerName} · ` : ''}
               {hora(turma.startsAt)} · {turma.enrolled} matriculados ·{' '}
               {turma.slotsOpen} vagas abertas para o Kidoo · {turma.coinCost} coins
             </p>

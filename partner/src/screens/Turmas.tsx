@@ -14,7 +14,7 @@ import { LIMITE_DA_SERIE, datasDaSerie, resumoDaSerie } from '@/recorrencia';
  * repasse — deixar essa escolha aqui seria deixar o fornecedor definir a
  * própria nota fiscal.
  */
-export function Turmas({ parceiro }: { parceiro: Partner }) {
+export function Turmas({ parceiros, varios }: { parceiros: Partner[]; varios: boolean }) {
   const [criando, setCriando] = useState(false);
   const [recado, setRecado] = useState<string | null>(null);
 
@@ -44,7 +44,8 @@ export function Turmas({ parceiro }: { parceiro: Partner }) {
 
       {criando && (
         <NovaTurma
-          parceiro={parceiro}
+          parceiros={parceiros}
+          varios={varios}
           aoPublicar={(mensagem) => {
             setCriando(false);
             setRecado(mensagem);
@@ -65,7 +66,7 @@ export function Turmas({ parceiro }: { parceiro: Partner }) {
         </div>
       )}
 
-      <CapasDasAtividades parceiro={parceiro} />
+      <CapasDasAtividades parceiros={parceiros} varios={varios} />
 
       {erro && <Erro>{erro}</Erro>}
       {carregando && !turmas && (
@@ -100,7 +101,12 @@ export function Turmas({ parceiro }: { parceiro: Partner }) {
               </thead>
               <tbody>
                 {turmas.map((turma) => (
-                  <LinhaTurma key={turma.sessionId} turma={turma} aoSalvar={recarregar} />
+                  <LinhaTurma
+                    key={turma.sessionId}
+                    turma={turma}
+                    varios={varios}
+                    aoSalvar={recarregar}
+                  />
                 ))}
               </tbody>
             </table>
@@ -119,7 +125,15 @@ export function Turmas({ parceiro }: { parceiro: Partner }) {
   );
 }
 
-function LinhaTurma({ turma, aoSalvar }: { turma: AgendaRow; aoSalvar: () => void }) {
+function LinhaTurma({
+  turma,
+  varios,
+  aoSalvar,
+}: {
+  turma: AgendaRow;
+  varios: boolean;
+  aoSalvar: () => void;
+}) {
   const [vagas, setVagas] = useState(String(turma.slotsOpen));
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -144,6 +158,10 @@ function LinhaTurma({ turma, aoSalvar }: { turma: AgendaRow; aoSalvar: () => voi
     <tr>
       <td>
         <strong>{turma.activityTitle}</strong>
+        {/* Duas turmas com o mesmo nome em lugares diferentes é o caso que
+            fazia abrir vaga na errada — e errar assim não dá erro nenhum: a
+            família fica esperando um aviso que nunca sai. */}
+        {varios && <div className="faint">{turma.partnerName}</div>}
         <div className="faint">{quando(turma.startsAt)}</div>
       </td>
       <td className="mono">
@@ -228,14 +246,28 @@ function recadoDaSerie(r: ResultadoDaSerie): string {
   return partes.join(' ');
 }
 
+/** As atividades agrupadas por estabelecimento, em ordem de nome. */
+function porParceiro(atividades: ActivityRow[]): [string, ActivityRow[]][] {
+  const grupos = new Map<string, ActivityRow[]>();
+  for (const a of atividades) {
+    const atual = grupos.get(a.partnerName);
+    if (atual) atual.push(a);
+    else grupos.set(a.partnerName, [a]);
+  }
+  return [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'));
+}
+
 function NovaTurma({
-  parceiro,
+  parceiros,
+  varios,
   aoPublicar,
 }: {
-  parceiro: Partner;
+  parceiros: Partner[];
+  varios: boolean;
   aoPublicar: (mensagem: string) => void;
 }) {
-  const { dado: atividades } = useDados(() => api.minhasAtividades(parceiro.id), [parceiro.id]);
+  const ids = parceiros.map((p) => p.id);
+  const { dado: atividades } = useDados(() => api.minhasAtividades(ids), [ids.join(',')]);
 
   const daquiUmDia = new Date();
   daquiUmDia.setDate(daquiUmDia.getDate() + 1);
@@ -323,11 +355,25 @@ function NovaTurma({
             value={escolhida}
             onChange={(e) => setActivityId(e.target.value)}
           >
-            {atividades?.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.title}
-              </option>
-            ))}
+            {/* Com mais de um estabelecimento, a lista vai agrupada: duas
+                atividades de mesmo nome em lugares diferentes são
+                indistinguíveis numa lista plana, e publicar no lugar errado
+                não dá erro. */}
+            {varios
+              ? porParceiro(atividades ?? []).map(([nome, doLugar]) => (
+                  <optgroup key={nome} label={nome}>
+                    {doLugar.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))
+              : atividades?.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.title}
+                  </option>
+                ))}
           </select>
         </div>
 
@@ -487,10 +533,11 @@ function NovaTurma({
  * trocar. A decisão de reservar acontece olhando esse cartão, e a foto da
  * quadra do parceiro vende melhor que qualquer foto genérica.
  */
-function CapasDasAtividades({ parceiro }: { parceiro: Partner }) {
+function CapasDasAtividades({ parceiros, varios }: { parceiros: Partner[]; varios: boolean }) {
+  const ids = parceiros.map((p) => p.id);
   const { dado: atividades, recarregar } = useDados(
-    () => api.minhasAtividades(parceiro.id),
-    [parceiro.id],
+    () => api.minhasAtividades(ids),
+    [ids.join(',')],
   );
 
   if (!atividades || atividades.length === 0) return null;
@@ -502,11 +549,24 @@ function CapasDasAtividades({ parceiro }: { parceiro: Partner }) {
         Esta é a imagem que a família vê antes de decidir. Sem uma foto sua, o app usa uma
         genérica da modalidade.
       </p>
-      <div style={{ display: 'grid', gap: 16 }}>
-        {atividades.map((a) => (
-          <CapaDaAtividade key={a.id} atividade={a} aoTrocar={recarregar} />
-        ))}
-      </div>
+      {varios ? (
+        porParceiro(atividades).map(([nome, doLugar]) => (
+          <div key={nome} style={{ marginBottom: 18 }}>
+            <p className="faint" style={{ fontWeight: 700, marginBottom: 10 }}>{nome}</p>
+            <div style={{ display: 'grid', gap: 16 }}>
+              {doLugar.map((a) => (
+                <CapaDaAtividade key={a.id} atividade={a} aoTrocar={recarregar} />
+              ))}
+            </div>
+          </div>
+        ))
+      ) : (
+        <div style={{ display: 'grid', gap: 16 }}>
+          {atividades.map((a) => (
+            <CapaDaAtividade key={a.id} atividade={a} aoTrocar={recarregar} />
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

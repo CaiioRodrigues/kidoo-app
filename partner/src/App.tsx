@@ -18,18 +18,18 @@ const ABAS: { id: Aba; rotulo: string; Icone: () => React.ReactElement }[] = [
 
 export function App() {
   const [estado, setEstado] = useState<'verificando' | 'fora' | 'dentro'>('verificando');
-  const [parceiro, setParceiro] = useState<Partner | null>(null);
+  const [parceiros, setParceiros] = useState<Partner[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [aba, setAba] = useState<Aba>('agenda');
 
   const carregar = useCallback(async () => {
     if (!(await api.sessaoAtiva())) {
       setEstado('fora');
-      setParceiro(null);
+      setParceiros([]);
       return;
     }
     try {
-      setParceiro(await api.meuParceiro());
+      setParceiros(await api.meusParceiros());
       setErro(null);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Algo deu errado.');
@@ -59,6 +59,11 @@ export function App() {
   // Conta válida sem vínculo com parceiro: é o caso de alguém entrar aqui com a
   // conta de família. Explicar é melhor do que mostrar um painel vazio, que
   // pareceria um estabelecimento sem nenhuma turma.
+  const parceiro = parceiros[0];
+  // Mais de um lugar na mesma conta deixa de ser detalhe: é o que decide se a
+  // tela precisa dizer de quem é cada turma.
+  const varios = parceiros.length > 1;
+
   if (!parceiro) {
     return (
       <div className="login">
@@ -110,9 +115,25 @@ export function App() {
 
         <div className="sidebar-foot">
           <div className="sidebar-who">
-            <strong style={{ color: 'var(--text)' }}>{parceiro.name}</strong>
-            <br />
-            {parceiro.neighborhood} · {parceiro.city}
+            {/*
+              Com mais de um estabelecimento, mostrar só o primeiro seria dizer
+              que a agenda é dele — e ela traz as turmas de todos.
+            */}
+            {varios ? (
+              <>
+                <strong style={{ color: 'var(--text)' }}>
+                  {parceiros.length} estabelecimentos
+                </strong>
+                <br />
+                {parceiros.map((p) => p.name).join(' · ')}
+              </>
+            ) : (
+              <>
+                <strong style={{ color: 'var(--text)' }}>{parceiro.name}</strong>
+                <br />
+                {parceiro.neighborhood} · {parceiro.city}
+              </>
+            )}
           </div>
           <button className="nav-item" onClick={() => void desconectar()}>
             <IconeSair />
@@ -129,8 +150,8 @@ export function App() {
       </nav>
 
       <main className="main">
-        {aba === 'agenda' && <Agenda />}
-        {aba === 'turmas' && <Turmas parceiro={parceiro} />}
+        {aba === 'agenda' && <Agenda varios={varios} />}
+        {aba === 'turmas' && <Turmas parceiros={parceiros} varios={varios} />}
         {aba === 'repasse' && <Repasse />}
       </main>
     </div>
