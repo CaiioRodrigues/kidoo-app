@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar, Button, Card, Divider, Screen, Text, ThemePicker } from '@/components/ui';
 import { BlobBackdrop } from '@/components/brand';
 import { useTutorialStore } from '@/stores/tutorial-store';
+import { confirmAction } from '@/lib/confirm';
 import { formatAge, formatDaysUntil } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
 import { useChildren, useSubscription } from '@/hooks/queries';
@@ -30,21 +31,22 @@ export default function ProfileScreen() {
     router.navigate('/(tabs)/home');
   }, [restartTutorial, router]);
 
-  const handleSignOut = useCallback(() => {
-    Alert.alert('Sair da conta', 'Você precisará entrar novamente para acessar o Kidoo.', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: () => {
-          setSigningOut(true);
-          void signOut().finally(() => {
-            setSigningOut(false);
-            router.replace('/(auth)/welcome');
-          });
-        },
-      },
-    ]);
+  const handleSignOut = useCallback(async () => {
+    const confirmado = await confirmAction({
+      title: 'Sair da conta',
+      message: 'Você precisará entrar novamente para acessar o Kidoo.',
+      confirmLabel: 'Sair',
+      destructive: true,
+    });
+    if (!confirmado) return;
+
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+      router.replace('/(auth)/welcome');
+    }
   }, [router, signOut]);
 
   return (
@@ -160,7 +162,7 @@ export default function ProfileScreen() {
           title="Sair da conta"
           variant="secondary"
           loading={signingOut}
-          onPress={handleSignOut}
+          onPress={() => void handleSignOut()}
           style={styles.signOut}
         />
       ) : (

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 
 import { HeaderBar } from '@/components/navigation';
@@ -14,6 +14,7 @@ import { levelName } from '@/lib/levels';
 import { formatSessionTime } from '@/lib/format';
 import { canCancel, cancellationMessage, formatDeadline } from '@/lib/cancellation';
 import { canCheckIn, checkInWindow, isTicketValid, proximityTo } from '@/lib/check-in';
+import { confirmAction } from '@/lib/confirm';
 import { useLocationStore } from '@/stores/location-store';
 import { toUserMessage } from '@/services';
 import { useBooking, useCancelBooking, useCheckIn } from '@/hooks/queries';
@@ -96,25 +97,23 @@ export default function CheckInScreen() {
 
   const cancellation = booking ? canCancel(booking) : null;
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback(async () => {
     if (!booking || !cancellation?.allowed) return;
-    Alert.alert(
-      'Cancelar reserva?',
-      'Os Kidoo Coins voltam para a sua conta. As moedas bônus voltam com a validade original.',
-      [
-        { text: 'Manter reserva', style: 'cancel' },
-        {
-          text: 'Cancelar reserva',
-          style: 'destructive',
-          onPress: () => {
-            void cancelBooking
-              .mutateAsync(booking.id)
-              .then(() => router.replace('/(tabs)/bookings'))
-              .catch((caught: unknown) => setError(toUserMessage(caught)));
-          },
-        },
-      ],
-    );
+    const confirmado = await confirmAction({
+      title: 'Cancelar reserva?',
+      message:
+        'Os Kidoo Coins voltam para a sua conta. As moedas bônus voltam com a validade original.',
+      confirmLabel: 'Cancelar reserva',
+      destructive: true,
+    });
+    if (!confirmado) return;
+
+    try {
+      await cancelBooking.mutateAsync(booking.id);
+      router.replace('/(tabs)/bookings');
+    } catch (caught) {
+      setError(toUserMessage(caught));
+    }
   }, [booking, cancelBooking, cancellation, router]);
 
   // Memoizado para não recriar o objeto a cada render e invalidar o callback.
@@ -344,7 +343,7 @@ export default function CheckInScreen() {
                   variant="ghost"
                   size="md"
                   loading={cancelBooking.isPending}
-                  onPress={handleCancel}
+                  onPress={() => void handleCancel()}
                 />
                 <Text variant="caption" color={colors.textFaint} center>
                   {formatDeadline(booking.scheduledAt)}.
