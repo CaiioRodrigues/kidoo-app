@@ -39,6 +39,23 @@ export const pushPlatform = (): PushPlatform =>
   Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
 
 /**
+ * O `null` de `obterTokenDePush` veio de permissão negada?
+ *
+ * A pergunta importa porque os dois casos pedem telas diferentes: negar a
+ * permissão tem conserto (Ajustes do aparelho), e rodar na web ou num emulador
+ * não tem. Não pergunta nada a ninguém — só lê o estado atual.
+ */
+export async function pushBloqueadoPorPermissao(): Promise<boolean> {
+  if (Platform.OS === 'web' || !Device.isDevice) return false;
+  try {
+    const { granted } = await Notifications.getPermissionsAsync();
+    return !granted;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Pede permissão e devolve o token do aparelho — ou `null` quando não dá.
  *
  * Nunca lança: falhar em registrar para avisos não pode impedir alguém de
