@@ -81,25 +81,32 @@ async function sair(): Promise<void> {
 }
 
 /**
- * Qual estabelecimento este usuário administra.
+ * Quais estabelecimentos este usuário administra.
  *
- * `null` não é erro: é uma conta que existe mas não foi vinculada a nenhum
- * parceiro — o caso de alguém entrar com a conta de família aqui. A tela
- * explica em vez de mostrar um painel vazio.
+ * Lista vazia não é erro: é uma conta que existe mas não foi vinculada a
+ * nenhum parceiro — o caso de alguém entrar com a conta de família aqui. A
+ * tela explica em vez de mostrar um painel vazio.
  */
-async function meuParceiro(): Promise<Partner | null> {
-  const { data, error } = await supabase()
-    .from('partner_members')
-    .select('role, partner:partners(id, name, neighborhood, city)')
-    .limit(1)
-    .maybeSingle<{
-      role: string;
-      partner: { id: string; name: string; neighborhood: string; city: string } | null;
-    }>();
+async function meusParceiros(): Promise<Partner[]> {
+  const linhas = ok(
+    await supabase()
+      .from('partner_members')
+      .select('role, partner:partners(id, name, neighborhood, city)')
+      .returns<
+        {
+          role: string;
+          partner: { id: string; name: string; neighborhood: string; city: string } | null;
+        }[]
+      >(),
+    'Não foi possível identificar seu estabelecimento.',
+  );
 
-  if (error) traduz(error, 'Não foi possível identificar seu estabelecimento.');
-  if (!data?.partner) return null;
-  return { ...data.partner, role: data.role };
+  // Sem `limit(1)`, que era a origem do problema: a agenda já vinha com as
+  // turmas de todos os lugares que a conta administra, e a tela nomeava um só.
+  return linhas
+    .filter((l): l is typeof l & { partner: NonNullable<typeof l.partner> } => l.partner !== null)
+    .map((l) => ({ ...l.partner, role: l.role }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
 
 // ------------------------------------------------------------------ agenda --
@@ -109,6 +116,8 @@ type AgendaSql = {
   activity_id: string;
   activity_title: string;
   category_id: string;
+  partner_id: string;
+  partner_name: string;
   starts_at: string;
   capacity: number;
   enrolled: number;
@@ -132,6 +141,8 @@ async function agenda(de: Date, ate: Date): Promise<AgendaRow[]> {
     activityId: linha.activity_id,
     activityTitle: linha.activity_title,
     category: linha.category_id as ActivityCategoryId,
+    partnerId: linha.partner_id,
+    partnerName: linha.partner_name,
     startsAt: linha.starts_at,
     capacity: linha.capacity,
     enrolled: linha.enrolled,
@@ -251,16 +262,27 @@ async function publicarSerie(entrada: {
   };
 }
 
-async function minhasAtividades(partnerId: string): Promise<ActivityRow[]> {
+async function minhasAtividades(partnerIds: string[]): Promise<ActivityRow[]> {
+  // Sem id nenhum não há o que buscar — e um `in` vazio no PostgREST traria a
+  // tabela inteira, que é pública para leitura: as atividades de todo mundo.
+  if (partnerIds.length === 0) return [];
+
   const linhas = ok(
     await supabase()
       .from('activities')
-      .select('id, title, category_id, image_url, partner_id')
-      .eq('partner_id', partnerId)
+      .select('id, title, category_id, image_url, partner_id, parceiro:partners(name)')
+      .in('partner_id', partnerIds)
       .eq('active', true)
       .order('title')
       .returns<
-        { id: string; title: string; category_id: string; image_url: string | null }[]
+        {
+          id: string;
+          title: string;
+          category_id: string;
+          image_url: string | null;
+          partner_id: string;
+          parceiro: { name: string } | null;
+        }[]
       >(),
     'Não foi possível carregar suas atividades.',
   );
@@ -268,6 +290,8 @@ async function minhasAtividades(partnerId: string): Promise<ActivityRow[]> {
     id: l.id,
     title: l.title,
     category: l.category_id as ActivityCategoryId,
+    partnerId: l.partner_id,
+    partnerName: l.parceiro?.name ?? '',
     imageUrl: l.image_url,
   }));
 }
@@ -357,7 +381,7 @@ async function sessaoAtiva(): Promise<boolean> {
 export const supabaseApi: PainelApi = {
   entrar,
   sair,
-  meuParceiro,
+  meusParceiros,
   agenda,
   listaDaTurma,
   confirmarPresenca,

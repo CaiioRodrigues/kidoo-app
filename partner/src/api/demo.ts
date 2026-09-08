@@ -31,15 +31,18 @@ const PARCEIRO: Partner = {
 
 // Uma com imagem própria e duas sem: é como o painel fica de verdade no
 // começo, e é o que deixa a diferença visível na demonstração.
+const DE_QUEM = { partnerId: PARCEIRO.id, partnerName: PARCEIRO.name };
+
 const ATIVIDADES: ActivityRow[] = [
   {
     id: 'a-futebol',
     title: 'Futebol Kids',
     category: 'futebol',
+    ...DE_QUEM,
     imageUrl: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=400&q=70',
   },
-  { id: 'a-judo', title: 'Judô para Pequenos', category: 'judo', imageUrl: null },
-  { id: 'a-ginastica', title: 'Ginástica Divertida', category: 'ginastica', imageUrl: null },
+  { id: 'a-judo', title: 'Judô para Pequenos', category: 'judo', ...DE_QUEM, imageUrl: null },
+  { id: 'a-ginastica', title: 'Ginástica Divertida', category: 'ginastica', ...DE_QUEM, imageUrl: null },
 ];
 
 /** A mesma regra do banco (`slot_kind_for`): a turma já acontece sozinha? */
@@ -145,8 +148,8 @@ export const demoApi: PainelApi = {
     return espera(logado, 60);
   },
 
-  async meuParceiro() {
-    return espera(PARCEIRO);
+  async meusParceiros() {
+    return espera([PARCEIRO]);
   },
 
   async agenda(de, ate) {
@@ -163,6 +166,7 @@ export const demoApi: PainelApi = {
           activityId: t.activityId,
           activityTitle: ATIVIDADES.find((a) => a.id === t.activityId)?.title ?? 'Turma',
           category: ATIVIDADES.find((a) => a.id === t.activityId)?.category ?? 'futebol',
+          ...DE_QUEM,
           startsAt: t.startsAt,
           capacity: t.capacity,
           enrolled: t.enrolled,

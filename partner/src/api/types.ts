@@ -24,6 +24,15 @@ export type AgendaRow = {
   activityId: string;
   activityTitle: string;
   category: ActivityCategoryId;
+  /**
+   * De qual estabelecimento é esta turma.
+   *
+   * Uma conta pode administrar mais de um lugar, e sempre pôde. Enquanto
+   * cuidava de um só, a diferença não aparecia — e quando apareceu, a tela
+   * mostrava turmas de lugares diferentes como se fossem do mesmo.
+   */
+  partnerId: string;
+  partnerName: string;
   startsAt: string;
   capacity: number;
   enrolled: number;
@@ -82,6 +91,8 @@ export type ActivityRow = {
   id: string;
   title: string;
   category: ActivityCategoryId;
+  partnerId: string;
+  partnerName: string;
   /** `null` quando o parceiro ainda não subiu a dele — o app cai na foto da modalidade. */
   imageUrl: string | null;
 };
@@ -89,8 +100,14 @@ export type ActivityRow = {
 export type PainelApi = {
   entrar(email: string, senha: string): Promise<void>;
   sair(): Promise<void>;
-  /** `null` = conta válida que não administra nenhum parceiro. */
-  meuParceiro(): Promise<Partner | null>;
+  /**
+   * Todos os estabelecimentos que esta conta administra.
+   *
+   * Lista, e não um só: `partner_agenda` sempre devolveu as turmas de todos
+   * eles, então pegar "o primeiro" e chamar de "o parceiro" era uma meia
+   * verdade que a tela repetia. Vazia = conta válida sem vínculo nenhum.
+   */
+  meusParceiros(): Promise<Partner[]>;
   agenda(de: Date, ate: Date): Promise<AgendaRow[]>;
   listaDaTurma(sessionId: string): Promise<RosterRow[]>;
   confirmarPresenca(bookingId: string, codigo: string): Promise<void>;
@@ -117,7 +134,8 @@ export type PainelApi = {
     slotsOpen: number;
     coinCost: number;
   }): Promise<ResultadoDaSerie>;
-  minhasAtividades(partnerId: string): Promise<ActivityRow[]>;
+  /** As atividades destes estabelecimentos, com o nome de cada um. */
+  minhasAtividades(partnerIds: string[]): Promise<ActivityRow[]>;
   /**
    * Troca a foto de capa da atividade e devolve a URL nova.
    *

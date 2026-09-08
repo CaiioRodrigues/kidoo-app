@@ -327,6 +327,48 @@ begin
   assert v_valor = true, 'check-in com localização aparece como conferido';
 end $$;
 
+-- ---- a agenda diz de qual estabelecimento é a turma -------------------------
+-- Uma conta pode administrar mais de um lugar, e sempre pôde: `is_partner_member`
+-- responde por todos. Sem o nome do parceiro na linha, a tela mostrava turmas
+-- de lugares diferentes como se fossem do mesmo — e abrir vaga na errada não
+-- dá erro nenhum.
+do $$
+declare v_linha record;
+begin
+  select * into v_linha
+    from partner_agenda(now() - interval '1 day', now() + interval '30 days') limit 1;
+  assert found, 'a agenda da Arena não pode vir vazia';
+  assert v_linha.partner_name is not null, 'cada turma diz de qual estabelecimento é';
+  assert (select bool_and(partner_name = 'Arena Kids')
+            from partner_agenda(now() - interval '1 day', now() + interval '30 days')),
+         'e a Arena só enxerga as dela: veio outro nome junto';
+end $$;
+
+-- E o caso que motivou tudo isto: uma conta com DOIS estabelecimentos. Era o
+-- que acontecia com os cinco parceiros do teste de GPS na mesma conta.
+reset role;
+insert into partner_members (partner_id, user_id, role)
+values ('cccccccc-0000-0000-0000-00000000000b','33333333-3333-3333-3333-333333333333','staff')
+on conflict do nothing;
+
+set role authenticated;
+do $$
+declare v_nomes text[];
+begin
+  select array_agg(distinct partner_name order by partner_name) into v_nomes
+    from partner_agenda(now() - interval '1 day', now() + interval '30 days');
+  assert v_nomes @> array['Arena Kids','Clube Pampulha'],
+         'quem administra dois lugares vê os dois, cada turma com o nome do seu: '
+         || coalesce(array_to_string(v_nomes, ', '), 'nada');
+end $$;
+
+-- Desfaz o vínculo: os testes seguintes contam com a Arena sozinha.
+reset role;
+delete from partner_members
+ where partner_id = 'cccccccc-0000-0000-0000-00000000000b'
+   and user_id = '33333333-3333-3333-3333-333333333333';
+set role authenticated;
+
 -- ---- a agenda conta o que o parceiro precisa saber --------------------------
 do $$
 declare v_linha record;
