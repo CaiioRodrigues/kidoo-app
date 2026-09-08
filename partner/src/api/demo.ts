@@ -52,6 +52,8 @@ type Reserva = {
   partnerConfirmedAt: string | null;
   /** Código que a família mostra. `null` = ainda não chegou. */
   codigo: string | null;
+  /** `null` enquanto não houve check-in. */
+  locationVerified: boolean | null;
 };
 
 function hoje(hora: number, minuto = 0): string {
@@ -76,14 +78,14 @@ const turmas: Turma[] = [
 ];
 
 const reservas: Reserva[] = [
-  { bookingId: 'b1', sessionId: 's1', firstName: 'João',   age: 8, status: 'completed',  checkedInAt: hoje(9, 22), partnerConfirmedAt: hoje(9, 24), codigo: null },
-  { bookingId: 'b2', sessionId: 's1', firstName: 'Alice',  age: 7, status: 'checked_in', checkedInAt: hoje(9, 25), partnerConfirmedAt: null, codigo: '481902' },
-  { bookingId: 'b3', sessionId: 's1', firstName: 'Miguel', age: 9, status: 'checked_in', checkedInAt: hoje(9, 26), partnerConfirmedAt: null, codigo: '730514' },
-  { bookingId: 'b4', sessionId: 's1', firstName: 'Cecília',age: 8, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null },
-  { bookingId: 'b5', sessionId: 's2', firstName: 'Théo',   age: 6, status: 'checked_in', checkedInAt: hoje(13, 51), partnerConfirmedAt: null, codigo: '206348' },
-  { bookingId: 'b6', sessionId: 's2', firstName: 'Laura',  age: 7, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null },
-  { bookingId: 'b7', sessionId: 's3', firstName: 'Bento',  age: 5, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null },
-  { bookingId: 'b8', sessionId: 's4', firstName: 'Helena', age: 9, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null },
+  { bookingId: 'b1', sessionId: 's1', firstName: 'João',   age: 8, status: 'completed',  checkedInAt: hoje(9, 22), partnerConfirmedAt: hoje(9, 24), codigo: null, locationVerified: true },
+  { bookingId: 'b2', sessionId: 's1', firstName: 'Alice',  age: 7, status: 'checked_in', checkedInAt: hoje(9, 25), partnerConfirmedAt: null, codigo: '481902', locationVerified: true },
+  { bookingId: 'b3', sessionId: 's1', firstName: 'Miguel', age: 9, status: 'checked_in', checkedInAt: hoje(9, 26), partnerConfirmedAt: null, codigo: '730514', locationVerified: false },
+  { bookingId: 'b4', sessionId: 's1', firstName: 'Cecília',age: 8, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null, locationVerified: null },
+  { bookingId: 'b5', sessionId: 's2', firstName: 'Théo',   age: 6, status: 'checked_in', checkedInAt: hoje(13, 51), partnerConfirmedAt: null, codigo: '206348', locationVerified: true },
+  { bookingId: 'b6', sessionId: 's2', firstName: 'Laura',  age: 7, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null, locationVerified: null },
+  { bookingId: 'b7', sessionId: 's3', firstName: 'Bento',  age: 5, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null, locationVerified: null },
+  { bookingId: 'b8', sessionId: 's4', firstName: 'Helena', age: 9, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null, locationVerified: null },
 ];
 
 /** Meses anteriores já fechados, para o extrato não abrir vazio. */
@@ -170,6 +172,7 @@ export const demoApi: PainelApi = {
       partnerConfirmedAt: r.partnerConfirmedAt,
       slotKind: tipoDaVaga(turmas.find((t) => t.sessionId === sessionId)?.enrolled ?? 0),
       hasCode: r.codigo !== null,
+      locationVerified: r.locationVerified,
     }));
     return espera(linhas);
   },

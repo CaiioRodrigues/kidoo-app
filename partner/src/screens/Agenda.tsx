@@ -253,6 +253,22 @@ function LinhaCrianca({ linha, aoConfirmar }: { linha: RosterRow; aoConfirmar: (
         ) : (
           <span className="badge badge-neutro">Reservou · ainda não chegou</span>
         )}
+        {/*
+          Quem decide a presença é quem está no balcão, e até agora ele digitava
+          o código sem saber que aquele check-in podia ter vindo de longe: o app
+          libera quando não consegue ler o GPS (quadra coberta, permissão
+          negada), e nada disso chegava aqui.
+
+          Não é bloqueio nem acusação — "sem localização" é comum e legítimo. É
+          um dado a mais para quem já está olhando a criança. Por isso fica
+          discreto e só aparece quando houve check-in: marcar de suspeita quem
+          ainda não chegou seria pior que não mostrar nada.
+        */}
+        {linha.locationVerified === false ? (
+          <div className="faint" style={{ marginTop: 4, fontSize: 12 }} title="O app não conseguiu confirmar onde a família estava. Pode ser área sem sinal ou permissão negada.">
+            ⚠ Chegada sem localização confirmada
+          </div>
+        ) : null}
       </td>
       <td>
         {linha.partnerConfirmedAt ? (

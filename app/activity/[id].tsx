@@ -5,11 +5,19 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/CategoryIcon';
-import { SessionPicker } from '@/features/activities';
+import { DayStrip, SessionPicker } from '@/features/activities';
 import { HeaderBar } from '@/components/navigation';
 import { Badge, CoinBadge, Divider, Screen, Text } from '@/components/ui';
 import { RatingSummaryCard, ReviewCard, StarRating } from '@/features/reviews';
 import { formatPlace } from '@/lib/format';
+import {
+  buildSchedule,
+  firstDayWithSessions,
+  longDayLabel,
+  nextDayWithSessions,
+  shortDayLabel,
+  timeOnly,
+} from '@/lib/schedule';
 import { toUserMessage } from '@/services';
 import {
   useActiveChild,
@@ -74,6 +82,26 @@ export default function ActivityDetailScreen() {
       acao.mutate(input, { onError: (caught) => setWaitlistError(toUserMessage(caught)) });
     },
     [child, id, joinWaitlist, leaveWaitlist, router],
+  );
+
+  // A semana da atividade, dia a dia. `agora` fica preso ao primeiro render:
+  // recalcular a cada frame trocaria a identidade da agenda sem parar, e com
+  // ela a seleção do dia.
+  const [agora] = useState(() => new Date());
+  const schedule = useMemo(() => buildSchedule(sessions, agora), [sessions, agora]);
+
+  // `null` enquanto a escolha é do app; a partir do primeiro toque é do
+  // usuário. Sem essa distinção, um refetch das turmas jogaria a família de
+  // volta para o primeiro dia com aula no meio da navegação.
+  const [diaEscolhido, setDiaEscolhido] = useState<string | null>(null);
+  const diaAtivo = diaEscolhido ?? firstDayWithSessions(schedule);
+  const dia = useMemo(
+    () => schedule.find((item) => item.key === diaAtivo) ?? null,
+    [schedule, diaAtivo],
+  );
+  const proximo = useMemo(
+    () => (dia && dia.sessions.length === 0 ? nextDayWithSessions(schedule, diaAtivo) : null),
+    [dia, schedule, diaAtivo],
   );
 
   const [tab, setTab] = useState<'sobre' | 'avaliacoes'>('sobre');
@@ -195,21 +223,62 @@ export default function ActivityDetailScreen() {
               <Text variant="caption" color={colors.textFaint}>
                 Carregando turmas…
               </Text>
+            ) : sessions.length === 0 ? (
+              <Text variant="caption" color={colors.textMuted}>
+                Nenhuma turma publicada por enquanto. O parceiro libera novos horários toda
+                semana.
+              </Text>
             ) : (
               <>
-                <SessionPicker
-                  sessions={sessions}
-                  reserved={reserved}
-                  waiting={waiting}
-                  waitlistPending={joinWaitlist.isPending || leaveWaitlist.isPending}
-                  onToggleWaitlist={handleWaitlist}
-                  onSelect={(session) =>
-                    router.push({
-                      pathname: '/booking/confirm',
-                      params: { activityId: activity.id, sessionId: session.id },
-                    })
-                  }
-                />
+                <DayStrip schedule={schedule} selected={diaAtivo} onSelect={setDiaEscolhido} />
+
+                {dia ? (
+                  <Text variant="label" color={colors.textMuted} style={styles.dayTitle}>
+                    {longDayLabel(dia.date, agora)}
+                    {dia.sessions.length > 0
+                      ? ` · ${dia.sessions.length} ${dia.sessions.length === 1 ? 'turma' : 'turmas'}`
+                      : ''}
+                  </Text>
+                ) : null}
+
+                {dia && dia.sessions.length > 0 ? (
+                  <SessionPicker
+                    sessions={dia.sessions}
+                    reserved={reserved}
+                    waiting={waiting}
+                    waitlistPending={joinWaitlist.isPending || leaveWaitlist.isPending}
+                    onToggleWaitlist={handleWaitlist}
+                    onSelect={(session) =>
+                      router.push({
+                        pathname: '/booking/confirm',
+                        params: { activityId: activity.id, sessionId: session.id },
+                      })
+                    }
+                  />
+                ) : (
+                  /* Dia sem aula. Em vez de um beco sem saída, a tela diz onde
+                     está a próxima e leva até ela — o toque errado vira atalho. */
+                  <View style={styles.emptyDay}>
+                    <Ionicons name="calendar-outline" size={26} color={colors.textFaint} />
+                    <Text variant="caption" color={colors.textMuted} center>
+                      {activity.title} não tem turma neste dia.
+                    </Text>
+                    {proximo ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => setDiaEscolhido(proximo.key)}
+                      >
+                        <Text variant="label" color={colors.primary}>
+                          Próxima: {shortDayLabel(proximo.date, agora).toLowerCase()},{' '}
+                          {proximo.date.getDate()}/
+                          {String(proximo.date.getMonth() + 1).padStart(2, '0')} às{' '}
+                          {timeOnly(proximo.sessions[0]?.startsAt ?? '')} ›
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                )}
+
                 {waitlistError ? (
                   <Text variant="caption" color={colors.danger} style={styles.description}>
                     {waitlistError}
@@ -302,7 +371,18 @@ const makeStyles = (colors: ThemeColors) =>
     },
     tab: { paddingBottom: spacing.md, borderBottomWidth: 2, borderBottomColor: 'transparent' },
     reviews: { marginTop: spacing.lg, gap: spacing.md },
-    sessionsTitle: { marginTop: spacing.lg, marginBottom: spacing.sm },
+    sessionsTitle: { marginTop: spacing.lg, marginBottom: spacing.md },
+    dayTitle: { marginTop: spacing.lg, marginBottom: spacing.sm },
+    emptyDay: {
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.xl,
+      paddingHorizontal: spacing.lg,
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+    },
     footer: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -150,6 +150,7 @@ type RosterSql = {
   partner_confirmed_at: string | null;
   slot_kind: SlotKind;
   has_code: boolean;
+  location_verified: boolean | null;
 };
 
 async function listaDaTurma(sessionId: string): Promise<RosterRow[]> {
@@ -168,6 +169,7 @@ async function listaDaTurma(sessionId: string): Promise<RosterRow[]> {
     partnerConfirmedAt: linha.partner_confirmed_at,
     slotKind: linha.slot_kind,
     hasCode: linha.has_code,
+    locationVerified: linha.location_verified,
   }));
 }
 

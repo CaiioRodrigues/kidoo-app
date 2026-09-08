@@ -36,6 +36,7 @@ export default function CheckInScreen() {
 
   const locationProof = useLocationStore((state) => state.proof);
   const locationStatus = useLocationStore((state) => state.status);
+  const ensureLocation = useLocationStore((state) => state.ensure);
   const refreshLocation = useLocationStore((state) => state.refresh);
   const requestLocation = useLocationStore((state) => state.request);
 
@@ -70,9 +71,14 @@ export default function CheckInScreen() {
 
   // A posição guardada pode ser de outra tela, de minutos atrás. Aqui ela
   // precisa ser de agora — é o que decide se o botão abre.
+  //
+  // E `ensure`, não `refresh`: este só relê uma permissão que já existe. Com
+  // ele, quem nunca tocou em "Perto de mim" chegava aqui sem localização
+  // nenhuma e o portão de 250 m não checava nada. Agora o app pergunta, uma
+  // vez, no único momento em que o motivo é óbvio para quem responde.
   useEffect(() => {
-    void refreshLocation();
-  }, [refreshLocation]);
+    void ensureLocation();
+  }, [ensureLocation]);
 
   const proximity = useMemo(
     () =>

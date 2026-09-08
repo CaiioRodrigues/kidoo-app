@@ -44,6 +44,16 @@ export type RosterRow = {
   partnerConfirmedAt: string | null;
   slotKind: SlotKind;
   hasCode: boolean;
+  /**
+   * Se o app conferiu a localização no check-in.
+   *
+   * `null` enquanto não houve check-in — e o nulo importa: quem ainda não
+   * chegou não pode aparecer como suspeito. `false` quer dizer que o app não
+   * teve leitura de GPS, o que é comum e não é acusação: quadra coberta sem
+   * sinal, ou permissão negada. Quem decide a presença continua sendo você,
+   * olhando a criança.
+   */
+  locationVerified: boolean | null;
 };
 
 export type StatementRow = {
