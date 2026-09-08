@@ -532,6 +532,31 @@ end $$;
 
 select set_config('request.jwt.claim.sub', :'ana', false);
 
+-- O entregador precisa de privilégio na tabela, e não só de ignorar a RLS.
+-- Ignorar RLS é uma coisa; ter `grant` é outra, e vem antes — sem ele o
+-- Postgres barra no privilégio e a Edge Function nunca lê a caixa. Foi assim
+-- que a fila encheu, o gatilho funcionou, a função rodou a cada cinco minutos
+-- e nenhum aviso chegou, sem nada no banco parecer errado.
+reset role;
+do $$ begin
+  assert has_table_privilege('service_role', 'push_outbox', 'select'),
+         'o entregador precisa LER a caixa de saída';
+  assert has_table_privilege('service_role', 'push_outbox', 'update'),
+         'e MARCAR o que já saiu, senão reenviaria para sempre';
+  assert has_table_privilege('service_role', 'push_tokens', 'select'),
+         'e achar o aparelho de quem espera';
+  assert has_table_privilege('service_role', 'push_tokens', 'delete'),
+         'e apagar token de app desinstalado';
+
+  -- E nada além disso: quem escreve aviso é o gatilho, quem registra aparelho
+  -- é a família por `register_push_token`.
+  assert not has_table_privilege('service_role', 'push_outbox', 'insert'),
+         'o entregador não escreve aviso';
+  assert not has_table_privilege('service_role', 'push_tokens', 'insert'),
+         'nem registra aparelho';
+end $$;
+set role authenticated;
+
 -- A caixa de saída é fechada para o app: quem entrega usa a chave de serviço.
 do $$ begin
   begin

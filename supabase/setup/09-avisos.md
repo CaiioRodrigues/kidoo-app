@@ -150,5 +150,6 @@ select title, body from push_outbox order by created_at desc limit 1;
 | Pendente e não sai | a função não foi publicada, ou o cron não está agendado (`cron.job_run_details`) |
 | `42501: permission denied to set parameter` ao agendar | instrução antiga: use o Vault, no passo 2 acima |
 | O cron roda mas nada sai | o `Authorization` foi montado vazio — confira o segredo com o `select` do passo 2 |
+| `permission denied for table push_outbox` (42501) | faltam os `grant` da migration 000014: rode o `10-atualizar.sql` |
 | `error = 'sem aparelho registrado'` | a família nunca abriu o app numa build de verdade, ou negou a permissão |
 | `error = 'DeviceNotRegistered'` | app desinstalado; o token já foi removido sozinho |

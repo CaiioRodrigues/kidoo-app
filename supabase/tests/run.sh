@@ -30,6 +30,10 @@ create function auth.uid() returns uuid language sql stable as
 do $do$ begin
   if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
+  -- O papel do entregador de avisos. Sem ele aqui, os `grant` que a Edge
+  -- Function precisa não seriam verificáveis fora do Supabase — e foi
+  -- justamente a falta de um deles que fez nenhum aviso chegar.
+  if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
 end $do$;
 SQL
 

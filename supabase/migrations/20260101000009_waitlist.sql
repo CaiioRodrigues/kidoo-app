@@ -62,8 +62,11 @@ create index if not exists push_outbox_pendentes on push_outbox (created_at)
   where sent_at is null;
 
 alter table push_outbox enable row level security;
--- Ninguém lê pelo PostgREST: quem entrega usa a chave de serviço, que ignora
--- RLS. Sem policy nenhuma, a tabela fica fechada para app e painel.
+-- Sem policy nenhuma, a tabela fica fechada para app e painel. Quem entrega usa
+-- a chave de serviço — e precisa de DUAS coisas, não uma: ignorar a RLS (que o
+-- `service_role` já faz) e ter privilégio na tabela, que vem antes e não é
+-- automático. Os `grant` estão na migration 000014; sem eles, a entrega falha
+-- com "permission denied" antes de qualquer policy ser avaliada.
 
 -- ------------------------------------------------------------- aparelhos ---
 create table if not exists push_tokens (
