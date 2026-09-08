@@ -419,6 +419,14 @@ select set_config('request.jwt.claim.sub', :'arena', false);
 do $$
 declare v_row activities_public%rowtype;
 begin
+  -- Encher a turma aqui é fixture, não estado final: guardamos o que havia
+  -- para devolver no fim. Sem isso, o próximo bloco herda turmas cheias sem
+  -- reserva nenhuma por trás — um estado que o produto nunca produz, e que
+  -- faz o teste seguinte falhar por um motivo que não é dele.
+  create temp table if not exists slots_antes as
+    select id, slots_taken from class_sessions
+     where activity_id = 'dddddddd-0000-0000-0000-00000000000a';
+
   update class_sessions set slots_taken = slots_open
    where activity_id = 'dddddddd-0000-0000-0000-00000000000a';
 
@@ -431,6 +439,127 @@ begin
   assert (select open_sessions from activities_public
            where id = 'dddddddd-0000-0000-0000-00000000000b') > 0,
          'fechar a Arena não pode fechar a Pampulha';
+
+  update class_sessions c
+     set slots_taken = a.slots_taken
+    from slots_antes a
+   where c.id = a.id;
+  drop table slots_antes;
+end $$;
+
+-- ---- fila de espera e o aviso ----------------------------------------------
+-- A turma da Arena tem 1 vaga. A Ana toma; Bruno e Maria entram na fila; a Ana
+-- cancela. É a transição de cheia para com-vaga que precisa gerar o aviso.
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$
+declare v_ana bookings%rowtype;
+begin
+  v_ana := book_session('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
+  perform set_config('kidoo.reserva_ana', v_ana.id::text, false);
+
+  -- Quem já tem lugar não entra na fila: o aviso iria para quem não precisa.
+  begin
+    perform join_waitlist('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
+    assert false, 'quem já reservou não pode entrar na espera';
+  exception when others then
+    assert sqlerrm = 'already_booked', 'esperado already_booked, veio: ' || sqlerrm;
+  end;
+
+  -- Turma com vaga também não: a fila só é avisada na abertura, então esperar
+  -- numa turma que já tem lugar é aguardar um aviso que nunca chega.
+  begin
+    perform join_waitlist('eeeeeeee-0000-0000-0000-000000000003','aaaaaaaa-0000-0000-0000-000000000002');
+    assert false, 'turma com vaga não deveria aceitar espera';
+  exception when others then
+    assert sqlerrm = 'session_has_room', 'esperado session_has_room, veio: ' || sqlerrm;
+  end;
+
+  -- A irmã espera pela turma cheia: dois na fila é o que permite provar que
+  -- reservar tira UM da fila e deixa o outro.
+  perform join_waitlist('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000002');
+end $$;
+
+select set_config('request.jwt.claim.sub', :'bruno', false);
+do $$ begin
+  perform join_waitlist('eeeeeeee-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-000000000001');
+  assert (select count(*) from my_waitlist()) = 1, 'o Bruno deveria estar esperando 1 turma';
+end $$;
+
+-- A espera é de quem a criou. Sem isto, a fila viraria uma lista aberta de
+-- quem está de olho em qual horário.
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$ begin
+  assert (select count(*) from my_waitlist()) = 1, 'Ana vê a própria espera, não a do Bruno';
+  assert (select child_id from my_waitlist()) = 'aaaaaaaa-0000-0000-0000-000000000002',
+         'e a que ela vê é a da filha dela';
+end $$;
+
+-- A caixa de saída é fechada para o app: quem entrega usa a chave de serviço.
+do $$ begin
+  begin
+    perform count(*) from push_outbox;
+    assert false, 'a caixa de saída não pode ser legível pelo app';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- Mexer na turma SEM abrir vaga não avisa ninguém. É o que separa "avisar na
+-- transição" de "avisar a cada update": aqui a fila está com notified_at nulo
+-- e a turma continua cheia, então um gatilho sem a checagem dispararia.
+select set_config('request.jwt.claim.sub', :'arena', false);
+do $$ begin
+  update class_sessions set slots_open = slots_open
+   where id = 'eeeeeeee-0000-0000-0000-000000000001';
+end $$;
+reset role;
+do $$ begin
+  assert (select count(*) from push_outbox) = 0,
+         'update que não abre vaga não pode gerar aviso';
+end $$;
+set role authenticated;
+
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$ begin
+  perform cancel_booking(current_setting('kidoo.reserva_ana')::uuid);
+end $$;
+
+reset role;
+do $$ begin
+  assert (select count(*) from push_outbox) = 2,
+         'a vaga abriu: os dois da fila precisam ser avisados';
+  assert (select count(*) from push_outbox
+           where guardian_id = '22222222-2222-2222-2222-222222222222') = 1,
+         'o aviso vai para quem estava esperando, não para quem cancelou';
+  assert (select bool_and(title like 'Vagou um lugar em %') from push_outbox),
+         'o aviso precisa dizer de qual atividade se trata';
+  assert (select bool_and(data->>'sessionId' = 'eeeeeeee-0000-0000-0000-000000000001')
+            from push_outbox),
+         'o aviso carrega a turma, para o toque abrir a tela certa';
+  assert (select count(*) from session_waitlist where notified_at is null) = 0,
+         'os dois precisam ficar marcados como avisados';
+end $$;
+set role authenticated;
+
+-- Quem pega a vaga sai da fila; quem não pegou continua esperando.
+select set_config('request.jwt.claim.sub', :'bruno', false);
+do $$ begin
+  perform book_session('eeeeeeee-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-000000000001');
+  assert (select count(*) from my_waitlist()) = 0, 'reservar precisa tirar da fila';
+end $$;
+
+reset role;
+do $$ begin
+  assert (select count(*) from session_waitlist
+           where session_id='eeeeeeee-0000-0000-0000-000000000001') = 1,
+         'a espera da irmã não podia sumir com a reserva do Bruno';
+  assert (select child_id from session_waitlist
+           where session_id='eeeeeeee-0000-0000-0000-000000000001')
+           = 'aaaaaaaa-0000-0000-0000-000000000002',
+         'quem continua na fila é quem não reservou';
+  assert (select notified_at from session_waitlist
+           where session_id='eeeeeeee-0000-0000-0000-000000000001') is null,
+         'encheu de novo: o aviso tem de rearmar para a próxima abertura';
+  assert (select count(*) from push_outbox) = 2, 'encher a turma não avisa ninguém';
 end $$;
 
 reset role;

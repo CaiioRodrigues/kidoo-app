@@ -13,6 +13,7 @@ import type {
   RatingSummary,
   Review,
   Session,
+  WaitlistEntry,
   SignUpResult,
   SubscriptionState,
 } from '@/types/domain';
@@ -98,6 +99,32 @@ export type KidooApi = {
      * do check-in — a regra vive no serviço, não na tela.
      */
     cancel(bookingId: string): Promise<BookingDetails>;
+  };
+  /**
+   * "Me avise quando abrir vaga."
+   *
+   * Existe porque a turma cheia é justamente a que a família mais queria: o
+   * horário bom lota primeiro. Sem a fila, a única saída era voltar ao app
+   * torcendo para dar sorte — e a demanda por aquele horário não deixava
+   * rastro nenhum para mostrar ao parceiro.
+   */
+  waitlist: {
+    /** Turmas em que esta família está esperando vaga. */
+    list(): Promise<WaitlistEntry[]>;
+    /** Só faz sentido em turma cheia: o aviso nasce da abertura da vaga. */
+    join(input: { sessionId: string; childId: string }): Promise<void>;
+    leave(input: { sessionId: string; childId: string }): Promise<void>;
+  };
+  /**
+   * Aparelhos que recebem aviso.
+   *
+   * O token é do aparelho, não da pessoa: num celular compartilhado, ele passa
+   * a valer para quem entrou por último. Por isso registra no login e some no
+   * logout — senão a família anterior continuaria recebendo os avisos.
+   */
+  push: {
+    register(input: { token: string; platform: 'ios' | 'android' | 'web' }): Promise<void>;
+    forget(token: string): Promise<void>;
   };
   journey: {
     get(childId: string): Promise<Journey>;

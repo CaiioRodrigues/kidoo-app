@@ -140,6 +140,19 @@ export function bookedSessionIds(bookings: Booking[], childId: string | null): S
   );
 }
 
+/**
+ * Um pedido de aviso: esta criança quer esta turma quando abrir vaga.
+ *
+ * Guardado por criança, e não por família, porque é a criança que ocuparia o
+ * lugar — e porque com dois filhos a mesma família pode querer avisos de
+ * turmas diferentes.
+ */
+export type WaitlistEntry = {
+  sessionId: Uuid;
+  childId: Uuid;
+  createdAt: IsoDateTime;
+};
+
 export type Activity = {
   id: Uuid;
   title: string;

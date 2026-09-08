@@ -10,6 +10,7 @@ import type {
   Booking,
   BookingReward,
   ClassSession,
+  WaitlistEntry,
   Child,
   CoinPayment,
   Gender,
@@ -66,6 +67,12 @@ export type SessionRow = {
   slots_taken: number;
   kind: SlotKind;
   coin_cost: number;
+};
+
+export type WaitlistRow = {
+  session_id: string;
+  child_id: string;
+  created_at: string;
 };
 
 export type ChildRow = {
@@ -220,6 +227,14 @@ export function toSession(row: SessionRow): ClassSession {
     slotsTaken: row.slots_taken,
     kind: row.kind,
     coinCost: row.coin_cost,
+  };
+}
+
+export function toWaitlistEntry(row: WaitlistRow): WaitlistEntry {
+  return {
+    sessionId: row.session_id,
+    childId: row.child_id,
+    createdAt: row.created_at,
   };
 }
 

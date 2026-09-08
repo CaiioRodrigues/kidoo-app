@@ -11,6 +11,7 @@ import {
   toPlan,
   toReview,
   toSession,
+  toWaitlistEntry,
   toSubscription,
   toWallet,
   type ActivityRow,
@@ -21,6 +22,7 @@ import {
   type PlanRow,
   type ReviewRow,
   type SessionRow,
+  type WaitlistRow,
   type SubscriptionRow,
 } from './mappers';
 import { ApiError, type ApiErrorCode } from '../errors';
@@ -72,6 +74,10 @@ const RPC_MESSAGES: Record<string, { code: ApiErrorCode; message: string }> = {
   session_already_started: { code: 'not_found', message: 'Esta turma já começou.' },
   session_full: { code: 'not_found', message: 'Esta turma não tem mais vaga aberta.' },
   already_booked: { code: 'already_booked', message: 'Você já reservou esta turma.' },
+  session_has_room: {
+    code: 'session_has_room',
+    message: 'Esta turma ainda tem vaga — é só reservar.',
+  },
   no_subscription: { code: 'not_found', message: 'Você ainda não tem um plano ativo.' },
   insufficient_coins: {
     code: 'insufficient_coins',
@@ -619,6 +625,47 @@ export const supabaseApi: KidooApi = {
       const [details] = await toDetails([row]);
       if (!details) throw new ApiError('not_found', 'Reserva não encontrada.');
       return details;
+    },
+  },
+
+  waitlist: {
+    async list() {
+      // `returns<T[]>` num rpc que devolve conjunto confunde a inferência do
+      // supabase-js, que suspeita de `.single()` na cadeia. O cast fica aqui,
+      // num lugar só, em vez de espalhar `any` pelo mapeamento.
+      const { data, error } = await supabase().rpc('my_waitlist');
+      if (error) fail(error, 'Não foi possível carregar suas esperas.');
+      return ((data ?? []) as WaitlistRow[]).map(toWaitlistEntry);
+    },
+
+    async join({ sessionId, childId }) {
+      unwrap(
+        await supabase().rpc('join_waitlist', { p_session_id: sessionId, p_child_id: childId }),
+        'Não foi possível entrar na fila desta turma.',
+      );
+    },
+
+    async leave({ sessionId, childId }) {
+      unwrap(
+        await supabase().rpc('leave_waitlist', { p_session_id: sessionId, p_child_id: childId }),
+        'Não foi possível sair da fila desta turma.',
+      );
+    },
+  },
+
+  push: {
+    async register({ token, platform }) {
+      unwrap(
+        await supabase().rpc('register_push_token', { p_token: token, p_platform: platform }),
+        'Não foi possível registrar o aparelho para avisos.',
+      );
+    },
+
+    async forget(token) {
+      unwrap(
+        await supabase().rpc('forget_push_token', { p_token: token }),
+        'Não foi possível desativar os avisos neste aparelho.',
+      );
     },
   },
 

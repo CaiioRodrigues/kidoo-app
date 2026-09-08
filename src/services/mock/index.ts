@@ -38,6 +38,7 @@ import type {
   Session,
   SignUpResult,
   SubscriptionState,
+  WaitlistEntry,
 } from '@/types/domain';
 
 /**
@@ -74,6 +75,8 @@ type MockState = {
    */
   ratings: Map<string, { rating: number; reviewCount: number }>;
   subscription: SubscriptionState | null;
+  /** Quem está esperando vaga. Chave: `sessionId:childId`, como a PK do banco. */
+  waitlist: Map<string, WaitlistEntry>;
 };
 
 const state: MockState = {
@@ -84,6 +87,7 @@ const state: MockState = {
   reviews: [],
   ratings: new Map(),
   subscription: null,
+  waitlist: new Map(),
 };
 
 /** Credita os bônus de todos os níveis cruzados entre `from` e `to`. */
@@ -672,7 +676,69 @@ export const mockApi: KidooApi = {
         reward: null,
       };
       state.bookings = [...state.bookings, booking];
+      // Espelha o gatilho `bookings_leave_waitlist`: quem pegou a vaga não
+      // espera mais por ela.
+      state.waitlist.delete(`${sessionId}:${childId}`);
       return delay(booking);
+    },
+  },
+
+  /**
+   * Fila de espera.
+   *
+   * O mock não tem gatilho nem push: aqui a fila só guarda o pedido e some
+   * quando a reserva acontece. É o suficiente para a tela — quem prova o aviso
+   * é o teste do Postgres, onde o gatilho existe de verdade.
+   */
+  waitlist: {
+    async list() {
+      requireSession();
+      return delay([...state.waitlist.values()]);
+    },
+
+    async join({ sessionId, childId }) {
+      requireSession();
+      const session = CLASS_SESSIONS.find((item) => item.id === sessionId);
+      if (!session) throw new ApiError('not_found', 'Turma não encontrada.');
+      if (Date.parse(session.startsAt) <= Date.now()) {
+        throw new ApiError('not_found', 'Esta turma já começou.');
+      }
+      const jaReservada = state.bookings.some(
+        (item) =>
+          item.sessionId === sessionId && item.childId === childId && item.status !== 'cancelled',
+      );
+      if (jaReservada) throw new ApiError('already_booked', 'Você já reservou esta turma.');
+      // Turma com vaga não entra na fila: o aviso nasce da abertura, então
+      // esperar aqui seria aguardar algo que não vai acontecer.
+      if (slotsAvailable(session) > 0) {
+        throw new ApiError('session_has_room', 'Esta turma ainda tem vaga — é só reservar.');
+      }
+      state.waitlist.set(`${sessionId}:${childId}`, {
+        sessionId,
+        childId,
+        createdAt: new Date().toISOString(),
+      });
+      return delay(undefined, 200);
+    },
+
+    async leave({ sessionId, childId }) {
+      requireSession();
+      state.waitlist.delete(`${sessionId}:${childId}`);
+      return delay(undefined, 200);
+    },
+  },
+
+  /**
+   * Sem servidor não há para onde mandar aviso, então registrar é um no-op.
+   * A implementação existe para a tela poder chamar sempre, sem perguntar qual
+   * backend está ligado.
+   */
+  push: {
+    async register() {
+      return delay(undefined, 100);
+    },
+    async forget() {
+      return delay(undefined, 100);
     },
   },
 
