@@ -9,7 +9,10 @@
 -- Cada etapa tem um veredito. A PRIMEIRA que não vier "ok" é a causa;
 -- as seguintes são consequência dela, não problemas separados.
 -- =====================================================================
-create temp table if not exists kidoo_avisos (ordem int, etapa text, situacao text, detalhe text);
+-- `quando` não aparece no resultado: existe só para as linhas 7 e 8 saírem em
+-- ordem de data. Ordenar pelo texto poria sexta antes de terça.
+create temp table if not exists kidoo_avisos
+  (ordem int, etapa text, situacao text, detalhe text, quando timestamptz);
 truncate kidoo_avisos;
 
 do $diag$
@@ -31,7 +34,7 @@ begin
     into v_esperando, v_a_avisar
     from session_waitlist;
 
-  insert into kidoo_avisos values (1, '1. alguém na fila de espera',
+  insert into kidoo_avisos (ordem, etapa, situacao, detalhe) values (1, '1. alguém na fila de espera',
     case when v_esperando = 0 then 'NINGUÉM NA FILA' else 'ok' end,
     v_esperando || ' esperando, ' || v_a_avisar || ' ainda sem aviso');
 
@@ -41,7 +44,7 @@ begin
      where tgname = 'class_sessions_notify_waitlist' and not tgisinternal
   ) into v_gatilho;
 
-  insert into kidoo_avisos values (2, '2. gatilho na turma',
+  insert into kidoo_avisos (ordem, etapa, situacao, detalhe) values (2, '2. gatilho na turma',
     case when v_gatilho then 'ok' else 'FALTANDO' end,
     case when v_gatilho then 'dispara quando a vaga abre'
          else 'rode o 10-atualizar.sql' end);
@@ -57,7 +60,7 @@ begin
   -- aviso foi pedido numa turma e a vaga foi aberta em outra. O gatilho avisa
   -- quem espera pela turma que abriu, e só — e o engano não deixa rastro
   -- nenhum, porque nada dá errado: a fila fica lá e a vaga abre.
-  insert into kidoo_avisos values (3, '3. aviso gerado na caixa de saída',
+  insert into kidoo_avisos (ordem, etapa, situacao, detalhe) values (3, '3. aviso gerado na caixa de saída',
     case when v_avisos = 0 then 'NENHUM AVISO GERADO' else 'ok' end,
     case when v_avisos = 0 and v_esperando > 0
          then 'compare a linha 7 com a turma em que você abriu vaga: '
@@ -72,7 +75,7 @@ begin
   -- registrado. Zero aqui com a build ANTIGA instalada é exatamente isso.
   select count(*) into v_tokens from push_tokens;
 
-  insert into kidoo_avisos values (4, '4. celular registrado',
+  insert into kidoo_avisos (ordem, etapa, situacao, detalhe) values (4, '4. celular registrado',
     case when v_tokens = 0 then 'NENHUM APARELHO' else 'ok' end,
     case when v_tokens = 0
          then 'instale a build nova e abra o app uma vez'
@@ -86,7 +89,7 @@ begin
   select error into v_erro
     from push_outbox where error is not null order by created_at desc limit 1;
 
-  insert into kidoo_avisos values (5, '5. entrega',
+  insert into kidoo_avisos (ordem, etapa, situacao, detalhe) values (5, '5. entrega',
     case when v_avisos = 0 then '—'
          when v_enviados > 0 and v_pendentes = 0 then 'ok'
          when v_pendentes > 0 then 'PARADO NA CAIXA'
@@ -98,7 +101,7 @@ begin
   -- `cron.job` só existe com o pg_cron instalado, e é resolvido no plano da
   -- consulta: uma referência direta rebentaria antes de qualquer `case`.
   if to_regclass('cron.job') is null then
-    insert into kidoo_avisos values (6, '6. agendamento a cada 5 min',
+    insert into kidoo_avisos (ordem, etapa, situacao, detalhe) values (6, '6. agendamento a cada 5 min',
       'SEM pg_cron', 'veja o passo 2 de supabase/setup/09-avisos.md');
   else
     execute $q$
@@ -106,7 +109,7 @@ begin
                   else 'ok · ' || string_agg(schedule, ', ') end
         from cron.job where command like '%enviar-avisos%'
     $q$ into v_agenda;
-    insert into kidoo_avisos values (6, '6. agendamento a cada 5 min',
+    insert into kidoo_avisos (ordem, etapa, situacao, detalhe) values (6, '6. agendamento a cada 5 min',
       case when v_agenda like 'ok%' then 'ok' else v_agenda end,
       coalesce(v_agenda, '—'));
   end if;
@@ -125,10 +128,31 @@ begin
                             else 'ainda vai acontecer' end
            || ' · aviso: ' || case when w.notified_at is null then 'ainda não'
                                    else 'já enviado' end
-           || ' · turma ' || left(s.id::text, 8)
+           || ' · turma ' || left(s.id::text, 8),
+         s.starts_at
     from session_waitlist w
     join class_sessions s on s.id = w.session_id
     left join activities a on a.id = s.activity_id;
+  -- 8. As irmãs gêmeas ------------------------------------------------
+  -- Toda turma futura da MESMA atividade da fila. É aqui que o engano fica
+  -- visível: o `11-parceiros-teste.sql` cria 5 parceiros com 3 turmas cada,
+  -- todos chamados "Teste GPS ...", e no painel elas só se distinguem pelo
+  -- dia e pela hora. Abrir vaga na irmã errada não dá erro nenhum.
+  --
+  -- Abra a vaga na linha que tiver "← A FILA É DESTA".
+  insert into kidoo_avisos
+  select 8, '8. turmas de ' || a.title,
+         to_char(s.starts_at at time zone 'America/Sao_Paulo', 'Dy DD/MM HH24:MI'),
+         'vagas abertas: ' || s.slots_open || ' · reservadas: ' || s.slots_taken
+           || ' · turma ' || left(s.id::text, 8)
+           || case when exists (select 1 from session_waitlist w where w.session_id = s.id)
+                   then '  ← A FILA É DESTA' else '' end,
+         s.starts_at
+    from class_sessions s
+    join activities a on a.id = s.activity_id
+   where s.starts_at > now()
+     and a.id in (select s2.activity_id
+                    from session_waitlist w2 join class_sessions s2 on s2.id = w2.session_id);
 end $diag$;
 
-select etapa, situacao, detalhe from kidoo_avisos order by ordem, etapa;
+select etapa, situacao, detalhe from kidoo_avisos order by ordem, quando nulls first;
