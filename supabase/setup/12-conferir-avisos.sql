@@ -53,10 +53,17 @@ begin
   select title || ' — ' || to_char(created_at at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI')
     into v_ultimo from push_outbox order by created_at desc limit 1;
 
+  -- Caixa vazia COM gente na fila quase sempre quer dizer a mesma coisa: o
+  -- aviso foi pedido numa turma e a vaga foi aberta em outra. O gatilho avisa
+  -- quem espera pela turma que abriu, e só — e o engano não deixa rastro
+  -- nenhum, porque nada dá errado: a fila fica lá e a vaga abre.
   insert into kidoo_avisos values (3, '3. aviso gerado na caixa de saída',
     case when v_avisos = 0 then 'NENHUM AVISO GERADO' else 'ok' end,
-    coalesce(v_avisos || ' no total, ' || v_recentes || ' nas últimas 2h · último: '
-             || coalesce(v_ultimo, '—'), 'nenhum'));
+    case when v_avisos = 0 and v_esperando > 0
+         then 'compare a linha 7 com a turma em que você abriu vaga: '
+              || 'precisa ser a MESMA'
+         else v_avisos || ' no total, ' || v_recentes || ' nas últimas 2h · último: '
+              || coalesce(v_ultimo, '—') end);
 
   -- 4. Existe aparelho para receber? -----------------------------------
   -- É aqui que a corrente arrebentava até a correção de hoje:
@@ -103,6 +110,25 @@ begin
       case when v_agenda like 'ok%' then 'ok' else v_agenda end,
       coalesce(v_agenda, '—'));
   end if;
+  -- 7. E, principalmente: a fila é DAQUELA turma? -----------------------
+  -- O gatilho avisa quem espera pela turma que abriu vaga, e só. Pedir aviso
+  -- numa quinta e reabrir vaga em outra é o engano mais fácil de cometer
+  -- agora que o painel lista 21 dias — e ele não deixa rastro nenhum: a fila
+  -- fica lá, a vaga abre, e nada acontece porque são turmas diferentes.
+  --
+  -- Compare as linhas abaixo com a turma que você editou no painel.
+  insert into kidoo_avisos
+  select 7, '7. fila: ' || coalesce(a.title, '?'),
+         to_char(s.starts_at at time zone 'America/Sao_Paulo', 'Dy DD/MM HH24:MI'),
+         'vagas abertas: ' || s.slots_open || ' · reservadas: ' || s.slots_taken
+           || ' · ' || case when s.starts_at <= now() then 'JÁ COMEÇOU (o aviso não sai)'
+                            else 'ainda vai acontecer' end
+           || ' · aviso: ' || case when w.notified_at is null then 'ainda não'
+                                   else 'já enviado' end
+           || ' · turma ' || left(s.id::text, 8)
+    from session_waitlist w
+    join class_sessions s on s.id = w.session_id
+    left join activities a on a.id = s.activity_id;
 end $diag$;
 
-select etapa, situacao, detalhe from kidoo_avisos order by ordem;
+select etapa, situacao, detalhe from kidoo_avisos order by ordem, etapa;
