@@ -2,17 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Badge, Button, CoinBadge, Text } from '@/components/ui';
-import { formatSessionTime } from '@/lib/format';
+import { timeOnly } from '@/lib/schedule';
 import { slotsAvailable, type ClassSession, type Uuid } from '@/types/domain';
 import { blobRadius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 /**
- * Escolha da turma.
+ * As turmas de UM dia.
  *
  * A reserva deixou de ser "quero esta atividade" e passou a ser "quero este
  * horário": quem tem lugar é a turma. E o preço vem dela, não da atividade —
  * a turma com vaga sobrando custa menos coins, que é o empurrão para a família
  * escolher justamente o horário que o parceiro consegue vender barato.
+ *
+ * A lista mostra só a hora porque o dia já está no cabeçalho acima dela.
+ * Repetir "qui., 10/09" em cada linha de um dia só é ruído.
  */
 export function SessionPicker({
   sessions,
@@ -39,14 +42,6 @@ export function SessionPicker({
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
 
-  if (sessions.length === 0) {
-    return (
-      <Text variant="caption" color={colors.textMuted}>
-        Nenhuma turma com vaga aberta no momento. O parceiro libera novos horários toda semana.
-      </Text>
-    );
-  }
-
   return (
     <View style={styles.list}>
       {sessions.map((session) => {
@@ -70,7 +65,7 @@ export function SessionPicker({
             <View key={session.id} style={[styles.row, styles.full]}>
               <View style={styles.fullHeader}>
                 <Text variant="bodyStrong" color={colors.textMuted} style={styles.flex}>
-                  {formatSessionTime(session.startsAt)}
+                  {timeOnly(session.startsAt)}
                 </Text>
                 <Text variant="caption" color={esperando ? colors.primary : colors.textFaint}>
                   {esperando ? 'Avisamos quando vagar' : 'Turma lotada'}
@@ -101,8 +96,8 @@ export function SessionPicker({
             accessibilityState={{ disabled: jaReservada }}
             accessibilityLabel={
               jaReservada
-                ? `${formatSessionTime(session.startsAt)}, você já reservou esta turma`
-                : `${formatSessionTime(session.startsAt)}, ${free} ${
+                ? `${timeOnly(session.startsAt)}, você já reservou esta turma`
+                : `${timeOnly(session.startsAt)}, ${free} ${
                     free === 1 ? 'vaga' : 'vagas'
                   }, ${session.coinCost} coins`
             }
@@ -120,7 +115,7 @@ export function SessionPicker({
                 color={jaReservada ? colors.textMuted : colors.text}
                 numberOfLines={1}
               >
-                {formatSessionTime(session.startsAt)}
+                {timeOnly(session.startsAt)}
               </Text>
               <View style={styles.meta}>
                 {jaReservada ? (
