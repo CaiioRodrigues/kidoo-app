@@ -155,6 +155,19 @@ export const demoApi: PainelApi = {
     await espera(null, 400);
   },
 
+  async criarConta(email, senha) {
+    if (!email.includes('@')) throw new PainelError('E-mail inválido.');
+    if (senha.length < 8) {
+      throw new PainelError('A senha precisa de pelo menos 8 caracteres.');
+    }
+    await espera(null, 460);
+    logado = true;
+    // Na demonstração não há e-mail para confirmar, então entra direto — e o
+    // pedido começa vazio, que é o estado de quem acabou de criar a conta.
+    pedido = null;
+    return { status: 'entrou' as const };
+  },
+
   async sair() {
     logado = false;
     await espera(null, 100);

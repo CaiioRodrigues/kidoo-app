@@ -143,8 +143,19 @@ export type PedidoNaFila = {
   createdAt: string;
 };
 
+/**
+ * O que aconteceu ao criar a conta.
+ *
+ * `confirmar` não é erro: é o caminho normal quando o projeto exige confirmar
+ * o e-mail. Tratar isso como falha mandaria o estabelecimento embora achando
+ * que o cadastro não funcionou.
+ */
+export type ResultadoDaConta = { status: 'entrou' } | { status: 'confirmar'; email: string };
+
 export type PainelApi = {
   entrar(email: string, senha: string): Promise<void>;
+  /** Cria a conta de quem vai administrar o estabelecimento. */
+  criarConta(email: string, senha: string): Promise<ResultadoDaConta>;
   sair(): Promise<void>;
   /**
    * Todos os estabelecimentos que esta conta administra.

@@ -9,6 +9,7 @@ import type {
   Partner,
   Pedido,
   PedidoNaFila,
+  ResultadoDaConta,
   ResultadoDaSerie,
   RosterRow,
   StatementRow,
@@ -83,6 +84,29 @@ async function entrar(email: string, senha: string): Promise<void> {
   // A mesma frase para e-mail inexistente e senha errada: separar as duas
   // entrega quais e-mails têm conta.
   if (error) throw new PainelError('E-mail ou senha incorretos.');
+}
+
+/**
+ * Cria a conta de quem vai administrar o estabelecimento.
+ *
+ * Sem esta porta o cadastro de parceiro era inalcançável: o painel só sabia
+ * entrar, e entrar exige uma conta que só existia se alguém a criasse por
+ * fora. O formulário de pedido ficava atrás de um login impossível.
+ */
+async function criarConta(email: string, senha: string): Promise<ResultadoDaConta> {
+  const { data, error } = await supabase().auth.signUp({ email, password: senha });
+
+  if (error) {
+    const jaExiste = error.message.toLowerCase().includes('already');
+    throw new PainelError(
+      jaExiste
+        ? 'Este e-mail já tem conta. Entre com ele.'
+        : 'Não foi possível criar a conta.',
+    );
+  }
+
+  // Sem sessão = o projeto exige confirmar o e-mail. Não é erro; é outra tela.
+  return data.session ? { status: 'entrou' } : { status: 'confirmar', email };
 }
 
 async function sair(): Promise<void> {
@@ -584,6 +608,7 @@ async function sessaoAtiva(): Promise<boolean> {
 
 export const supabaseApi: PainelApi = {
   entrar,
+  criarConta,
   sair,
   meusParceiros,
   agenda,

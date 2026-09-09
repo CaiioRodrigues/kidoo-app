@@ -24,6 +24,7 @@ export type {
   Partner,
   Pedido,
   PedidoNaFila,
+  ResultadoDaConta,
   ResultadoDaSerie,
   RosterRow,
   StatementRow,

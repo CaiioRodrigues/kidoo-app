@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { api, type PedidoNaFila } from '@/api';
+import { api, type Categoria, type PedidoNaFila } from '@/api';
 import { Card, Erro, Vazio, useDados } from '@/components/ui';
 
 /**
@@ -16,6 +16,9 @@ export function Pedidos() {
     () => api.pedidosPendentes(),
     [],
   );
+  // Os nomes das modalidades. Sem eles a tela mostrava o id cru — "ginastica",
+  // sem acento, que parece dado corrompido para quem está decidindo.
+  const { dado: categorias } = useDados(() => api.categorias(), []);
 
   return (
     <>
@@ -49,14 +52,27 @@ export function Pedidos() {
 
       <div className="stack">
         {pedidos?.map((p) => (
-          <CartaoPedido key={p.id} pedido={p} aoDecidir={recarregar} />
+          <CartaoPedido
+            key={p.id}
+            pedido={p}
+            categorias={categorias ?? []}
+            aoDecidir={recarregar}
+          />
         ))}
       </div>
     </>
   );
 }
 
-function CartaoPedido({ pedido, aoDecidir }: { pedido: PedidoNaFila; aoDecidir: () => void }) {
+function CartaoPedido({
+  pedido,
+  categorias,
+  aoDecidir,
+}: {
+  pedido: PedidoNaFila;
+  categorias: Categoria[];
+  aoDecidir: () => void;
+}) {
   const [motivo, setMotivo] = useState('');
   const [recusando, setRecusando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
@@ -90,7 +106,12 @@ function CartaoPedido({ pedido, aoDecidir }: { pedido: PedidoNaFila; aoDecidir: 
           {pedido.cnpj ? ` · CNPJ ${pedido.cnpj}` : ' · sem CNPJ informado'}
         </p>
         <p className="faint" style={{ marginTop: 4 }}>
-          {pedido.categories.join(', ')} · de {pedido.minAge} a {pedido.maxAge} anos · pedido em{' '}
+          {/* Cai no id se a lista ainda não chegou: melhor "judo" do que um
+              traço no lugar da modalidade que ele quer oferecer. */}
+          {pedido.categories
+            .map((id) => categorias.find((c) => c.id === id)?.label ?? id)
+            .join(', ')}{' '}
+          · de {pedido.minAge} a {pedido.maxAge} anos · pedido em{' '}
           {new Date(pedido.createdAt).toLocaleDateString('pt-BR')}
         </p>
 
