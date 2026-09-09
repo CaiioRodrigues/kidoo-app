@@ -78,6 +78,13 @@
 
 * { box-sizing: border-box; }
 
+/* As formas da vitrine têm a largura da janela e sangram além dela de
+   propósito — é o que as faz parecer maiores que a tela. O corte precisa
+   acontecer aqui, na raiz: posto na coluna de 980px, ele aparava o desenho
+   numa borda vertical reta no meio do monitor.
+   `clip` e não `hidden`: `hidden` criaria um contêiner de rolagem. */
+#root { overflow-x: clip; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -390,37 +397,95 @@ input, select { font: inherit; color: inherit; }
 
 /* ------------------------------------------------------------- vitrine ---
  *
- * A página que existe antes do login. Mesma paleta do painel, respiro maior:
- * aqui ninguém está trabalhando, está decidindo se vale a pena.
+ * A página que existe antes do login. Mesma paleta do painel, respiro maior e
+ * a identidade do app em primeiro plano: aqui ninguém está trabalhando, está
+ * decidindo se vale a pena — e boa parte já viu o Kidoo na tela do filho.
  */
 .vitrine {
-  max-width: 940px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 22px 20px 40px;
+  padding: 22px 20px 0;
   display: flex;
   flex-direction: column;
-  gap: 34px;
+  gap: 40px;
+  position: relative;
 }
-.vitrine-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.vitrine-topo {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+/* O botão do topo fica por cima das formas, e a borda clara do ghost some
+   contra o lilás. Fundo de cartão devolve o contorno sem mudar a hierarquia. */
+.vitrine-topo .btn-ghost { background: var(--card); }
 
-.vitrine-hero { display: flex; flex-direction: column; gap: 16px; padding: 18px 0 4px; }
+/* O herói é o único bloco com as formas da marca por trás. Repetidas em cada
+   seção elas virariam textura de fundo e parariam de significar alguma coisa. */
+.vitrine-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 28px;
+  padding: 26px 0 8px;
+}
+/* Largura da janela, e não do contêiner: preso aos 980px da coluna, o desenho
+   terminava numa borda vertical reta no meio da tela — o oposto de orgânico. */
+.blobs {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: 380px;
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 0;
+}
+@media (prefers-color-scheme: dark) { .blobs { opacity: 0.16; } }
+
+/* Acima das formas, senão o texto disputa leitura com elas. */
+.vitrine-fala { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 16px; }
+.vitrine-mascote { position: relative; z-index: 1; line-height: 0; }
+
 .vitrine-titulo {
-  font-size: clamp(29px, 6vw, 46px);
+  font-size: clamp(29px, 5.4vw, 46px);
   line-height: 1.1;
   letter-spacing: -0.02em;
   margin: 0;
 }
 .vitrine-destaque { color: var(--purple); }
 /* Medida de leitura: linha longa demais cansa antes do segundo parágrafo. */
-.vitrine-linha { font-size: 17px; line-height: 1.55; color: var(--text-muted); max-width: 56ch; margin: 0; }
+.vitrine-linha { font-size: 17px; line-height: 1.55; color: var(--text-muted); max-width: 52ch; margin: 0; }
 .vitrine-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
 .vitrine-acoes .btn { padding: 11px 20px; font-size: 15px; }
+
+.vitrine-modalidades { margin-top: 8px; }
+/* Cor de texto normal, não `faint`: logo acima dele fica a linha de Belo
+   Horizonte, que é faint, e dois cinzas seguidos leem como um parágrafo só. */
+.vitrine-subtitulo { font-size: 15px; color: var(--text); margin: 0 0 12px; font-weight: 700; }
+.vitrine-chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+/* A cor vem do elemento porque é dado (a modalidade), não estilo — mas chega
+   como variável, para o tema escuro poder trocar o par. */
+.chip-modalidade-cor {
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--m-fundo);
+  color: var(--m-cor);
+}
+@media (prefers-color-scheme: dark) {
+  .chip-modalidade-cor { background: var(--m-fundo-escuro); color: var(--m-cor-escura); }
+}
 
 .vitrine-passos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 .vitrine-passo {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  /* O canto solto é a assinatura do app. Aqui ele aparece inteiro, e não com
+     parcimônia como no resto do painel: esta página é a marca, não a mesa de
+     trabalho. */
+  border-radius: var(--radius-blob);
   padding: 18px 20px 20px;
   box-shadow: var(--shadow);
 }
@@ -434,13 +499,48 @@ input, select { font: inherit; color: inherit; }
   font-weight: 700; font-size: 15px;
 }
 
-.vitrine-requisitos { max-width: 620px; }
-.vitrine-lista { margin: 0; padding-left: 20px; color: var(--text-muted); line-height: 1.7; }
-
-.vitrine-rodape {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-  gap: 10px; border-top: 1px solid var(--border); padding-top: 16px;
+.vitrine-requisitos { border-radius: var(--radius-blob); }
+/* Duas colunas na largura cheia: com `max-width` o cartão deixava metade da
+   página vazia à direita, e a lista tem texto curto demais para sustentar
+   uma linha inteira. */
+.vitrine-requisitos .card-pad {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: 8px 34px;
+  align-items: start;
+  padding: 22px 24px 24px;
 }
+.vitrine-requisitos h2 { grid-column: 1 / -1; }
+.vitrine-lista { margin: 0; padding-left: 20px; color: var(--text-muted); line-height: 1.7; }
+.vitrine-fecho { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+
+/* ------------------------------------------------------------- rodapé ---
+ *
+ * Serve a vitrine e o painel. No painel ele fecha a coluna de conteúdo; na
+ * vitrine, a página inteira.
+ */
+.rodape {
+  border-top: 1px solid var(--border);
+  margin-top: 40px;
+  padding: 26px 0 30px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px 28px;
+  align-items: start;
+}
+.rodape-marca { display: flex; align-items: flex-start; gap: 12px; }
+.rodape-frase {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 46ch;
+}
+.rodape-acoes { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.rodape-fim { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 14px; }
+/* Dentro do painel o rodapé fecha a coluna de trabalho: mais discreto, e
+   afastado do conteúdo para não parecer parte da última tabela. */
+.main .rodape { margin-top: 56px; }
 
 /* Botão que se comporta como link: usado onde a ação é secundária e o peso de
    um botão de verdade competiria com a chamada principal. */
@@ -449,3 +549,14 @@ input, select { font: inherit; color: inherit; }
   color: var(--purple); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
 }
 .btn-link:hover { text-decoration: underline; }
+
+/* No celular o mascote e o texto param de dividir a linha, e o rodapé deixa de
+   empurrar as ações para a direita — numa coluna só, alinhar à direita separa
+   sem motivo. */
+@media (max-width: 720px) {
+  .vitrine-hero { grid-template-columns: 1fr; gap: 8px; }
+  .vitrine-requisitos .card-pad { grid-template-columns: 1fr; gap: 16px; }
+  .vitrine-mascote { order: -1; }
+  .rodape { grid-template-columns: 1fr; }
+  .rodape-acoes { flex-direction: row; align-items: center; }
+}
