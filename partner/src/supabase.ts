@@ -35,7 +35,16 @@ export function supabase(): SupabaseClient {
       storage: window.sessionStorage,
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: false,
+      /*
+        O link do e-mail de confirmação volta para cá com a sessão no fim da
+        URL. Com isto ligado, quem clica no link já entra; desligado, ele
+        aterrissa numa tela de login sem entender por que confirmou.
+
+        O risco de ler a URL é aceitar um token que veio de fora da navegação —
+        e o Supabase só emite esses links para o endereço configurado em
+        Redirect URLs, que é este painel.
+      */
+      detectSessionInUrl: true,
     },
   });
   return client;

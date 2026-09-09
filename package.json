@@ -58,6 +58,7 @@
     "typecheck": "tsc --noEmit",
     "test:agenda": "TZ=America/Sao_Paulo npx tsx scripts/testar-agenda.ts",
     "test:base64": "npx tsx scripts/testar-base64.ts",
+    "test:link": "npx tsx scripts/testar-link.ts",
     "test:recorrencia": "TZ=America/Sao_Paulo npx tsx scripts/testar-recorrencia.ts",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",

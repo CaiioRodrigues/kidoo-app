@@ -186,6 +186,45 @@ Se a primeira consulta der `relation "class_sessions_visible" does not exist`,
 o script não rodou — e o app fica sem listar turma nenhuma, porque é dessa
 visão que ele lê os horários.
 
+## O link do e-mail de confirmação
+
+Quem cria conta recebe um e-mail com um link, e o link precisa voltar para o
+lugar certo — que são **dois lugares diferentes**: a família volta para o
+aplicativo, o estabelecimento volta para o painel. O código já pede isso em
+cada cadastro (`emailRedirectTo`); o que falta é o Supabase aceitar os dois
+endereços.
+
+Em **Authentication → URL Configuration**:
+
+- **Site URL**: o endereço do painel publicado
+  (`https://SEU-PAINEL.vercel.app`). É para onde vai quem clicar num link sem
+  destino declarado.
+- **Redirect URLs**: acrescente as três linhas abaixo. Sem elas o Supabase
+  ignora o destino pedido e manda todo mundo para o Site URL — a família cairia
+  na tela de administrar estabelecimento.
+
+  ```
+  https://SEU-PAINEL.vercel.app
+  kidoo://*
+  exp://*
+  ```
+
+  `kidoo://*` é o aplicativo instalado; `exp://*` é o Expo Go, e só serve
+  enquanto você testa — tire quando parar de usá-lo.
+
+Depois disso, confirmar o e-mail entra direto: no app cai na Home, no painel
+abre o cadastro do espaço. Nenhum dos dois pede a senha de novo — o clique no
+link já é a prova de que a pessoa tem acesso àquela caixa de entrada.
+
+### Se o link não funcionar
+
+| Sintoma | Onde olhar |
+| --- | --- |
+| O link abre o navegador em vez do app | falta `kidoo://*` em Redirect URLs, ou a build instalada é anterior a esta |
+| "Este link expirou" | o padrão do Supabase é 24h; peça um novo pela tela de confirmação |
+| Cai no painel sendo família (ou o contrário) | o destino foi ignorado: confira as Redirect URLs |
+| Nenhum e-mail chega | sem SMTP próprio o Supabase limita o envio a poucos por hora — veja Authentication → Emails |
+
 ## O aviso de vaga não chegou
 
 [`12-conferir-avisos.sql`](12-conferir-avisos.sql) percorre a corrente inteira
