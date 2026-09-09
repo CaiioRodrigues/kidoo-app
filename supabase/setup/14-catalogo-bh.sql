@@ -22,8 +22,33 @@
 begin;
 
 -- ------------------------------------------------------- fora os testes ---
--- `on delete cascade` leva junto atividades, turmas, repasses e vínculos.
--- As reservas que existirem nessas turmas vão junto: são de teste também.
+--
+-- Quer ver o que vai junto antes? Rode isto sozinho, antes do arquivo:
+--
+--   select p.name, count(b.id) as reservas
+--     from partners p join activities a on a.partner_id = p.id
+--     left join bookings b on b.activity_id = a.id
+--    where p.name like 'Teste GPS%' group by p.name;
+--
+-- As reservas saem primeiro, e à mão. `bookings` aponta para `activities` e
+-- `class_sessions` com `on delete restrict`, e isso é decisão, não descuido:
+-- reserva é registro financeiro — é sobre ela que o repasse do parceiro é
+-- calculado —, e apagar uma turma não pode fazer sumir o que já foi devido.
+-- O banco obriga a dizer "sim, quero apagar estas reservas também".
+--
+-- Aqui a exceção é legítima e vale dizer o que se perde: são os check-ins que
+-- você fez no teste de GPS, contra parceiros que estão saindo da base. As
+-- avaliações dessas reservas vão junto (cascade), e nenhuma delas é de
+-- família de verdade.
+delete from bookings
+ where activity_id in (
+   select a.id from activities a
+     join partners p on p.id = a.partner_id
+    where p.name like 'Teste GPS%'
+ );
+
+-- Agora sim: o resto cai por `on delete cascade` — atividades, turmas,
+-- repasses, vínculos e filas de espera.
 delete from partners where name like 'Teste GPS%';
 
 -- ------------------------------------------------------------ o catálogo ---
