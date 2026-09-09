@@ -94,7 +94,14 @@ async function entrar(email: string, senha: string): Promise<void> {
  * fora. O formulário de pedido ficava atrás de um login impossível.
  */
 async function criarConta(email: string, senha: string): Promise<ResultadoDaConta> {
-  const { data, error } = await supabase().auth.signUp({ email, password: senha });
+  const { data, error } = await supabase().auth.signUp({
+    email,
+    password: senha,
+    // Para onde o link do e-mail volta. Sem isto ele cai no "Site URL" do
+    // projeto, que é o app das famílias: o dono da escolinha confirmaria o
+    // e-mail e seria despejado no aplicativo errado.
+    options: { emailRedirectTo: window.location.origin },
+  });
 
   if (error) {
     const jaExiste = error.message.toLowerCase().includes('already');

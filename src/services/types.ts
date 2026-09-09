@@ -54,6 +54,14 @@ export type KidooApi = {
     signOut(): Promise<void>;
     /** Valida a sessão restaurada do armazenamento seguro. */
     restore(token: string): Promise<Session | null>;
+    /**
+     * Entra com a sessão que veio no link do e-mail de confirmação.
+     *
+     * O link é a única prova de que a pessoa tem acesso àquela caixa de
+     * entrada — e é por isso que ele já entra, em vez de mandar digitar a
+     * senha de novo logo depois de tê-la escolhido.
+     */
+    confirmByLink(tokens: { accessToken: string; refreshToken: string }): Promise<Session>;
   };
   children: {
     list(): Promise<Child[]>;

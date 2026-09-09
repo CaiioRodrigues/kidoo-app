@@ -31,6 +31,8 @@ type AuthState = {
   signUp: (input: SignUpInput) => Promise<SignUpResult>;
   /** Reenvia o e-mail de confirmação. */
   resendConfirmation: (email: string) => Promise<void>;
+  /** Entra com a sessão que veio no link do e-mail de confirmação. */
+  confirmByLink: (tokens: { accessToken: string; refreshToken: string }) => Promise<void>;
   signOut: () => Promise<void>;
 
   /**
@@ -119,6 +121,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       await secureDelete(SecureKeys.session);
       set({ status: 'unauthenticated', session: null });
     }
+  },
+
+  async confirmByLink(tokens) {
+    const session = await api.auth.confirmByLink(tokens);
+    // Mesma sequência do login por senha: cache de outra conta fora, sessão
+    // guardada, aparelho registrado para os avisos de vaga.
+    clearQueryCache();
+    await secureSet(SecureKeys.session, session.accessToken);
+    set({ status: 'authenticated', session });
+    void registrarAparelho().then((push) => set({ push }));
   },
 
   async signIn(input) {

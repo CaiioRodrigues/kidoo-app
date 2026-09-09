@@ -28,6 +28,7 @@ import {
 import { ApiError, type ApiErrorCode } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
 import { buildAchievements } from '@/lib/achievements';
+import { linkDeConfirmacao } from '@/lib/deep-link';
 import { MAX_LEVEL, bonusForLevel, levelFromXp } from '@/lib/levels';
 import { rankForChild } from '@/lib/recommendation';
 import { ehArquivoLocal, lerArquivoLocal, tipoDaImagem } from '@/lib/upload';
@@ -413,8 +414,14 @@ export const supabaseApi: KidooApi = {
       const { data, error } = await supabase().auth.signUp({
         email,
         password,
-        // O perfil nasce no trigger `on_auth_user_created`, a partir daqui.
-        options: { data: { name } },
+        options: {
+          // O perfil nasce no trigger `on_auth_user_created`, a partir daqui.
+          data: { name },
+          // E o link do e-mail volta para o APP, não para o "Site URL" do
+          // projeto — que é o painel dos parceiros. Sem isto a família
+          // confirma o e-mail e cai numa tela de administrar estabelecimento.
+          emailRedirectTo: linkDeConfirmacao(),
+        },
       });
 
       if (error) {
@@ -442,7 +449,11 @@ export const supabaseApi: KidooApi = {
     },
 
     async resendConfirmation(email) {
-      const { error } = await supabase().auth.resend({ type: 'signup', email });
+      const { error } = await supabase().auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: linkDeConfirmacao() },
+      });
       // Reenvio tem limite de frequência no Supabase. A mensagem diz o que
       // fazer — esperar — em vez de sugerir que algo quebrou.
       if (error) {
@@ -451,6 +462,30 @@ export const supabaseApi: KidooApi = {
           'Não foi possível reenviar agora. Aguarde um minuto e tente de novo.',
         );
       }
+    },
+
+    /**
+     * Entra com a sessão que veio no link.
+     *
+     * `setSession` guarda os dois tokens no armazenamento seguro do aparelho e
+     * passa a renovar sozinho — é o mesmo estado de quem entrou pela senha.
+     */
+    async confirmByLink({ accessToken, refreshToken }) {
+      const { data, error } = await supabase().auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (error || !data.session) {
+        throw new ApiError(
+          'invalid_credentials',
+          'Este link não vale mais. Peça um novo e tente de novo.',
+        );
+      }
+      return sessionFrom(
+        data.session.access_token,
+        data.session.expires_at,
+        await guardianOf(data.session.user.id),
+      );
     },
 
     async signOut() {
