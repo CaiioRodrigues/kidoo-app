@@ -100,6 +100,22 @@ Por isso `npm run build` **para com erro** quando elas faltam, em vez de
 publicar a mentira. É de propósito: quem quer a demonstração pede por escrito,
 com `npm run build:demo`.
 
+### O painel se sustenta sozinho
+
+O host instala **só esta pasta**. Toda dependência que o painel usa — inclusive
+de tipos — precisa estar no `package.json` daqui, e não no do repositório de
+cima.
+
+Isso já custou um deploy: o `vite.config.ts` usa `node:url` e `process`, e o
+`tsc` passava na minha máquina porque encontrava `@types/node` no
+`node_modules` do app Expo, um nível acima. No Vercel, onde só `partner/` é
+instalado, o build parou. Para conferir isolamento de verdade, esconda o de
+cima e rode aqui:
+
+```bash
+mv ../node_modules/@types/node /tmp/guardado && npm run build; mv /tmp/guardado ../node_modules/@types/node
+```
+
 ### No Vercel
 
 1. **Add New → Project** e escolha este repositório.
