@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Badge, Button, CoinBadge, Text } from '@/components/ui';
 import { timeOnly } from '@/lib/schedule';
-import { slotsAvailable, type ClassSession, type Uuid } from '@/types/domain';
+import { slotsAvailable, type ClassSession, type SlotKind, type Uuid } from '@/types/domain';
 import { blobRadius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 /**
@@ -11,12 +11,29 @@ import { blobRadius, spacing, useStyles, useTheme, type ThemeColors } from '@/th
  *
  * A reserva deixou de ser "quero esta atividade" e passou a ser "quero este
  * horário": quem tem lugar é a turma. E o preço vem dela, não da atividade —
- * a turma com vaga sobrando custa menos coins, que é o empurrão para a família
- * escolher justamente o horário que o parceiro consegue vender barato.
+ * a turma que já acontece de qualquer jeito custa menos coins, porque a criança
+ * a mais não custa nada ao parceiro. É o único desconto que existe aqui sem
+ * alguém pagar por ele.
  *
  * A lista mostra só a hora porque o dia já está no cabeçalho acima dela.
  * Repetir "qui., 10/09" em cada linha de um dia só é ruído.
  */
+/**
+ * O que o tipo da turma significa para quem vai reservar.
+ *
+ * `kind` nasceu para calcular repasse e preço, e chegava à família como um selo
+ * "Turma com espaço" que aparecia só às vezes — repetindo o "3 vagas" ao lado e
+ * sem explicar nada. Mas a classificação carrega um fato que muda a tarde da
+ * criança: turma com matriculados fixos é grupo que já se conhece e tem rotina;
+ * turma sem eles é aula montada com quem aparecer.
+ *
+ * Sempre sai um dos dois, nunca nenhum. Selo intermitente deixa a ausência
+ * ambígua: a família não sabe se é o outro caso ou se faltou o dado.
+ */
+function tipoDaTurma(kind: SlotKind): string {
+  return kind === 'ociosa' ? 'Turma em andamento' : 'Aula aberta';
+}
+
 export function SessionPicker({
   sessions,
   reserved,
@@ -97,7 +114,7 @@ export function SessionPicker({
             accessibilityLabel={
               jaReservada
                 ? `${timeOnly(session.startsAt)}, você já reservou esta turma`
-                : `${timeOnly(session.startsAt)}, ${free} ${
+                : `${timeOnly(session.startsAt)}, ${tipoDaTurma(session.kind)}, ${free} ${
                     free === 1 ? 'vaga' : 'vagas'
                   }, ${session.coinCost} coins`
             }
@@ -129,9 +146,7 @@ export function SessionPicker({
                     <Text variant="caption" color={free <= 2 ? colors.warning : colors.textMuted}>
                       {free === 1 ? 'última vaga' : `${free} vagas`}
                     </Text>
-                    {session.kind === 'ociosa' ? (
-                      <Badge label="Turma com espaço" tone="success" />
-                    ) : null}
+                    <Badge label={tipoDaTurma(session.kind)} tone="neutral" />
                   </>
                 )}
               </View>

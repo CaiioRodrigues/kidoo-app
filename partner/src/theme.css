@@ -233,6 +233,8 @@ input, select { font: inherit; color: inherit; }
 }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
+/* Menor que o label de propósito: explica sem competir com ele. */
+.hint { color: var(--text-faint); font-size: 12px; line-height: 1.45; }
 .field label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .input {
   background: var(--card); border: 1px solid var(--border-strong);
