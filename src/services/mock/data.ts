@@ -546,14 +546,18 @@ function sessionsFor(seed: Seed, activityId: string, firstStart: string): ClassS
     const startsAt = new Date(base);
     startsAt.setDate(startsAt.getDate() + dayOffset);
 
-    // A turma do meio é o horário fraco do parceiro — onde ele mais quer ajuda.
-    const enrolled = Math.round(capacity * (index === 1 ? occupancy * 0.55 : occupancy));
+    // A turma do meio é o horário fraco do parceiro — o que quase não tem aluno
+    // fixo e só acontece se o Kidoo levar gente. Um número pequeno e literal,
+    // porque é ele que faz a semente ter os dois tipos de turma.
+    const enrolled = index === 1 ? 2 : Math.round(capacity * occupancy);
     const free = capacity - enrolled;
 
-    // Só é ociosa quando sobra folga de verdade, e "folga" é proporcional: três
-    // lugares numa turma de 20 é turma cheia; numa de 8 é um terço vazio. Uma
-    // cadeira solta não é estoque ocioso — é a última, e vale o preço cheio.
-    const kind: SlotKind = free >= Math.max(3, capacity * 0.3) ? 'ociosa' : 'cheia';
+    // Espelha `slot_kind_for` da migration 000006, e o limiar tem de ser o
+    // mesmo: enquanto o mock decidia por folga (`free >= 30% da capacidade`) e
+    // o banco por matriculados, a mesma turma saía barata na demonstração e
+    // cara em produção — e o selo da tela chamava de "aula aberta" justamente a
+    // turma que estava quase lotada.
+    const kind: SlotKind = enrolled >= 4 ? 'ociosa' : 'cheia';
 
     // O parceiro não abre tudo: guarda folga para a própria matrícula.
     const slotsOpen = Math.max(1, Math.round(free * 0.6));

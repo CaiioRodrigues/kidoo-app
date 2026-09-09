@@ -405,7 +405,12 @@ function NovaTurma({
         <div className="field">
           <label htmlFor="matriculados">Já matriculados</label>
           <input id="matriculados" className="input" type="number" min={0} value={enrolled}
+                 aria-describedby="matriculados-ajuda"
                  onChange={(e) => setEnrolled(e.target.value)} />
+          <small id="matriculados-ajuda" className="hint">
+            Alunos fixos, que não vêm pelo Kidoo. É este número que define o tipo da vaga — e o
+            seu repasse.
+          </small>
         </div>
         <div className="field">
           <label htmlFor="vagas">Vagas para o Kidoo</label>
