@@ -1,0 +1,28 @@
+# Alternativa ao Vercel — mesma ideia, outro host.
+# A "base" é esta pasta porque o painel mora dentro do repositório do app.
+
+[build]
+  base    = "partner"
+  command = "npm run build"
+  publish = "dist"
+
+# O painel é uma página só; a regra existe para um F5 em qualquer caminho
+# não devolver 404.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options        = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    # O cadastro pede a localização do próprio aparelho; o resto fica fechado.
+    Permissions-Policy     = "geolocation=(self), camera=(), microphone=(), payment=()"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

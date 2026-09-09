@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build:demo": "tsc --noEmit && VITE_DEMO=1 vite build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

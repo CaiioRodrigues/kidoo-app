@@ -81,7 +81,57 @@ e morre com a aba.
 ## Comandos
 
 ```bash
-npm run dev       # desenvolvimento
-npm run build     # typecheck + build de produção em dist/
-npm run preview   # serve o build
+npm run dev         # desenvolvimento
+npm run build       # typecheck + build de produção em dist/
+npm run build:demo  # o mesmo, mas aceitando rodar sem banco (dados fictícios)
+npm run preview     # serve o build
 ```
+
+## Publicar
+
+O painel é um site estático: `dist/` num host qualquer. Aqui vão os passos do
+Vercel, que é gratuito para isto e liga direto no repositório; o `netlify.toml`
+ao lado faz o mesmo na Netlify, e a Cloudflare Pages usa os mesmos três campos.
+
+**O cuidado que vale a leitura:** sem as variáveis, o painel publicado sobe em
+**modo demonstração** — turmas, famílias e repasses inventados, numa tela que
+parece de verdade. Um parceiro confirmaria presença de criança que não existe.
+Por isso `npm run build` **para com erro** quando elas faltam, em vez de
+publicar a mentira. É de propósito: quem quer a demonstração pede por escrito,
+com `npm run build:demo`.
+
+### No Vercel
+
+1. **Add New → Project** e escolha este repositório.
+2. **Root Directory: `partner`** — o painel mora dentro do repositório do app.
+   É o campo que mais gente esquece, e sem ele a build falha sem dizer por quê.
+3. Framework **Vite** (ele detecta sozinho); o `vercel.json` já traz build,
+   saída e cabeçalhos.
+4. **Environment Variables**, as duas, em todos os ambientes:
+
+   ```
+   VITE_SUPABASE_URL       https://SEU-PROJETO.supabase.co
+   VITE_SUPABASE_ANON_KEY  sb_publishable_...
+   ```
+
+   A anon key é pública por natureza — ela vai dentro do bundle de qualquer
+   jeito, e quem protege os dados é a RLS. A **service_role nunca** entra aqui:
+   ela ignora RLS e daria o banco inteiro a qualquer visitante.
+5. **Deploy**. O endereço que sair (`...vercel.app`, ou o seu domínio) é o que
+   você manda para os estabelecimentos.
+
+### Depois de publicar, confira três coisas
+
+- **Entrar com uma conta de verdade** e ver a sua agenda, não a fictícia. Se o
+  rodapé disser "Modo demonstração", as variáveis não chegaram na build.
+- **Abrir num celular.** É onde o parceiro vai preencher o cadastro, estando no
+  espaço, e onde o mapa precisa responder ao toque.
+- **O HTTPS.** O mapa e o "estou no espaço agora" dependem dele: navegador
+  nenhum entrega localização em http://. Os hosts acima já servem em https.
+
+### O que trocar no Supabase
+
+Em **Authentication → URL Configuration**, ponha o endereço publicado em
+**Site URL** e em **Redirect URLs**. É de lá que sai o link do e-mail de
+confirmação: enquanto ele apontar para `localhost`, o e-mail de quem se
+cadastrar chega com um link que só funciona na sua máquina.
