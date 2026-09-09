@@ -199,6 +199,23 @@ do aparelho falhava sempre, calado dentro do `catch` que existe para não travar
 o login. Com a build antiga instalada, `push_tokens` está vazia e o aviso é
 gerado corretamente sem ter para onde ir.
 
+## Um catálogo de Belo Horizonte
+
+[`14-catalogo-bh.sql`](14-catalogo-bh.sql) apaga os parceiros `Teste GPS%` e
+põe oito estabelecimentos em bairros de BH, com quatorze atividades e duas
+semanas de turmas — a mesma janela que a tira de dias do app mostra.
+
+Os **nomes são inventados**, e é de propósito: pôr no app o nome de uma
+academia de verdade que não combinou nada faria o Kidoo anunciar vaga em nome
+de quem nunca concordou, e é a família que apareceria na porta. Os **bairros e
+as coordenadas são reais**, porque é deles que sai a distância no app e o
+portão do check-in — "perto de mim" só se testa com distâncias que fazem
+sentido para quem mora aqui.
+
+Ninguém administra esses parceiros: eles não têm vínculo com conta nenhuma,
+então não aparecem no seu painel. Existem para o app das famílias ter o que
+mostrar.
+
 ## Testar o GPS de verdade
 
 O portão de proximidade do check-in nunca foi exercitado com uma leitura real.

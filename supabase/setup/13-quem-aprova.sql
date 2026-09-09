@@ -16,6 +16,13 @@ select set_config('kidoo.email', 'cfariarodrigues@gmail.com', false);
 do $$
 declare v_id uuid;
 begin
+  -- A tabela nasce na migration 000015. Sem esta checagem o erro que aparece é
+  -- `relation "kidoo_admins" does not exist`, que não diz o que fazer.
+  if to_regclass('public.kidoo_admins') is null then
+    raise exception
+      'O banco ainda não tem o cadastro de parceiros. Rode antes o supabase/setup/10-atualizar.sql (o relatório dele tem de sair com 12 linhas).';
+  end if;
+
   select id into v_id from auth.users where lower(email) = lower(current_setting('kidoo.email'));
   if v_id is null then
     raise exception 'Nenhuma conta com esse e-mail. Crie a conta no app ou no painel primeiro.';
