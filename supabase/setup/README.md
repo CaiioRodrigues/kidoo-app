@@ -194,21 +194,27 @@ endereços.
 
 Em **Authentication → URL Configuration**:
 
-- **Site URL**: o endereço do painel publicado
-  (`https://SEU-PAINEL.vercel.app`). É para onde vai quem clicar num link sem
-  destino declarado.
-- **Redirect URLs**: acrescente as três linhas abaixo. Sem elas o Supabase
-  ignora o destino pedido e manda todo mundo para o Site URL — a família cairia
-  na tela de administrar estabelecimento.
+- **Site URL**: o endereço do painel publicado. É para onde vai quem clicar num
+  link sem destino declarado.
+- **Redirect URLs**: acrescente as linhas abaixo. Sem elas o Supabase ignora o
+  destino pedido e manda todo mundo para o Site URL — a família cairia na tela
+  de administrar estabelecimento.
 
   ```
   https://SEU-PAINEL.vercel.app
+  https://painel.sejakidoo.com.br
   kidoo://*
   exp://*
   ```
 
   `kidoo://*` é o aplicativo instalado; `exp://*` é o Expo Go, e só serve
   enquanto você testa — tire quando parar de usá-lo.
+
+  As duas primeiras convivem de propósito: o endereço da Vercel continua
+  funcionando, e `painel.sejakidoo.com.br` passa a funcionar assim que o
+  subdomínio apontar para lá. Mantenha as duas até o domínio próprio estar no ar,
+  e então promova ele a **Site URL** — é o endereço que um dono de escola vê
+  antes de decidir se você existe.
 
 Depois disso, confirmar o e-mail entra direto: no app cai na Home, no painel
 abre o cadastro do espaço. Nenhum dos dois pede a senha de novo — o clique no
