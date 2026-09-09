@@ -202,6 +202,19 @@ input, select { font: inherit; color: inherit; }
 
 .cadastro-secao { border-top: 1px solid var(--border); margin-top: 22px; padding-top: 18px; }
 
+/* Alto o bastante para enxergar a quadra e a rua ao lado — abaixo disso o
+   parceiro não consegue conferir se o alfinete caiu na porta certa. */
+.mapa {
+  height: 320px; border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--border-strong); z-index: 0;
+}
+/* O Leaflet desenha os créditos em branco fixo; no tema escuro some. */
+.leaflet-container { background: var(--card-muted); font: inherit; }
+.leaflet-control-attribution {
+  background: var(--card) !important; color: var(--text-faint) !important; font-size: 11px;
+}
+.leaflet-control-attribution a { color: var(--text-muted) !important; }
+
 .chip-modalidade {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 14px; border-radius: 999px;

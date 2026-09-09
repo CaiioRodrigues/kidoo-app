@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
 import { api, type NovoPedido, type Pedido } from '@/api';
+import { MapaDoEspaco } from '@/components/MapaDoEspaco';
 import { Card, Erro, useDados } from '@/components/ui';
 import type { ActivityCategoryId } from '@app/types/domain';
 
@@ -82,7 +83,6 @@ function Formulario({
   }));
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const [localizando, setLocalizando] = useState(false);
   const [subindoFoto, setSubindoFoto] = useState(false);
   const entradaFoto = useRef<HTMLInputElement>(null);
 
@@ -90,36 +90,6 @@ function Formulario({
     setForm((atual) => ({ ...atual, [campo]: valor }));
 
   const temCoordenada = form.latitude !== 0 || form.longitude !== 0;
-
-  /*
-    A coordenada não é detalhe: é dela que sai a distância no app e o portão de
-    proximidade do check-in. Sem mapa (que exigiria chave de terceiro), o
-    caminho honesto é ler o aparelho de quem preenche — e o normal é preencher
-    de dentro do próprio espaço.
-  */
-  const usarMinhaLocalizacao = () => {
-    setErro(null);
-    if (!navigator.geolocation) {
-      setErro('Este navegador não sabe informar a localização. Digite as coordenadas.');
-      return;
-    }
-    setLocalizando(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        muda('latitude', pos.coords.latitude);
-        muda('longitude', pos.coords.longitude);
-        setLocalizando(false);
-      },
-      () => {
-        setLocalizando(false);
-        setErro(
-          'Não conseguimos ler a localização. Permita o acesso no navegador, ou digite as ' +
-            'coordenadas do espaço.',
-        );
-      },
-      { enableHighAccuracy: true, timeout: 15000 },
-    );
-  };
 
   const escolherFoto = async (arquivo: File | undefined) => {
     if (!arquivo) return;
@@ -209,6 +179,8 @@ function Formulario({
             <input id="endereco" className="input" value={form.address} maxLength={140}
                    placeholder="Rua das Palmeiras, 240"
                    onChange={(e) => muda('address', e.target.value)} />
+            <span className="faint">Buscar pelo CEP, ali embaixo, preenche este e os dois
+              seguintes.</span>
           </div>
 
           <div className="field">
@@ -230,43 +202,35 @@ function Formulario({
         </div>
 
         <div className="cadastro-secao">
-          <strong>Onde fica, no mapa</strong>
-          <p className="faint" style={{ margin: '4px 0 12px', maxWidth: 620 }}>
-            É desta coordenada que sai a distância que a família vê — e o check-in só libera
-            perto daqui. O jeito mais preciso é tocar no botão <em>estando no espaço</em>.
+          <strong>Onde fica</strong>
+          <p className="faint" style={{ margin: '4px 0 14px', maxWidth: 640 }}>
+            É deste ponto que sai a distância que a família vê — e o check-in só libera perto
+            dele. Busque pelo CEP e <strong>toque no mapa</strong> para marcar a porta do seu
+            espaço (o alfinete também arrasta, para ajustar).
           </p>
-          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-secundario" disabled={localizando}
-                    onClick={usarMinhaLocalizacao}>
-              {localizando ? 'Localizando…' : 'Usar a localização deste aparelho'}
-            </button>
-            {temCoordenada ? (
-              <span className="badge badge-ok">
-                {form.latitude.toFixed(5)}, {form.longitude.toFixed(5)}
-              </span>
-            ) : (
-              <span className="faint">Ainda sem localização</span>
-            )}
-          </div>
-          <details style={{ marginTop: 12 }}>
-            <summary className="faint" style={{ cursor: 'pointer' }}>
-              Preencher a coordenada à mão
-            </summary>
-            <div className="row" style={{ gap: 10, marginTop: 10 }}>
-              <div className="field">
-                <label htmlFor="lat">Latitude</label>
-                <input id="lat" className="input mono" type="number" step="0.00001"
-                       value={form.latitude || ''}
-                       onChange={(e) => muda('latitude', Number(e.target.value))} />
-              </div>
-              <div className="field">
-                <label htmlFor="lng">Longitude</label>
-                <input id="lng" className="input mono" type="number" step="0.00001"
-                       value={form.longitude || ''}
-                       onChange={(e) => muda('longitude', Number(e.target.value))} />
-              </div>
-            </div>
-          </details>
+          {/*
+            O alfinete é a fonte da verdade, e não a leitura do aparelho. Num
+            computador de recepção o GPS do navegador vem do Wi-Fi ou do IP e
+            erra por centenas de metros — com um portão de 250 m, isso faria
+            toda família chegar no local e ouvir "você ainda não chegou".
+          */}
+          <MapaDoEspaco
+            latitude={form.latitude}
+            longitude={form.longitude}
+            aoMover={(lat, lng) =>
+              setForm((atual) => ({ ...atual, latitude: lat, longitude: lng }))
+            }
+            aoAcharEndereco={(e) =>
+              setForm((atual) => ({
+                ...atual,
+                // O número da rua o CEP não traz: preservamos o que ele já
+                // digitou em vez de apagar por cima.
+                address: atual.address.trim() || e.address,
+                neighborhood: e.neighborhood,
+                city: e.city,
+              }))
+            }
+          />
         </div>
 
         <div className="cadastro-secao">
