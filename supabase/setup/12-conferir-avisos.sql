@@ -133,6 +133,44 @@ begin
     from session_waitlist w
     join class_sessions s on s.id = w.session_id
     left join activities a on a.id = s.activity_id;
+  -- 6b. O agendamento rodou? E o que a função respondeu? ---------------
+  -- "Agendado" não é "funcionando". O cron pode disparar a cada 5 minutos e a
+  -- Edge Function responder 401 (chave errada no cabeçalho) ou 404 (função
+  -- nunca publicada) — e nada disso aparece na caixa de saída, que continua
+  -- cheia em silêncio. O pg_net guarda a resposta HTTP; é ela que diz qual dos
+  -- dois é.
+  if to_regclass('cron.job_run_details') is not null then
+    execute $q$
+      select coalesce(status || ' · ' || to_char(start_time at time zone 'America/Sao_Paulo',
+                                                 'DD/MM HH24:MI')
+                      || coalesce(' · ' || nullif(return_message, ''), ''),
+                      'nunca rodou')
+        from cron.job_run_details order by start_time desc limit 1
+    $q$ into v_agenda;
+    insert into kidoo_avisos (ordem, etapa, situacao, detalhe) values (61,
+      '6b. última execução do agendamento',
+      case when v_agenda is null then 'NUNCA RODOU'
+           when v_agenda like 'succeeded%' then 'ok' else 'FALHOU' end,
+      coalesce(v_agenda, 'nenhuma execução registrada ainda (espere 5 min)'));
+  end if;
+
+  if to_regclass('net._http_response') is not null then
+    execute $q$
+      select coalesce(status_code::text, 'sem resposta')
+             || coalesce(' · ' || nullif(error_msg, ''), '')
+             || coalesce(' · ' || left(content, 90), '')
+        from net._http_response order by created desc limit 1
+    $q$ into v_agenda;
+    insert into kidoo_avisos (ordem, etapa, situacao, detalhe) values (62,
+      '6c. o que a função respondeu',
+      case when v_agenda is null then 'NENHUMA CHAMADA'
+           when v_agenda like '200%' then 'ok'
+           when v_agenda like '401%' or v_agenda like '403%' then 'CHAVE RECUSADA'
+           when v_agenda like '404%' then 'FUNÇÃO NÃO PUBLICADA'
+           else 'ERRO' end,
+      coalesce(v_agenda, 'o cron nunca chamou a função'));
+  end if;
+
   -- 8. As irmãs gêmeas ------------------------------------------------
   -- Toda turma futura da MESMA atividade da fila. É aqui que o engano fica
   -- visível: o `11-parceiros-teste.sql` cria 5 parceiros com 3 turmas cada,

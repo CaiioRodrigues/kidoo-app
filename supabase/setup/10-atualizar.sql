@@ -20,6 +20,7 @@
 --   000011  buckets do Storage: fotos de criança (privado) e de atividade
 --   000012  publicar a mesma turma em várias datas (turma que se repete)
 --   000013  a agenda diz de qual estabelecimento é cada turma
+--   000014  o entregador de avisos ganha permissão nas tabelas de push
 --
 -- Sem a 000009 o app não lista turma nenhuma: ele lê os horários da visão
 -- `class_sessions_visible`, que nasce ali.
@@ -1015,6 +1016,48 @@ $$;
 grant execute on function partner_agenda(timestamptz, timestamptz) to authenticated;
 
 
+
+-- =====================================================================
+-- 20260101000014_service_role_grants.sql
+-- =====================================================================
+
+-- O entregador precisa de permissão na tabela, não só de ignorar a RLS.
+--
+-- A migration da fila fechou `push_outbox` e `push_tokens` sem policy nenhuma,
+-- com este comentário: "quem entrega usa a chave de serviço, que ignora RLS".
+-- A frase é verdadeira e a conclusão era falsa. Ignorar RLS é uma coisa; ter
+-- privilégio na tabela é outra, e vem antes. Sem `grant`, o `service_role`
+-- nem chega a ser avaliado por política alguma — o Postgres barra no
+-- privilégio, e a Edge Function recebe:
+--
+--   42501: permission denied for table push_outbox
+--
+-- O efeito é o pior possível: a fila enche, o gatilho funciona, a função é
+-- chamada a cada cinco minutos e falha na primeira consulta. Nada chega, e
+-- nada no banco parece errado.
+--
+-- Os privilégios são exatamente os que a função usa, e nada além:
+--   push_outbox  select (ler os pendentes) + update (marcar sent_at/error)
+--   push_tokens  select (achar o aparelho) + delete (tirar token morto,
+--                 quando o Expo responde DeviceNotRegistered)
+--
+-- `insert` em `push_outbox` fica de fora de propósito: quem escreve aviso é o
+-- gatilho, dentro do banco. E `insert`/`update` em `push_tokens` também: quem
+-- registra aparelho é a família, pela função `register_push_token`.
+do $$
+begin
+  -- O papel só existe no Supabase; no Postgres local do teste ele é criado
+  -- pelo `run.sh` para que estas permissões sejam verificáveis.
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    raise notice 'sem papel service_role: pulando os grants do entregador';
+    return;
+  end if;
+
+  grant select, update on push_outbox to service_role;
+  grant select, delete on push_tokens to service_role;
+end $$;
+
+
 commit;
 
 -- =====================================================================
@@ -1065,6 +1108,19 @@ begin
                         where r.routine_name='partner_agenda'
                           and p.parameter_name='partner_name')
           then 'ok' else 'FALTANDO' end);
+
+  -- Sem estes grants a Edge Function falha na primeira consulta com
+  -- "permission denied for table push_outbox", e nenhum aviso chega — com a
+  -- fila cheia e nada no banco parecendo errado.
+  insert into kidoo_status values
+    (11, 'entregador de avisos com permissão',
+     case when not exists (select 1 from pg_roles where rolname = 'service_role')
+            then 'SEM PAPEL service_role'
+          when has_table_privilege('service_role','push_outbox','select')
+           and has_table_privilege('service_role','push_outbox','update')
+           and has_table_privilege('service_role','push_tokens','select')
+            then 'ok'
+          else 'FALTANDO' end);
 
   -- Os buckets exigem SQL dinâmico: `storage.buckets` é resolvido no plano da
   -- consulta, então uma referência direta rebenta no Postgres local antes de

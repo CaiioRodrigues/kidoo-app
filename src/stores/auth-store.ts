@@ -2,13 +2,22 @@ import { create } from 'zustand';
 
 import { logger } from '@/lib/logger';
 import { clearQueryCache } from '@/lib/query-client';
-import { obterTokenDePush, pushPlatform } from '@/lib/push';
+import { obterTokenDePush, pushBloqueadoPorPermissao, pushPlatform } from '@/lib/push';
 import { SecureKeys, secureDelete, secureGet, secureSet } from '@/lib/secure-storage';
 import type { SignInInput, SignUpInput } from '@/lib/validation';
 import { api } from '@/services';
 import type { Session, SignUpResult } from '@/types/domain';
 
 type AuthStatus = 'idle' | 'restoring' | 'authenticated' | 'unauthenticated';
+
+/**
+ * Se este aparelho consegue receber aviso de vaga.
+ *
+ * `checando` enquanto o registro corre; `sem_suporte` na web, no emulador e no
+ * Expo Go, onde push do Expo simplesmente não existe; `sem_permissao` quando a
+ * pessoa negou; `falhou` quando o servidor recusou o registro.
+ */
+export type PushStatus = 'checando' | 'ativo' | 'sem_permissao' | 'sem_suporte' | 'falhou';
 
 type AuthState = {
   status: AuthStatus;
@@ -23,6 +32,18 @@ type AuthState = {
   /** Reenvia o e-mail de confirmação. */
   resendConfirmation: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
+
+  /**
+   * Se este aparelho está registrado para receber aviso de vaga.
+   *
+   * Existe porque a falha era invisível: o registro roda de propósito dentro de
+   * um `catch` que não trava o login, e por isso ninguém — nem a família, nem
+   * eu olhando o app — tinha como saber que nenhum aparelho estava registrado.
+   * Descobrir isso exigia consultar o banco.
+   */
+  push: PushStatus;
+  /** Tenta registrar de novo. É o botão de "ativar avisos" do Perfil. */
+  registrarPush: () => Promise<void>;
 };
 
 /**
@@ -37,14 +58,19 @@ type AuthState = {
  * do mesmo jeito e simplesmente não recebe push. A fila de espera continua
  * guardada no servidor, então o pedido não se perde — só a entrega.
  */
-async function registrarAparelho(): Promise<void> {
+async function registrarAparelho(): Promise<PushStatus> {
   const token = await obterTokenDePush();
-  if (!token) return;
+  // `null` cobre dois casos bem diferentes, e a tela precisa distingui-los:
+  // onde push não existe (web, emulador, Expo Go) não há o que consertar; onde
+  // a permissão foi negada, há.
+  if (!token) return (await pushBloqueadoPorPermissao()) ? 'sem_permissao' : 'sem_suporte';
   try {
     await api.push.register({ token, platform: pushPlatform() });
     tokenAtual = token;
+    return 'ativo';
   } catch {
     // Sem aviso é pior que com aviso, mas é muito melhor que não entrar.
+    return 'falhou';
   }
 }
 
@@ -60,6 +86,12 @@ let tokenAtual: string | null = null;
 export const useAuthStore = create<AuthState>((set) => ({
   status: 'idle',
   session: null,
+  push: 'checando',
+
+  async registrarPush() {
+    set({ push: 'checando' });
+    set({ push: await registrarAparelho() });
+  },
 
   async restore() {
     set({ status: 'restoring' });
@@ -81,7 +113,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Também ao restaurar: o token do Expo pode ter mudado desde a última
       // vez (reinstalação, restauração de backup), e quem abre o app amanhã
       // sem passar pelo login nunca teria o registro atualizado.
-      void registrarAparelho();
+      void registrarAparelho().then((push) => set({ push }));
     } catch (error) {
       logger.warn('Falha ao restaurar sessão', error);
       await secureDelete(SecureKeys.session);
@@ -95,7 +127,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     clearQueryCache();
     await secureSet(SecureKeys.session, session.accessToken);
     set({ status: 'authenticated', session });
-    void registrarAparelho();
+    void registrarAparelho().then((push) => set({ push }));
   },
 
   async signUp(input) {
@@ -103,7 +135,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (result.status === 'signed_in') {
       await secureSet(SecureKeys.session, result.session.accessToken);
       set({ status: 'authenticated', session: result.session });
-      void registrarAparelho();
+      void registrarAparelho().then((push) => set({ push }));
     }
     return result;
   },

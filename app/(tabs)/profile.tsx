@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar, Button, Card, Divider, Screen, Text, ThemePicker } from '@/components/ui';
 import { BlobBackdrop } from '@/components/brand';
@@ -222,6 +222,18 @@ export default function ProfileScreen() {
         <ThemePicker />
       </Card>
 
+      {/* Só para quem tem conta: o aviso de vaga depende de uma família
+          registrada, e para visitante a seção ficaria em "Verificando…" para
+          sempre — o registro nem chega a ser tentado. */}
+      {session ? (
+        <>
+          <Text variant="subheading" style={styles.sectionTitle}>
+            Avisos
+          </Text>
+          <AvisosDeVaga />
+        </>
+      ) : null}
+
       <Text variant="subheading" style={styles.sectionTitle}>
         Ajuda
       </Text>
@@ -279,6 +291,100 @@ export default function ProfileScreen() {
           : 'Modo demonstração: as atividades e reservas não são reais.'}
       </Text>
     </Screen>
+  );
+}
+
+/**
+ * Este aparelho recebe aviso de vaga?
+ *
+ * A tela existe porque a falha era invisível. O registro do aparelho roda de
+ * propósito dentro de um `catch` que não trava o login — e por isso, quando ele
+ * falhava, ninguém tinha como saber: nem a família, que pedia aviso e nunca
+ * recebia, nem quem estava desenvolvendo. Descobrir exigia consultar o banco.
+ *
+ * Não é uma configuração: não há o que ligar ou desligar aqui além de tentar de
+ * novo. É um espelho — diz o que está acontecendo e, quando dá, o que fazer.
+ */
+function AvisosDeVaga() {
+  const { colors } = useTheme();
+  const push = useAuthStore((state) => state.push);
+  const registrar = useAuthStore((state) => state.registrarPush);
+
+  const dados: Record<
+    typeof push,
+    { icone: keyof typeof Ionicons.glyphMap; cor: string; titulo: string; texto: string }
+  > = {
+    checando: {
+      icone: 'ellipsis-horizontal',
+      cor: colors.textMuted,
+      titulo: 'Verificando…',
+      texto: 'Conferindo se este aparelho pode receber avisos.',
+    },
+    ativo: {
+      icone: 'notifications',
+      cor: colors.success,
+      titulo: 'Avisos ativados',
+      texto: 'Quando abrir vaga numa turma que você acompanha, a gente avisa aqui.',
+    },
+    sem_permissao: {
+      icone: 'notifications-off-outline',
+      cor: colors.warning,
+      titulo: 'Notificações desligadas',
+      texto: 'Sem a permissão do aparelho não dá para avisar. Toque para abrir os ajustes.',
+    },
+    sem_suporte: {
+      icone: 'phone-portrait-outline',
+      cor: colors.textMuted,
+      titulo: 'Avisos indisponíveis aqui',
+      texto: 'Aviso de vaga só funciona no aplicativo instalado, num celular de verdade.',
+    },
+    falhou: {
+      icone: 'refresh-outline',
+      cor: colors.warning,
+      titulo: 'Não foi possível ativar',
+      texto: 'O aparelho não ficou registrado. Toque para tentar de novo.',
+    },
+  };
+
+  const atual = dados[push];
+  // Só onde há o que fazer: em "ativo" e "checando" o toque não levaria a nada,
+  // e uma linha que parece botão e não faz nada é pior que uma linha comum.
+  const acao =
+    push === 'sem_permissao'
+      ? () => void Linking.openSettings()
+      : push === 'falhou'
+        ? () => void registrar()
+        : null;
+
+  const conteudo = (
+    <>
+      <Ionicons name={atual.icone} size={22} color={atual.cor} />
+      <View style={styles.flex}>
+        <Text variant="body" color={acao ? colors.primary : colors.text}>
+          {atual.titulo}
+        </Text>
+        <Text variant="caption" color={colors.textMuted}>
+          {atual.texto}
+        </Text>
+      </View>
+    </>
+  );
+
+  return (
+    <Card bordered elevation="none" padded={false}>
+      {acao ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={atual.titulo}
+          onPress={acao}
+          style={styles.row}
+        >
+          {conteudo}
+        </Pressable>
+      ) : (
+        <View style={styles.row}>{conteudo}</View>
+      )}
+    </Card>
   );
 }
 

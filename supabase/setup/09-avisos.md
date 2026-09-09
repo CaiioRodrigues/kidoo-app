@@ -16,6 +16,59 @@ A entrega é separada de propósito. O gatilho roda dentro da transação que
 devolve a vaga; uma chamada de rede ali seguraria o lock da turma pelo tempo do
 serviço de push responder — e uma queda dele desfaria o cancelamento da família.
 
+## 0. Credencial de push do Android (FCM)
+
+**Este passo é obrigatório e é o que mais passa despercebido**, porque nada
+falha até o aparelho tentar pegar o token — e aí falha em silêncio, dentro do
+`catch` que existe para não travar o login. O sintoma é `push_tokens` vazia com
+a permissão de notificação concedida.
+
+O push do Expo no Android não entrega sozinho: ele entrega **pelo Firebase
+Cloud Messaging**. Sem credencial de FCM no projeto do EAS,
+`getExpoPushTokenAsync` levanta erro e o aparelho nunca é registrado.
+
+1. Em <https://console.firebase.google.com>, crie um projeto (ou use um que já
+   exista) e adicione um **app Android** com o pacote exato:
+
+   ```
+   com.kidoo.app
+   ```
+
+2. Baixe o `google-services.json` que ele oferece e coloque na **raiz do
+   repositório**, ao lado do `package.json`. O `app.json` já aponta para ele
+   (`android.googleServicesFile`).
+
+   Este arquivo **não é segredo** — ele vai dentro do APK de qualquer jeito,
+   como a chave publicável do Supabase. **Versione:** o `eas build` respeita o
+   `.gitignore`, então um arquivo ignorado não sobe e a build falha dizendo
+   que ele não existe.
+
+3. No Firebase: **Configurações do projeto → Contas de serviço → Gerar nova
+   chave privada**. Baixe o JSON. **Esse sim é segredo**: não entra no
+   repositório.
+
+4. Entregue essa chave ao EAS:
+
+   ```bash
+   eas credentials --platform android
+   ```
+
+   Escolha o perfil (`preview`), depois **Push Notifications (FCM V1)** e
+   **Upload a service account key** — o JSON do passo 3.
+
+5. Gere a build de novo. Sem passar de novo pelo build, a credencial não vale:
+
+   ```bash
+   eas build --platform android --profile preview
+   ```
+
+No iOS não há Firebase: a credencial é a chave de push da Apple, e o `eas
+credentials --platform ios` cuida dela — mas exige conta paga de
+desenvolvedor.
+
+Para conferir sem abrir o banco, o Perfil do app mostra o estado deste
+aparelho em **Avisos**: "Avisos ativados" quer dizer registrado.
+
 ## 1. Publicar a função
 
 Precisa do [Supabase CLI](https://supabase.com/docs/guides/cli) na sua máquina.
@@ -130,6 +183,8 @@ A resposta diz quantos foram: `{"pendentes":3,"enviados":3,"sem_aparelho":0,...}
 - **Expo Go.** Desde o SDK 53 o Expo Go não recebe push no Android. Precisa da
   build do EAS ou de uma dev build.
 - **Emulador.** Sem aparelho físico não há token. Testar isso exige celular.
+- **Build sem credencial de FCM.** O APK instala, o app abre, a permissão é
+  concedida — e o token nunca sai. É o passo 0 acima.
 
 Ou seja: o teste de ponta a ponta é com o APK instalado. Um jeito rápido de
 provocar o aviso sem esperar alguém cancelar:
@@ -150,5 +205,7 @@ select title, body from push_outbox order by created_at desc limit 1;
 | Pendente e não sai | a função não foi publicada, ou o cron não está agendado (`cron.job_run_details`) |
 | `42501: permission denied to set parameter` ao agendar | instrução antiga: use o Vault, no passo 2 acima |
 | O cron roda mas nada sai | o `Authorization` foi montado vazio — confira o segredo com o `select` do passo 2 |
-| `error = 'sem aparelho registrado'` | a família nunca abriu o app numa build de verdade, ou negou a permissão |
+| `permission denied for table push_outbox` (42501) | faltam os `grant` da migration 000014: rode o `10-atualizar.sql` |
+| `error = 'sem aparelho registrado'` | a família nunca abriu o app numa build de verdade, negou a permissão, ou a build saiu sem credencial de FCM (passo 0) |
+| `push_tokens` vazia com a permissão concedida | quase sempre é o passo 0: falta o FCM no projeto do EAS |
 | `error = 'DeviceNotRegistered'` | app desinstalado; o token já foi removido sozinho |
