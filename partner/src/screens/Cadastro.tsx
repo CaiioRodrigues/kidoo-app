@@ -1,7 +1,6 @@
-import { useRef, useState } from 'react';
+import { Suspense, lazy, useRef, useState } from 'react';
 
 import { api, type NovoPedido, type Pedido } from '@/api';
-import { MapaDoEspaco } from '@/components/MapaDoEspaco';
 import { Card, Erro, useDados } from '@/components/ui';
 import type { ActivityCategoryId } from '@app/types/domain';
 
@@ -52,6 +51,17 @@ function EmAnalise({ pedido }: { pedido: Pedido }) {
     </Card>
   );
 }
+
+/*
+  O mapa entra em pedaço separado.
+
+  O Leaflet responde por quase metade do painel, e ele só serve nesta tela —
+  que cada parceiro vê uma vez na vida. Quem abre o painel todo dia de manhã na
+  recepção estava baixando um mapa para conferir presença.
+*/
+const MapaDoEspaco = lazy(() =>
+  import('@/components/MapaDoEspaco').then((m) => ({ default: m.MapaDoEspaco })),
+);
 
 const IDADE_MIN = 0;
 const IDADE_MAX = 17;
@@ -214,6 +224,7 @@ function Formulario({
             erra por centenas de metros — com um portão de 250 m, isso faria
             toda família chegar no local e ouvir "você ainda não chegou".
           */}
+          <Suspense fallback={<div className="mapa mapa-carregando">Carregando o mapa…</div>}>
           <MapaDoEspaco
             latitude={form.latitude}
             longitude={form.longitude}
@@ -231,6 +242,7 @@ function Formulario({
               }))
             }
           />
+          </Suspense>
         </div>
 
         <div className="cadastro-secao">

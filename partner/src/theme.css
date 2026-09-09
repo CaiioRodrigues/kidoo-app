@@ -208,6 +208,12 @@ input, select { font: inherit; color: inherit; }
   height: 320px; border-radius: 12px; overflow: hidden;
   border: 1px solid var(--border-strong); z-index: 0;
 }
+/* Mesma altura enquanto o mapa não chegou: sem isto a página pula quando ele
+   carrega, e o toque de quem já estava mirando cai em outro lugar. */
+.mapa-carregando {
+  display: grid; place-items: center;
+  background: var(--card-muted); color: var(--text-faint);
+}
 /* O Leaflet desenha os créditos em branco fixo; no tema escuro some. */
 .leaflet-container { background: var(--card-muted); font: inherit; }
 .leaflet-control-attribution {
