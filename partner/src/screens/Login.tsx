@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { api, emDemonstracao } from '@/api';
-import { Erro } from '@/components/ui';
+import { Erro, Marca } from '@/components/ui';
 
 type Modo = 'entrar' | 'criar';
 
@@ -14,8 +14,18 @@ type Modo = 'entrar' | 'criar';
  * quem chega aqui pela primeira vez não sabe qual das duas é a dele — o
  * alternador responde isso sem tirar ninguém do lugar.
  */
-export function Login({ aoEntrar }: { aoEntrar: () => void }) {
-  const [modo, setModo] = useState<Modo>('entrar');
+export function Login({
+  aoEntrar,
+  modoInicial = 'entrar',
+  aoVoltar,
+}: {
+  aoEntrar: () => void;
+  /** Em que aba abrir: quem clicou "quero ser parceiro" já pediu a de criar. */
+  modoInicial?: Modo;
+  /** Volta para a vitrine. Ausente quando não há vitrine atrás. */
+  aoVoltar?: () => void;
+}) {
+  const [modo, setModo] = useState<Modo>(modoInicial);
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -55,7 +65,7 @@ export function Login({ aoEntrar }: { aoEntrar: () => void }) {
     return (
       <div className="login">
         <div className="login-card">
-          <Marca />
+          <Marca style={{ padding: '0 0 20px' }} />
           <section className="card">
             <div className="card-pad">
               <h2 style={{ marginBottom: 6 }}>Confirme seu e-mail</h2>
@@ -84,7 +94,13 @@ export function Login({ aoEntrar }: { aoEntrar: () => void }) {
   return (
     <div className="login">
       <div className="login-card">
-        <Marca />
+        <Marca style={{ padding: '0 0 20px' }} />
+
+        {aoVoltar && (
+          <button className="btn-link" style={{ marginBottom: 14 }} onClick={aoVoltar}>
+            ‹ Voltar
+          </button>
+        )}
 
         <div className="alternador" role="group" aria-label="Entrar ou criar conta"
              style={{ display: 'flex', marginBottom: 14 }}>
@@ -152,20 +168,6 @@ export function Login({ aoEntrar }: { aoEntrar: () => void }) {
             : 'Sua sessão fica só nesta aba: fechar o navegador desconecta. É de propósito — o computador da recepção costuma ser compartilhado.'}
         </p>
       </div>
-    </div>
-  );
-}
-
-function Marca() {
-  return (
-    <div className="brand" style={{ padding: '0 0 20px' }}>
-      <span className="brand-mark" aria-hidden="true">
-        K
-      </span>
-      <span>
-        <span className="brand-name">Kidoo</span>
-        <div className="brand-role">Painel do parceiro</div>
-      </span>
     </div>
   );
 }

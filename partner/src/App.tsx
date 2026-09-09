@@ -9,6 +9,7 @@ import { Login } from '@/screens/Login';
 import { Pedidos } from '@/screens/Pedidos';
 import { Repasse } from '@/screens/Repasse';
 import { Turmas } from '@/screens/Turmas';
+import { Vitrine } from '@/screens/Vitrine';
 
 type Aba = 'agenda' | 'turmas' | 'repasse' | 'pedidos';
 
@@ -32,6 +33,9 @@ export function App() {
   // Muda a cada envio de pedido, para a tela de cadastro reler o estado dele
   // sem que a página inteira recarregue.
   const [gatilho, setGatilho] = useState(0);
+  // Quem chega sem sessão vê a vitrine primeiro. Só depois de escolher um
+  // caminho é que aparece o formulário — e ele já abre na aba certa.
+  const [porta, setPorta] = useState<null | 'entrar' | 'criar'>(null);
 
   const carregar = useCallback(async () => {
     if (!(await api.sessaoAtiva())) {
@@ -63,10 +67,24 @@ export function App() {
     );
   }
 
-  if (estado === 'fora') return <Login aoEntrar={() => void carregar()} />;
+  if (estado === 'fora') {
+    if (!porta) {
+      return (
+        <Vitrine aoCadastrar={() => setPorta('criar')} aoEntrar={() => setPorta('entrar')} />
+      );
+    }
+    return (
+      <Login
+        modoInicial={porta}
+        aoVoltar={() => setPorta(null)}
+        aoEntrar={() => void carregar()}
+      />
+    );
+  }
 
   const desconectar = async () => {
     await api.sair();
+    setPorta(null);
     setEstado('fora');
   };
 
