@@ -2,8 +2,11 @@ import { PainelError } from './types';
 import type {
   ActivityRow,
   AgendaRow,
+  Categoria,
   PainelApi,
   Partner,
+  Pedido,
+  PedidoNaFila,
   ResultadoDaSerie,
   RosterRow,
   StatementRow,
@@ -121,6 +124,19 @@ function mesAtras(n: number): string {
   data.setMonth(data.getMonth() - n);
   return data.toISOString();
 }
+
+/** A mesma lista fechada do banco, na mesma ordem. */
+const CATEGORIAS: Categoria[] = [
+  { id: 'futebol', label: 'Futebol', emoji: '⚽' },
+  { id: 'natacao', label: 'Natação', emoji: '🏊' },
+  { id: 'judo', label: 'Judô', emoji: '🥋' },
+  { id: 'ginastica', label: 'Ginástica', emoji: '🤸' },
+  { id: 'danca', label: 'Dança', emoji: '💃' },
+  { id: 'tenis', label: 'Tênis', emoji: '🎾' },
+];
+
+/** O pedido desta conta na demonstração. Começa sem nenhum. */
+let pedido: Pedido | null = null;
 
 let logado = false;
 const espera = <T>(valor: T, ms = 220): Promise<T> =>
@@ -310,6 +326,66 @@ export const demoApi: PainelApi = {
     const atividade = ATIVIDADES.find((a) => a.id === activityId);
     if (atividade) atividade.imageUrl = url;
     return espera(url);
+  },
+
+  // ------------------------------------------------ cadastro de parceiro --
+
+  async categorias() {
+    return espera(CATEGORIAS);
+  },
+
+  async meuPedido() {
+    return espera(pedido);
+  },
+
+  /**
+   * Repete as recusas do banco, inclusive a que mais importa: o pedido nasce
+   * e continua PENDENTE. Um mock que devolvesse "aprovado" esconderia
+   * justamente a tela de espera, que é a que o candidato mais vai ver.
+   */
+  async enviarPedido(entrada, corrigindo) {
+    if (entrada.categories.length === 0) {
+      throw new PainelError('Escolha pelo menos uma modalidade.');
+    }
+    if (entrada.maxAge < entrada.minAge) {
+      throw new PainelError('A idade máxima não pode ser menor que a mínima.');
+    }
+    await espera(null, 520);
+    pedido = {
+      ...entrada,
+      id: corrigindo ?? 'pedido-demo',
+      status: 'pendente',
+      reason: null,
+      createdAt: new Date().toISOString(),
+    };
+  },
+
+  async subirFotoDoPedido(arquivo) {
+    return espera(URL.createObjectURL(arquivo));
+  },
+
+  // -------------------------------------------------------- quem analisa --
+
+  // Na demonstração a conta é dona de um estabelecimento, não do Kidoo: quem
+  // analisa pedidos é uma pessoa da operação, e fingir o contrário faria a
+  // demonstração mostrar uma tela que quase nenhum parceiro vai ver.
+  async souDoKidoo() {
+    return espera(false, 60);
+  },
+
+  async pedidosPendentes() {
+    return espera<PedidoNaFila[]>([]);
+  },
+
+  async aprovarPedido() {
+    throw new PainelError('Sua conta não analisa pedidos de estabelecimento.');
+  },
+
+  async recusarPedido(_id, motivo) {
+    if (motivo.trim() === '') {
+      throw new PainelError('Diga o motivo da recusa — é ele que volta para quem pediu.');
+    }
+    throw new PainelError('Sua conta não analisa pedidos de estabelecimento.');
   },
 
   async extrato() {

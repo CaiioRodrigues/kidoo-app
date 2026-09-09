@@ -181,6 +181,37 @@ input, select { font: inherit; color: inherit; }
 .btn-ghost { background: transparent; color: var(--text); border-color: var(--border-strong); }
 .btn-ghost:hover:not(:disabled) { background: var(--card-muted); }
 .btn-sm { padding: 5px 11px; font-size: 13px; border-radius: 8px; }
+/* `btn-secundario` já era usado nas capas das atividades e não existia: o
+   botão caía no roxo cheio do `.btn` e competia com a ação principal da tela. */
+.btn-secundario {
+  background: var(--purple-soft); color: var(--purple); border-color: transparent;
+}
+.btn-secundario:hover:not(:disabled) { background: var(--purple-tint); }
+.btn-perigo { background: var(--danger); color: #fff; }
+.btn-perigo:hover:not(:disabled) { filter: brightness(0.92); }
+
+/* ------------------------------------------------------ cadastro do espaço */
+
+.cadastro-grade {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+/* Nome e endereço ocupam a linha: cortados em 190px, o texto some pela
+   esquerda enquanto se digita, que é onde o erro de digitação nasce. */
+.cadastro-grade .span-2 { grid-column: 1 / -1; }
+
+.cadastro-secao { border-top: 1px solid var(--border); margin-top: 22px; padding-top: 18px; }
+
+.chip-modalidade {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--card);
+  font-size: 14px; font-weight: 600; color: var(--text-muted);
+}
+.chip-modalidade:hover:not(:disabled) { border-color: var(--purple); }
+.chip-modalidade[aria-pressed='true'] {
+  background: var(--purple); border-color: var(--purple); color: var(--on-purple);
+}
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
@@ -304,6 +335,15 @@ input, select { font: inherit; color: inherit; }
 .table-scroll { overflow-x: auto; }
 
 /* --------------------------------------------------------------- entrar */
+
+/* A página do cadastro não usa a casca do painel: quem está aqui ainda não
+   tem agenda, turma nem repasse, e um menu com três itens mortos ao lado do
+   formulário só diria "você não pode usar nada disto". */
+.cadastro-pagina { max-width: 820px; margin: 0 auto; padding: 28px 20px 60px; }
+.cadastro-cabeca {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 22px;
+}
+.cadastro-cabeca > button { margin-left: auto; }
 
 .login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login-card { width: 100%; max-width: 380px; }

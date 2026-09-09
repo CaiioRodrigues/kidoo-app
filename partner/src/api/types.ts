@@ -97,6 +97,52 @@ export type ActivityRow = {
   imageUrl: string | null;
 };
 
+/** As modalidades que o Kidoo conhece — lista fechada, vinda do banco. */
+export type Categoria = { id: ActivityCategoryId; label: string; emoji: string };
+
+/** O que o candidato preenche. Sem repasse: quem define isso é o Kidoo. */
+export type NovoPedido = {
+  name: string;
+  neighborhood: string;
+  city: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  phone: string;
+  categories: ActivityCategoryId[];
+  minAge: number;
+  maxAge: number;
+  photoPath: string | null;
+  legalName: string | null;
+  cnpj: string | null;
+  pixKey: string | null;
+};
+
+/** O pedido como quem o enviou o vê. */
+export type Pedido = NovoPedido & {
+  id: string;
+  status: 'pendente' | 'aprovado' | 'recusado';
+  /** Por que foi recusado. Sem isto a recusa é um beco: ele reenvia igual. */
+  reason: string | null;
+  createdAt: string;
+};
+
+/** O pedido como quem analisa o vê — com o e-mail da conta junto. */
+export type PedidoNaFila = {
+  id: string;
+  name: string;
+  neighborhood: string;
+  city: string;
+  address: string;
+  phone: string;
+  email: string;
+  categories: ActivityCategoryId[];
+  minAge: number;
+  maxAge: number;
+  cnpj: string | null;
+  createdAt: string;
+};
+
 export type PainelApi = {
   entrar(email: string, senha: string): Promise<void>;
   sair(): Promise<void>;
@@ -147,4 +193,24 @@ export type PainelApi = {
   extrato(meses?: number): Promise<StatementRow[]>;
   /** Há uma sessão ativa agora? */
   sessaoAtiva(): Promise<boolean>;
+
+  // ------------------------------------------------ cadastro de parceiro --
+
+  /** As modalidades disponíveis, para o formulário do pedido. */
+  categorias(): Promise<Categoria[]>;
+  /** O pedido desta conta, se existir. */
+  meuPedido(): Promise<Pedido | null>;
+  /** Envia um pedido novo, ou corrige e reenvia um recusado. */
+  enviarPedido(entrada: NovoPedido, corrigindo?: string): Promise<void>;
+  /** Sobe a foto do espaço e devolve o caminho guardado no pedido. */
+  subirFotoDoPedido(arquivo: File): Promise<string>;
+
+  // -------------------------------------------------------- quem analisa --
+
+  /** Esta conta pode aprovar estabelecimentos? */
+  souDoKidoo(): Promise<boolean>;
+  pedidosPendentes(): Promise<PedidoNaFila[]>;
+  aprovarPedido(id: string): Promise<void>;
+  /** O motivo é obrigatório: o banco recusa uma recusa sem ele. */
+  recusarPedido(id: string, motivo: string): Promise<void>;
 };

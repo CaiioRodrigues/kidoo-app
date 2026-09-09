@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { api, emDemonstracao, type Partner } from '@/api';
-import { Card, Erro } from '@/components/ui';
-import { IconeHoje, IconeRepasse, IconeSair, IconeTurmas } from '@/components/icons';
+import { Erro } from '@/components/ui';
+import { IconeHoje, IconePedidos, IconeRepasse, IconeSair, IconeTurmas } from '@/components/icons';
 import { Agenda } from '@/screens/Agenda';
+import { Cadastro } from '@/screens/Cadastro';
 import { Login } from '@/screens/Login';
+import { Pedidos } from '@/screens/Pedidos';
 import { Repasse } from '@/screens/Repasse';
 import { Turmas } from '@/screens/Turmas';
 
-type Aba = 'agenda' | 'turmas' | 'repasse';
+type Aba = 'agenda' | 'turmas' | 'repasse' | 'pedidos';
 
-const ABAS: { id: Aba; rotulo: string; Icone: () => React.ReactElement }[] = [
+type ItemDeMenu = { id: Aba; rotulo: string; Icone: () => React.ReactElement };
+
+/** Só entra no menu de quem analisa pedidos, e por isso fica fora da lista. */
+const PEDIDOS_ABA: ItemDeMenu = { id: 'pedidos', rotulo: 'Pedidos', Icone: IconePedidos };
+
+const ABAS: ItemDeMenu[] = [
   { id: 'agenda', rotulo: 'Hoje', Icone: IconeHoje },
   { id: 'turmas', rotulo: 'Turmas e vagas', Icone: IconeTurmas },
   { id: 'repasse', rotulo: 'Repasse', Icone: IconeRepasse },
@@ -21,15 +28,22 @@ export function App() {
   const [parceiros, setParceiros] = useState<Partner[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [aba, setAba] = useState<Aba>('agenda');
+  const [doKidoo, setDoKidoo] = useState(false);
+  // Muda a cada envio de pedido, para a tela de cadastro reler o estado dele
+  // sem que a página inteira recarregue.
+  const [gatilho, setGatilho] = useState(0);
 
   const carregar = useCallback(async () => {
     if (!(await api.sessaoAtiva())) {
       setEstado('fora');
       setParceiros([]);
+      setDoKidoo(false);
       return;
     }
     try {
-      setParceiros(await api.meusParceiros());
+      const [meus, admin] = await Promise.all([api.meusParceiros(), api.souDoKidoo()]);
+      setParceiros(meus);
+      setDoKidoo(admin);
       setErro(null);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Algo deu errado.');
@@ -56,34 +70,67 @@ export function App() {
     setEstado('fora');
   };
 
-  // Conta válida sem vínculo com parceiro: é o caso de alguém entrar aqui com a
-  // conta de família. Explicar é melhor do que mostrar um painel vazio, que
-  // pareceria um estabelecimento sem nenhuma turma.
   const parceiro = parceiros[0];
   // Mais de um lugar na mesma conta deixa de ser detalhe: é o que decide se a
   // tela precisa dizer de quem é cada turma.
   const varios = parceiros.length > 1;
 
+  /*
+    Conta sem estabelecimento deixou de ser um beco.
+
+    Antes esta tela dizia "fale com a gente para liberar o acesso" — o que era
+    honesto e inútil: o cadastro só existia rodando SQL à mão. Agora ela É o
+    cadastro. Quem chegar aqui por engano com a conta de família continua
+    entendendo o que aconteceu, porque o formulário se apresenta.
+
+    Quem analisa pedidos e ainda não tem estabelecimento próprio (o caso da
+    operação do Kidoo) cai na fila de pedidos, não no formulário: mandá-lo
+    cadastrar uma escolinha seria o oposto do que ele veio fazer.
+  */
   if (!parceiro) {
-    return (
-      <div className="login">
-        <div className="login-card">
-          <Card>
-            <h2>Conta sem estabelecimento</h2>
-            <p className="muted" style={{ marginTop: 8 }}>
-              Esta conta não administra nenhum parceiro do Kidoo. Se você é uma família, use o
-              aplicativo; se é um estabelecimento, fale com a gente para liberar o acesso.
-            </p>
-            {erro && (
-              <div style={{ marginTop: 12 }}>
-                <Erro>{erro}</Erro>
-              </div>
-            )}
-            <button className="btn btn-ghost" style={{ marginTop: 16 }} onClick={() => void desconectar()}>
-              Sair
+    if (doKidoo) {
+      return (
+        <div className="shell">
+          <nav className="sidebar" aria-label="Seções do painel">
+            <div className="brand">
+              <span className="brand-mark" aria-hidden="true">K</span>
+              <span>
+                <span className="brand-name">Kidoo</span>
+                <div className="brand-role">Operação</div>
+              </span>
+            </div>
+            <button className="nav-item" aria-current="page">
+              <IconePedidos />
+              Pedidos
             </button>
-          </Card>
+            <div className="sidebar-foot">
+              <button className="nav-item" onClick={() => void desconectar()}>
+                <IconeSair />
+                Sair
+              </button>
+            </div>
+          </nav>
+          <main className="main">
+            <Pedidos />
+          </main>
         </div>
+      );
+    }
+
+    return (
+      <div className="cadastro-pagina">
+        <div className="cadastro-cabeca">
+          <span className="brand-mark" aria-hidden="true">K</span>
+          <div>
+            <div className="brand-name">Kidoo para estabelecimentos</div>
+            <div className="brand-role">Abra as vagas que sobram no seu horário</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => void desconectar()}>
+            Sair
+          </button>
+        </div>
+        {erro && <Erro>{erro}</Erro>}
+        <Cadastro key={gatilho} aoEnviar={() => setGatilho((n) => n + 1)} />
       </div>
     );
   }
@@ -101,7 +148,7 @@ export function App() {
           </span>
         </div>
 
-        {ABAS.map((item) => (
+        {[...ABAS, ...(doKidoo ? [PEDIDOS_ABA] : [])].map((item) => (
           <button
             key={item.id}
             className="nav-item"
@@ -153,6 +200,7 @@ export function App() {
         {aba === 'agenda' && <Agenda varios={varios} />}
         {aba === 'turmas' && <Turmas parceiros={parceiros} varios={varios} />}
         {aba === 'repasse' && <Repasse />}
+        {aba === 'pedidos' && <Pedidos />}
       </main>
     </div>
   );
