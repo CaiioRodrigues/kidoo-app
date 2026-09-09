@@ -222,6 +222,18 @@ export const mockApi: KidooApi = {
     async resendConfirmation() {
       return delay(undefined, 200);
     },
+    /**
+     * O backend em memória não manda e-mail, então não há link de verdade —
+     * mas a tela que o recebe precisa de um caminho para exercitar. Aqui
+     * qualquer par de tokens vale, e o resultado é o mesmo de entrar: uma
+     * sessão. O que o mock repete do real é o contrato, não a criptografia.
+     */
+    async confirmByLink() {
+      const session = issueSession('Responsável', 'confirmado@kidoo.app');
+      state.session = session;
+      return delay(session, 200);
+    },
+
     async signOut() {
       state.session = null;
       return delay(undefined, 120);

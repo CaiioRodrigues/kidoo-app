@@ -233,6 +233,8 @@ input, select { font: inherit; color: inherit; }
 }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
+/* Menor que o label de propósito: explica sem competir com ele. */
+.hint { color: var(--text-faint); font-size: 12px; line-height: 1.45; }
 .field label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .input {
   background: var(--card); border: 1px solid var(--border-strong);
@@ -376,9 +378,74 @@ input, select { font: inherit; color: inherit; }
     border-right: 0; border-bottom: 1px solid var(--border);
     padding: 10px 12px; overflow-x: auto;
   }
-  .brand { padding: 0 10px 0 4px; }
-  .brand-role, .sidebar-foot { display: none; }
+  /* Escopadas na barra lateral: fora dela, a vitrine e o login também usam a
+     marca, e esconder o papel ("Para estabelecimentos") justamente no celular
+     tirava a única palavra que diz a quem a página se dirige. */
+  .sidebar .brand { padding: 0 10px 0 4px; }
+  .sidebar .brand-role, .sidebar-foot { display: none; }
   .nav-item { width: auto; white-space: nowrap; }
   .main { padding: 20px 16px 50px; }
   .page-head { flex-direction: column; align-items: flex-start; }
 }
+
+/* ------------------------------------------------------------- vitrine ---
+ *
+ * A página que existe antes do login. Mesma paleta do painel, respiro maior:
+ * aqui ninguém está trabalhando, está decidindo se vale a pena.
+ */
+.vitrine {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: 22px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+}
+.vitrine-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.vitrine-hero { display: flex; flex-direction: column; gap: 16px; padding: 18px 0 4px; }
+.vitrine-titulo {
+  font-size: clamp(29px, 6vw, 46px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.vitrine-destaque { color: var(--purple); }
+/* Medida de leitura: linha longa demais cansa antes do segundo parágrafo. */
+.vitrine-linha { font-size: 17px; line-height: 1.55; color: var(--text-muted); max-width: 56ch; margin: 0; }
+.vitrine-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.vitrine-acoes .btn { padding: 11px 20px; font-size: 15px; }
+
+.vitrine-passos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.vitrine-passo {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px 20px;
+  box-shadow: var(--shadow);
+}
+.vitrine-passo h3 { margin: 12px 0 6px; font-size: 16px; }
+.vitrine-passo p { margin: 0; font-size: 14px; line-height: 1.5; }
+.vitrine-numero {
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  border-radius: var(--radius-blob);
+  background: var(--purple-soft); color: var(--purple);
+  font-weight: 700; font-size: 15px;
+}
+
+.vitrine-requisitos { max-width: 620px; }
+.vitrine-lista { margin: 0; padding-left: 20px; color: var(--text-muted); line-height: 1.7; }
+
+.vitrine-rodape {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 10px; border-top: 1px solid var(--border); padding-top: 16px;
+}
+
+/* Botão que se comporta como link: usado onde a ação é secundária e o peso de
+   um botão de verdade competiria com a chamada principal. */
+.btn-link {
+  background: none; border: none; padding: 0;
+  color: var(--purple); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.btn-link:hover { text-decoration: underline; }

@@ -45,19 +45,17 @@ que aparecem em ordem: ele é limitado a poucos e-mails por hora, o remetente é
 do domínio do Supabase (o que joga a mensagem no spam com frequência), e não
 há como você provar que o domínio é seu.
 
-Quando for ligar a confirmação para valer, configure SMTP em
-**Project Settings → Authentication → SMTP Settings**. Resend, Postmark,
-SendGrid e Amazon SES resolvem, todos com camada gratuita suficiente para
-começar. O que muda de verdade na entrega é autenticar o domínio (SPF, DKIM),
-que qualquer um deles explica no cadastro.
+O passo a passo de ligar SMTP próprio está em [`16-smtp.md`](16-smtp.md) —
+inclusive o caminho para quem ainda não tem domínio, que é o que decide tudo
+por lá.
 
 Enquanto você testa sozinho, o template padrão do Supabase entrega o link e
 funciona — é feio, não é quebrado.
 
-**Um detalhe que costuma passar batido:** o link de confirmação redireciona
-para o que estiver em **Authentication → URL Configuration → Site URL**. Num
-app de celular, isso precisa apontar para um deep link do Kidoo, senão a pessoa
-confirma e cai numa página em branco. Vale resolver junto com o SMTP.
+**Sobre para onde o link volta:** cada cadastro declara o seu destino (a família
+para o app, o estabelecimento para o painel), então o **Site URL** só vale para
+quem chegar sem destino declarado. O que precisa estar certo são as **Redirect
+URLs** — a seção "O link do e-mail de confirmação", mais abaixo, tem as três.
 
 ## 3. Criar o banco
 
@@ -185,6 +183,51 @@ select proname from pg_proc where proname in
 Se a primeira consulta der `relation "class_sessions_visible" does not exist`,
 o script não rodou — e o app fica sem listar turma nenhuma, porque é dessa
 visão que ele lê os horários.
+
+## O link do e-mail de confirmação
+
+Quem cria conta recebe um e-mail com um link, e o link precisa voltar para o
+lugar certo — que são **dois lugares diferentes**: a família volta para o
+aplicativo, o estabelecimento volta para o painel. O código já pede isso em
+cada cadastro (`emailRedirectTo`); o que falta é o Supabase aceitar os dois
+endereços.
+
+Em **Authentication → URL Configuration**:
+
+- **Site URL**: o endereço do painel publicado. É para onde vai quem clicar num
+  link sem destino declarado.
+- **Redirect URLs**: acrescente as linhas abaixo. Sem elas o Supabase ignora o
+  destino pedido e manda todo mundo para o Site URL — a família cairia na tela
+  de administrar estabelecimento.
+
+  ```
+  https://SEU-PAINEL.vercel.app
+  https://painel.sejakidoo.com.br
+  kidoo://*
+  exp://*
+  ```
+
+  `kidoo://*` é o aplicativo instalado; `exp://*` é o Expo Go, e só serve
+  enquanto você testa — tire quando parar de usá-lo.
+
+  As duas primeiras convivem de propósito: o endereço da Vercel continua
+  funcionando, e `painel.sejakidoo.com.br` passa a funcionar assim que o
+  subdomínio apontar para lá. Mantenha as duas até o domínio próprio estar no ar,
+  e então promova ele a **Site URL** — é o endereço que um dono de escola vê
+  antes de decidir se você existe.
+
+Depois disso, confirmar o e-mail entra direto: no app cai na Home, no painel
+abre o cadastro do espaço. Nenhum dos dois pede a senha de novo — o clique no
+link já é a prova de que a pessoa tem acesso àquela caixa de entrada.
+
+### Se o link não funcionar
+
+| Sintoma | Onde olhar |
+| --- | --- |
+| O link abre o navegador em vez do app | falta `kidoo://*` em Redirect URLs, ou a build instalada é anterior a esta |
+| "Este link expirou" | o padrão do Supabase é 24h; peça um novo pela tela de confirmação |
+| Cai no painel sendo família (ou o contrário) | o destino foi ignorado: confira as Redirect URLs |
+| Nenhum e-mail chega | sem SMTP próprio o Supabase limita o envio a poucos por hora — veja Authentication → Emails |
 
 ## O aviso de vaga não chegou
 

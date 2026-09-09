@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 
 import type { SlotKind } from '@app/types/domain';
 
@@ -26,6 +33,32 @@ export function EtiquetaVaga({ kind }: { kind: SlotKind }) {
     <span className={kind === 'ociosa' ? 'badge badge-ociosa' : 'badge badge-cheia'}>
       {kind === 'ociosa' ? 'Vaga ociosa' : 'Vaga cheia'}
     </span>
+  );
+}
+
+/**
+ * A marca, com o papel de quem está vendo embaixo.
+ *
+ * Saiu do Login quando a vitrine passou a mostrá-la também: duas cópias do
+ * mesmo cabeçalho divergem na primeira vez que alguém troca uma delas.
+ */
+export function Marca({
+  papel = 'Painel do parceiro',
+  style,
+}: {
+  papel?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <div className="brand" style={style}>
+      <span className="brand-mark" aria-hidden="true">
+        K
+      </span>
+      <span>
+        <span className="brand-name">Kidoo</span>
+        <div className="brand-role">{papel}</div>
+      </span>
+    </div>
   );
 }
 
