@@ -4,7 +4,12 @@ import type {
   PainelApi,
   ActivityRow,
   AgendaRow,
+  Categoria,
+  NovoPedido,
   Partner,
+  Pedido,
+  PedidoNaFila,
+  ResultadoDaConta,
   ResultadoDaSerie,
   RosterRow,
   StatementRow,
@@ -30,6 +35,11 @@ const MENSAGENS: Record<string, string> = {
   over_capacity: 'A soma de matriculados e vagas abertas passa da capacidade da turma.',
   negative_slots: 'O número de vagas não pode ser negativo.',
   no_dates: 'Escolha pelo menos um dia da semana para a turma se repetir.',
+  not_admin: 'Sua conta não analisa pedidos de estabelecimento.',
+  application_not_found: 'Pedido não encontrado.',
+  already_approved: 'Este pedido já foi aprovado.',
+  unknown_category: 'Uma das modalidades escolhidas não existe mais.',
+  reason_required: 'Diga o motivo da recusa — é ele que volta para quem pediu.',
   too_many_dates: 'São turmas demais de uma vez. Reduza os dias ou as semanas.',
   slots_already_taken:
     'Já há reservas nestas vagas. Reduza só até o número que já foi reservado.',
@@ -74,6 +84,29 @@ async function entrar(email: string, senha: string): Promise<void> {
   // A mesma frase para e-mail inexistente e senha errada: separar as duas
   // entrega quais e-mails têm conta.
   if (error) throw new PainelError('E-mail ou senha incorretos.');
+}
+
+/**
+ * Cria a conta de quem vai administrar o estabelecimento.
+ *
+ * Sem esta porta o cadastro de parceiro era inalcançável: o painel só sabia
+ * entrar, e entrar exige uma conta que só existia se alguém a criasse por
+ * fora. O formulário de pedido ficava atrás de um login impossível.
+ */
+async function criarConta(email: string, senha: string): Promise<ResultadoDaConta> {
+  const { data, error } = await supabase().auth.signUp({ email, password: senha });
+
+  if (error) {
+    const jaExiste = error.message.toLowerCase().includes('already');
+    throw new PainelError(
+      jaExiste
+        ? 'Este e-mail já tem conta. Entre com ele.'
+        : 'Não foi possível criar a conta.',
+    );
+  }
+
+  // Sem sessão = o projeto exige confirmar o e-mail. Não é erro; é outra tela.
+  return data.session ? { status: 'entrou' } : { status: 'confirmar', email };
 }
 
 async function sair(): Promise<void> {
@@ -373,6 +406,201 @@ async function extrato(meses = 6): Promise<StatementRow[]> {
   }));
 }
 
+// -------------------------------------------------- cadastro de parceiro --
+
+type PedidoSql = {
+  id: string;
+  status: Pedido['status'];
+  reason: string | null;
+  name: string;
+  neighborhood: string;
+  city: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  phone: string;
+  categories: string[];
+  min_age: number;
+  max_age: number;
+  photo_path: string | null;
+  legal_name: string | null;
+  cnpj: string | null;
+  pix_key: string | null;
+  created_at: string;
+};
+
+async function categorias(): Promise<Categoria[]> {
+  const linhas = ok(
+    await supabase()
+      .from('activity_categories')
+      .select('id, label, emoji')
+      .order('sort_order')
+      .returns<{ id: string; label: string; emoji: string }[]>(),
+    'Não foi possível carregar as modalidades.',
+  );
+  return linhas.map((l) => ({ ...l, id: l.id as ActivityCategoryId }));
+}
+
+/**
+ * O pedido desta conta.
+ *
+ * `maybeSingle` porque não ter pedido é o estado normal de quem acabou de
+ * criar a conta — e um erro aqui mandaria essa pessoa para uma tela de falha
+ * em vez do formulário.
+ */
+async function meuPedido(): Promise<Pedido | null> {
+  const { data, error } = await supabase()
+    .from('partner_applications')
+    .select(
+      'id, status, reason, name, neighborhood, city, address, latitude, longitude,' +
+        ' phone, categories, min_age, max_age, photo_path, legal_name, cnpj, pix_key, created_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<PedidoSql>();
+
+  if (error) traduz(error, 'Não foi possível carregar seu cadastro.');
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    status: data.status,
+    reason: data.reason,
+    name: data.name,
+    neighborhood: data.neighborhood,
+    city: data.city,
+    address: data.address,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    phone: data.phone,
+    categories: data.categories as ActivityCategoryId[],
+    minAge: data.min_age,
+    maxAge: data.max_age,
+    photoPath: data.photo_path,
+    legalName: data.legal_name,
+    cnpj: data.cnpj,
+    pixKey: data.pix_key,
+    createdAt: data.created_at,
+  };
+}
+
+function paraSql(entrada: NovoPedido) {
+  return {
+    name: entrada.name,
+    neighborhood: entrada.neighborhood,
+    city: entrada.city,
+    address: entrada.address,
+    latitude: entrada.latitude,
+    longitude: entrada.longitude,
+    phone: entrada.phone,
+    categories: entrada.categories,
+    min_age: entrada.minAge,
+    max_age: entrada.maxAge,
+    photo_path: entrada.photoPath,
+    legal_name: entrada.legalName,
+    cnpj: entrada.cnpj,
+    pix_key: entrada.pixKey,
+  };
+}
+
+async function enviarPedido(entrada: NovoPedido, corrigindo?: string): Promise<void> {
+  const conta = await supabase().auth.getUser();
+  const userId = conta.data.user?.id;
+  if (!userId) throw new PainelError('Sua sessão expirou. Entre de novo.');
+
+  // Corrigir devolve o pedido para a fila: `status` volta a 'pendente'. É o
+  // que impede a recusa de virar beco sem saída.
+  const { error } = corrigindo
+    ? await supabase()
+        .from('partner_applications')
+        .update({ ...paraSql(entrada), status: 'pendente', reason: null })
+        .eq('id', corrigindo)
+    : await supabase()
+        .from('partner_applications')
+        .insert({ ...paraSql(entrada), user_id: userId });
+
+  if (error) traduz(error, 'Não foi possível enviar seu cadastro.');
+}
+
+/**
+ * A foto vai para `pedidos/<conta>/`, e não para a pasta do parceiro.
+ *
+ * Não é organização: na hora do envio o parceiro **ainda não existe**, então
+ * não há `partner_id` para pôr no caminho — que é justamente o que a policy
+ * das capas compara.
+ */
+async function subirFotoDoPedido(arquivo: File): Promise<string> {
+  const conta = await supabase().auth.getUser();
+  const userId = conta.data.user?.id;
+  if (!userId) throw new PainelError('Sua sessão expirou. Entre de novo.');
+
+  const caminho = `pedidos/${userId}/espaco`;
+  const { error } = await supabase()
+    .storage.from(BUCKET_ATIVIDADES)
+    .upload(caminho, arquivo, { contentType: arquivo.type, upsert: true });
+  if (error) throw new PainelError('Não foi possível enviar a foto.');
+  return caminho;
+}
+
+// ------------------------------------------------------------ quem analisa --
+
+async function souDoKidoo(): Promise<boolean> {
+  const { data, error } = await supabase().rpc('is_kidoo_admin');
+  if (error) return false;
+  return data === true;
+}
+
+async function pedidosPendentes(): Promise<PedidoNaFila[]> {
+  type FilaSql = {
+    id: string;
+    name: string;
+    neighborhood: string;
+    city: string;
+    address: string;
+    phone: string;
+    email: string;
+    categories: string[];
+    min_age: number;
+    max_age: number;
+    cnpj: string | null;
+    created_at: string;
+  };
+  const linhas = await linhasDe<FilaSql>(
+    'pending_applications',
+    {},
+    'Não foi possível carregar os pedidos.',
+  );
+  return linhas.map((l) => ({
+    id: l.id,
+    name: l.name,
+    neighborhood: l.neighborhood,
+    city: l.city,
+    address: l.address,
+    phone: l.phone,
+    email: l.email,
+    categories: l.categories as ActivityCategoryId[],
+    minAge: l.min_age,
+    maxAge: l.max_age,
+    cnpj: l.cnpj,
+    createdAt: l.created_at,
+  }));
+}
+
+async function aprovarPedido(id: string): Promise<void> {
+  const { error } = await supabase().rpc('approve_application', { p_id: id });
+  if (error) traduz(error, 'Não foi possível aprovar este pedido.');
+}
+
+async function recusarPedido(id: string, motivo: string): Promise<void> {
+  // Só o `error` importa: `reject_application` não devolve nada, e passar isto
+  // por um auxiliar que exige linha de volta faria todo sucesso virar erro.
+  const { error } = await supabase().rpc('reject_application', {
+    p_id: id,
+    p_reason: motivo,
+  });
+  if (error) traduz(error, 'Não foi possível recusar este pedido.');
+}
+
 async function sessaoAtiva(): Promise<boolean> {
   const { data } = await supabase().auth.getSession();
   return data.session !== null;
@@ -380,6 +608,7 @@ async function sessaoAtiva(): Promise<boolean> {
 
 export const supabaseApi: PainelApi = {
   entrar,
+  criarConta,
   sair,
   meusParceiros,
   agenda,
@@ -392,4 +621,12 @@ export const supabaseApi: PainelApi = {
   trocarImagem,
   extrato,
   sessaoAtiva,
+  categorias,
+  meuPedido,
+  enviarPedido,
+  subirFotoDoPedido,
+  souDoKidoo,
+  pedidosPendentes,
+  aprovarPedido,
+  recusarPedido,
 };

@@ -35,6 +35,11 @@ do $do$ begin
   -- justamente a falta de um deles que fez nenhum aviso chegar.
   if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
 end $do$;
+-- No Supabase os papéis do cliente enxergam o schema `auth` — é de lá que sai
+-- `auth.uid()`, que as policies e o código chamam o tempo todo. Sem isto, um
+-- teste que chama `auth.uid()` fora de uma função `security definer` falharia
+-- por um motivo que não existe em produção.
+grant usage on schema auth to authenticated, anon, service_role;
 SQL
 
 for f in "$HERE"/../migrations/*.sql; do
@@ -44,6 +49,7 @@ done
 psql -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/seed.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/rls.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/partner.sql"
+psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/applications.sql"
 
 # Os dois testes em TypeScript rodam contra o mesmo banco recém-aplicado:
 # paridade das regras que existem nos dois lados, e o contrato de nomes entre o

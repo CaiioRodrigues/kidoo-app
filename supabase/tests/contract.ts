@@ -122,8 +122,10 @@ for (const nome of semRetorno) {
     const depois = adapter.slice(chamada.index, chamada.index + 200);
     // `unwrap(` do trecho imediatamente anterior, sem `;` no meio: um `;`
     // significa que aquele `unwrap` era de outra chamada, não desta.
-    const dentroDeUnwrap = /unwrap\(\s*(?:await\s+)?[^;]*$/.test(antes);
-    checa(!dentroDeUnwrap, `${nome} não devolve nada: chamá-la por unwrap() faz todo sucesso virar erro`);
+    // `unwrap` no app, `ok` no painel: os dois exigem linha de volta e tratam
+    // `null` como "não encontrado".
+    const dentroDeUnwrap = /\b(?:unwrap|ok)\(\s*(?:await\s+)?[^;]*$/.test(antes);
+    checa(!dentroDeUnwrap, `${nome} não devolve nada: envolvê-la em unwrap()/ok() faz todo sucesso virar erro`);
     checa(
       !/\.single</.test(depois),
       `${nome} não devolve nada: .single() nela devolve erro de "nenhuma linha"`,

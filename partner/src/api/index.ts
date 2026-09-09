@@ -18,8 +18,13 @@ export { PainelError } from './types';
 export type {
   ActivityRow,
   AgendaRow,
+  Categoria,
+  NovoPedido,
   PainelApi,
   Partner,
+  Pedido,
+  PedidoNaFila,
+  ResultadoDaConta,
   ResultadoDaSerie,
   RosterRow,
   StatementRow,
