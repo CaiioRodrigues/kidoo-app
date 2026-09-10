@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { api, emDemonstracao, type Partner } from '@/api';
-import { Erro } from '@/components/ui';
+import { Erro, Marca } from '@/components/ui';
 import { IconeHoje, IconePedidos, IconeRepasse, IconeSair, IconeTurmas } from '@/components/icons';
 import { Agenda } from '@/screens/Agenda';
 import { Cadastro } from '@/screens/Cadastro';
@@ -111,13 +111,7 @@ export function App() {
       return (
         <div className="shell">
           <nav className="sidebar" aria-label="Seções do painel">
-            <div className="brand">
-              <span className="brand-mark" aria-hidden="true">K</span>
-              <span>
-                <span className="brand-name">Kidoo</span>
-                <div className="brand-role">Operação</div>
-              </span>
-            </div>
+            <Marca papel="Operação" />
             <button className="nav-item" aria-current="page">
               <IconePedidos />
               Pedidos
@@ -139,11 +133,7 @@ export function App() {
     return (
       <div className="cadastro-pagina">
         <div className="cadastro-cabeca">
-          <span className="brand-mark" aria-hidden="true">K</span>
-          <div>
-            <div className="brand-name">Kidoo para estabelecimentos</div>
-            <div className="brand-role">Abra as vagas que sobram no seu horário</div>
-          </div>
+          <Marca papel="Abra as vagas que sobram no seu horário" style={{ padding: 0 }} />
           <button className="btn btn-ghost btn-sm" onClick={() => void desconectar()}>
             Sair
           </button>
@@ -157,15 +147,7 @@ export function App() {
   return (
     <div className="shell">
       <nav className="sidebar" aria-label="Seções do painel">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            K
-          </span>
-          <span>
-            <span className="brand-name">Kidoo</span>
-            <div className="brand-role">Painel do parceiro</div>
-          </span>
-        </div>
+        <Marca />
 
         {[...ABAS, ...(doKidoo ? [PEDIDOS_ABA] : [])].map((item) => (
           <button

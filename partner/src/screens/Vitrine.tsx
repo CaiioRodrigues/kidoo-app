@@ -1,5 +1,6 @@
 import { Marca } from '@/components/ui';
-import { Blobs, Kiddo, MODALIDADES } from '@/components/marca';
+import corpo from '@/assets/corpo.webp';
+import { Blobs, MODALIDADES } from '@/components/marca';
 import { Rodape } from '@/components/Rodape';
 
 /**
@@ -64,9 +65,11 @@ export function Vitrine({
             <p className="faint">Estamos começando por Belo Horizonte.</p>
           </div>
           {/* Escondido de leitores de tela: o mascote não acrescenta informação
-              a quem já ouviu o título, e anunciá-lo só atrasa a chegada ao botão. */}
+              a quem já ouviu o título, e anunciá-lo só atrasa a chegada ao botão.
+              `width`/`height` reservam o espaço antes de a imagem chegar — sem
+              eles o título salta quando ela carrega. */}
           <div className="vitrine-mascote" aria-hidden="true">
-            <Kiddo size={168} />
+            <img src={corpo} alt="" width={319} height={700} />
           </div>
         </section>
 

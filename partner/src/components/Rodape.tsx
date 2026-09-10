@@ -1,4 +1,4 @@
-import { Kiddo } from './marca';
+import { Marca } from './ui';
 
 /**
  * O rodapé, nas duas metades do painel.
@@ -12,9 +12,8 @@ export function Rodape({ aoCadastrar, aoEntrar }: { aoCadastrar?: () => void; ao
   return (
     <footer className="rodape">
       <div className="rodape-marca">
-        <Kiddo size={40} acenando={false} />
         <div>
-          <strong className="brand-name">Kidoo</strong>
+          <Marca papel="" style={{ padding: 0, marginBottom: 8 }} />
           <p className="rodape-frase">
             Um clube de atividades para crianças. A família assina, a criança experimenta, o
             seu espaço recebe pelas vagas que já existiam.

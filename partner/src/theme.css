@@ -122,14 +122,11 @@ input, select { font: inherit; color: inherit; }
   gap: 4px;
 }
 
-.brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 22px; }
-.brand-mark {
-  width: 34px; height: 34px; border-radius: var(--radius-blob);
-  background: var(--purple); color: var(--on-purple);
-  display: grid; place-items: center; font-weight: 800; font-size: 17px;
-}
-.brand-name { font-weight: 700; letter-spacing: -0.01em; }
-.brand-role { font-size: 12px; color: var(--text-faint); margin-top: -3px; }
+/* Coluna, e não linha: o logotipo é uma palavra deitada, e o papel embaixo
+   dele lê como legenda. Lado a lado, os dois competiam pela mesma altura. */
+.brand { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 0 8px 22px; }
+.brand-logo { height: 30px; width: auto; display: block; }
+.brand-role { font-size: 12px; color: var(--text-faint); }
 
 .nav-item {
   display: flex; align-items: center; gap: 10px;
@@ -468,7 +465,12 @@ input, select { font: inherit; color: inherit; }
 
 /* Acima das formas, senão o texto disputa leitura com elas. */
 .vitrine-fala { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 16px; }
+/* Exibido na metade do arquivo: é isso que dá nitidez em tela retina, onde
+   cada pixel de CSS vale dois de imagem. Sem limite, o navegador mostrava o
+   arquivo no tamanho natural e o desenho saía macio. */
 .vitrine-mascote { position: relative; z-index: 1; line-height: 0; }
+.vitrine-mascote img { height: 350px; width: auto; }
+@media (max-width: 720px) { .vitrine-mascote img { height: 230px; } }
 
 .vitrine-titulo {
   font-size: clamp(29px, 5.4vw, 46px);
@@ -550,7 +552,7 @@ input, select { font: inherit; color: inherit; }
   gap: 18px 28px;
   align-items: start;
 }
-.rodape-marca { display: flex; align-items: flex-start; gap: 12px; }
+.rodape-marca { display: flex; align-items: flex-start; }
 .rodape-frase {
   margin: 4px 0 0;
   font-size: 13px;

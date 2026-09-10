@@ -5,44 +5,15 @@
  * modalidade — e o painel usava só o roxo. Um estabelecimento que conhece o
  * app pela criança chegava aqui e via outro produto.
  *
- * A geometria é a mesma do aplicativo (`src/features/tutorial/Mascot.tsx` e
- * `src/components/brand/BlobBackdrop.tsx`), redesenhada em SVG do navegador.
- * Copiar as coordenadas em vez de importar é deliberado: o app usa
- * `react-native-svg`, que não roda aqui, e uma marca que só existe em dois
- * lugares não justifica um pacote compartilhado. Se mudar lá, muda aqui.
+ * As formas vêm do aplicativo (`src/components/brand/BlobBackdrop.tsx`),
+ * redesenhadas em SVG do navegador: o app usa `react-native-svg`, que não roda
+ * aqui. Se mudarem lá, mudam aqui.
+ *
+ * O mascote não está mais neste arquivo. Ele era um boneco geométrico que eu
+ * desenhei enquanto o personagem de verdade não existia; agora existe, é um
+ * lobo-guará renderizado, e mora em `assets/`. O SVG antigo segue no app, onde
+ * a troca ainda não foi feita.
  */
-
-/** Kiddo, o mascote. As cores saem das variáveis do tema, então ele acompanha claro e escuro. */
-export function Kiddo({ size = 96, acenando = true }: { size?: number; acenando?: boolean }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="Kiddo, o mascote do Kidoo">
-      {/* braços atrás do corpo */}
-      <rect
-        x="6" y="52" width="20" height="9" rx="4.5"
-        fill="var(--purple-dark)"
-        transform={acenando ? 'rotate(-28 16 56)' : undefined}
-      />
-      <rect x="74" y="56" width="20" height="9" rx="4.5" fill="var(--purple-dark)" />
-
-      <circle cx="50" cy="52" r="34" fill="var(--purple)" />
-
-      {/* rosto: o branco e o quase-preto dos olhos são fixos porque estão um
-          sobre o outro — não é cor de tema, é contraste interno do desenho. */}
-      <ellipse cx="39" cy="46" rx="5" ry="6" fill="#FFFFFF" />
-      <ellipse cx="61" cy="46" rx="5" ry="6" fill="#FFFFFF" />
-      <circle cx="40" cy="47" r="2.6" fill="#1E1E2F" />
-      <circle cx="62" cy="47" r="2.6" fill="#1E1E2F" />
-      <path d="M 39 60 q 11 11 22 0" stroke="#FFFFFF" strokeWidth="4.2" strokeLinecap="round" fill="none" />
-
-      <circle cx="30" cy="57" r="4" fill="var(--pink)" opacity={0.55} />
-      <circle cx="70" cy="57" r="4" fill="var(--pink)" opacity={0.55} />
-
-      {/* antena com a bolinha amarela da marca */}
-      <path d="M 50 18 L 50 8" stroke="var(--purple-dark)" strokeWidth="3.4" strokeLinecap="round" />
-      <circle cx="50" cy="6" r="5" fill="var(--yellow)" />
-    </svg>
-  );
-}
 
 /**
  * As formas orgânicas atrás do cabeçalho.
