@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { HeaderBar } from '@/components/navigation';
-import { Mascot } from '@/features/tutorial';
+import { Guara } from '@/components/brand';
 import { Button, Card, Screen, SelectableCard, StepIndicator, Text } from '@/components/ui';
 import { useCategories } from '@/hooks/queries';
 import { useOnboardingStore } from '@/stores/onboarding-store';
@@ -46,7 +46,7 @@ export default function InterestsScreen() {
           </Text>
         </View>
         <View style={styles.introArt}>
-          <Mascot size={72} waving={false} />
+          <Guara size={72} />
         </View>
       </View>
 

@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-import { KidooLogo, Sparkles } from '@/components/brand';
+import { KidooLogo } from '@/components/brand';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { Button, Screen, Text } from '@/components/ui';
 import { blobRadius, categoryTone, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
@@ -26,7 +26,6 @@ export default function WelcomeScreen() {
     <Screen background={colors.background} scroll contentContainerStyle={styles.scroll}>
       <View style={styles.container}>
         <Animated.View entering={FadeInDown.duration(420)} style={styles.brand}>
-          <Sparkles style={styles.sparkles} />
           <KidooLogo size={52} />
           <Text variant="heading" center color={colors.text} style={styles.headline}>
             O mundo de atividades{'\n'}para o seu pequeno!
@@ -80,7 +79,6 @@ const makeStyles = (_colors: ThemeColors) =>
     scroll: { flexGrow: 1 },
     container: { flex: 1, justifyContent: 'space-between', paddingVertical: spacing.xxl },
     brand: { alignItems: 'center', gap: spacing.base, marginTop: spacing.xxl },
-    sparkles: { marginBottom: spacing.xs },
     headline: { marginTop: spacing.sm },
     teasers: { flexDirection: 'row', justifyContent: 'center', gap: spacing.base },
     teaser: {

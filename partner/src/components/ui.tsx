@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import logo from '@/assets/logo.webp';
 import type { SlotKind } from '@app/types/domain';
 
 export function Card({ children, pad = true }: { children: ReactNode; pad?: boolean }) {
@@ -39,8 +40,13 @@ export function EtiquetaVaga({ kind }: { kind: SlotKind }) {
 /**
  * A marca, com o papel de quem está vendo embaixo.
  *
- * Saiu do Login quando a vitrine passou a mostrá-la também: duas cópias do
- * mesmo cabeçalho divergem na primeira vez que alguém troca uma delas.
+ * Era um quadrado roxo com um "K" desenhado em CSS — um substituto que existia
+ * porque o logotipo não existia em arquivo. Agora existe, e é ele que aparece
+ * no app, no material impresso e aqui: três lugares com a mesma marca em vez
+ * de três aproximações dela.
+ *
+ * `alt` traz só "Kidoo": o papel logo abaixo é texto de verdade, e repeti-lo
+ * na imagem faria o leitor de tela anunciar a mesma coisa duas vezes.
  */
 export function Marca({
   papel = 'Painel do parceiro',
@@ -51,13 +57,10 @@ export function Marca({
 }) {
   return (
     <div className="brand" style={style}>
-      <span className="brand-mark" aria-hidden="true">
-        K
-      </span>
-      <span>
-        <span className="brand-name">Kidoo</span>
-        <div className="brand-role">{papel}</div>
-      </span>
+      <img className="brand-logo" src={logo} alt="Kidoo" width={273} height={112} />
+      {/* Sem papel, sem linha: no rodapé a frase logo abaixo já diz o que o
+          Kidoo é, e repetir "Para estabelecimentos" ali seria dizer duas vezes. */}
+      {papel ? <span className="brand-role">{papel}</span> : null}
     </div>
   );
 }

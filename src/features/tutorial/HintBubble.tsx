@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
-import { Mascot } from './Mascot';
+import { Guara } from '@/components/brand';
 import { Text } from '@/components/ui';
 import { hitSlop, radius, shadows, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
@@ -31,7 +31,7 @@ export function HintBubble({
       exiting={FadeOut.duration(180)}
       style={styles.row}
     >
-      <Mascot size={54} waving={false} />
+      <Guara size={54} />
 
       <View style={styles.bubble}>
         <Text variant="caption" color={colors.text} style={styles.text}>

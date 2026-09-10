@@ -1,74 +1,37 @@
-import { StyleSheet, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-
-import { Text } from '@/components/ui';
-import { fontFamily, useTheme } from '@/theme';
-
-type Props = {
-  size?: number;
-  /** Em fundo escuro o "Kid" vira branco para manter contraste. */
-  onDark?: boolean;
-};
+import { Image } from 'expo-image';
 
 /**
- * Marca do Kidoo: "Kid" no roxo da marca e dois "o" sorridentes
- * (amarelo e rosa), reproduzindo o logotipo do guia de identidade.
+ * A marca do Kidoo.
+ *
+ * Era uma reconstrução: a palavra "Kid" em Poppins mais dois círculos com
+ * sorrisos desenhados por cima. Funcionava porque o logotipo não existia em
+ * arquivo — e divergia da arte de verdade em tudo que uma reconstrução
+ * diverge: peso das letras, curva do sorriso, espaçamento.
+ *
+ * Agora é o arquivo. A mesma marca no app, no painel do parceiro e no
+ * material impresso.
+ *
+ * `onDark` saiu junto: a arte tem contorno branco próprio e se sustenta sobre
+ * fundo claro e escuro. Manter a propriedade seria oferecer um botão que não
+ * liga nada.
  */
-export function KidooLogo({ size = 44, onDark = false }: Props) {
-  const { palette } = useTheme();
-  const circle = size * 0.86;
-  const smile = circle * 0.44;
+
+/** Proporção da arte (439 × 180). Fixa aqui para reservar o espaço certo. */
+const PROPORCAO = 439 / 180;
+
+export function KidooLogo({ size = 44 }: { size?: number }) {
+  // `size` continua significando o corpo da palavra, como na versão anterior,
+  // para as telas não precisarem reaprender o número. A altura total inclui os
+  // pingos acima do "o", que é o que o 1.12 traz.
+  const altura = size * 1.12;
 
   return (
-    <View style={styles.row} accessibilityRole="image" accessibilityLabel="Kidoo">
-      <Text
-        style={[
-          styles.word,
-          { fontSize: size, lineHeight: size * 1.12, color: onDark ? '#FFFFFF' : palette.purple },
-        ]}
-      >
-        Kid
-      </Text>
-
-      <SmileCircle color={palette.yellow} diameter={circle} smileWidth={smile} />
-      <SmileCircle color={palette.pink} diameter={circle} smileWidth={smile} />
-    </View>
+    <Image
+      source={require('../../../assets/kidoo-logo.webp')}
+      contentFit="contain"
+      style={{ width: altura * PROPORCAO, height: altura }}
+      accessibilityLabel="Kidoo"
+      transition={0}
+    />
   );
 }
-
-function SmileCircle({
-  color,
-  diameter,
-  smileWidth,
-}: {
-  color: string;
-  diameter: number;
-  smileWidth: number;
-}) {
-  const stroke = Math.max(2, diameter * 0.09);
-
-  return (
-    <View
-      style={[
-        styles.circle,
-        { width: diameter, height: diameter, borderRadius: diameter / 2, backgroundColor: color },
-      ]}
-    >
-      <Svg width={smileWidth} height={smileWidth / 2 + stroke} viewBox="0 0 20 12">
-        <Path
-          d="M2 2 C 5 10, 15 10, 18 2"
-          stroke="#FFFFFF"
-          strokeWidth={3.2}
-          strokeLinecap="round"
-          fill="none"
-        />
-      </Svg>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  word: { fontFamily: fontFamily.extrabold, letterSpacing: -1 },
-  circle: { alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
-});

@@ -4,8 +4,7 @@ import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { Badge, Button, ComingSoon, Divider, Screen, Text } from '@/components/ui';
-import { BlobBackdrop } from '@/components/brand';
-import { Mascot } from '@/features/tutorial';
+import { BlobBackdrop, Guara } from '@/components/brand';
 import { formatSessionTime } from '@/lib/format';
 import { useBookings } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
@@ -36,7 +35,7 @@ export default function BookingsScreen() {
     return (
       <Screen>
         <View style={styles.guest}>
-          <Mascot size={104} />
+          <Guara size={104} />
           <Text variant="heading" center>
             Suas reservas ficam aqui
           </Text>

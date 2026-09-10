@@ -4,7 +4,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
-import { Mascot } from './Mascot';
+import { Guara, type PoseDoGuara } from '@/components/brand';
 import { SpeechBubble } from './SpeechBubble';
 import { Button, Text } from '@/components/ui';
 import { hitSlop, radius, spacing, useStyles } from '@/theme';
@@ -19,7 +19,20 @@ import { hitSlop, radius, spacing, useStyles } from '@/theme';
  */
 const SOBRE_O_ESCURO = '#FFFFFF';
 
-type Step = { title: string; text: string; icon: keyof typeof Ionicons.glyphMap };
+type Step = {
+  title: string;
+  text: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  /**
+   * A pose do mascote neste passo.
+   *
+   * Não é enfeite rotativo: o gesto tem de dizer o que a frase diz. Mão aberta
+   * para se apresentar, apontando para chamar atenção ao que gasta coins,
+   * joinha para "é simples" na hora do check-in, punho erguido para a
+   * conquista. Trocar por trocar é agitação, não fala.
+   */
+  pose: PoseDoGuara;
+};
 
 /**
  * Quatro passos, um por pergunta que alguém faz no primeiro dia.
@@ -33,21 +46,25 @@ type Step = { title: string; text: string; icon: keyof typeof Ionicons.glyphMap 
 const STEPS: Step[] = [
   {
     icon: 'sparkles-outline',
+    pose: 'apresenta',
     title: 'Oi! Eu sou o Kiddo 👋',
     text: 'Aqui você acha aulas perto de casa, na idade certa do seu pequeno. Você escolhe o dia e vê as turmas daquele dia.',
   },
   {
     icon: 'wallet-outline',
+    pose: 'aponta',
     title: 'Kidoo Coins',
     text: 'Cada reserva usa coins da sua assinatura. Eles voltam ao cheio toda segunda-feira — dá para manter uma rotina sem pagar aula avulsa.',
   },
   {
     icon: 'qr-code-outline',
+    pose: 'joia',
     title: 'Na hora da aula',
     text: 'Chegando lá, faça o check-in no app e mostre o código ao parceiro. É ele quem confirma que o seu pequeno chegou.',
   },
   {
     icon: 'trophy-outline',
+    pose: 'comemora',
     title: 'A jornada dele',
     text: 'Cada aula rende XP. Ele sobe de nível e destrava moedas bônus, que valem aulas fora da cota da semana.',
   },
@@ -132,9 +149,18 @@ export function TutorialOverlay({ visible, onFinish }: { visible: boolean; onFin
             <SpeechBubble title={step.title} text={step.text} icon={step.icon} />
           </Animated.View>
 
-          <View style={styles.mascotRow}>
-            <Mascot size={104} />
-          </View>
+          {/* A chave precisa ser diferente da do balão, e não apenas `index`.
+              Dois irmãos animados com a mesma chave se atropelam no registro de
+              animação do Reanimated: o balão anterior deixava de ser removido e
+              os quatro passos terminavam empilhados na tela — com o layout
+              intacto, o que só apareceu porque o teste passou a listar quais
+              títulos estão visíveis.
+
+              Maior que os 104 de antes porque agora é meio-corpo: no tamanho
+              antigo o rosto caía para uns quarenta pixels. */}
+          <Animated.View key={`pose-${index}`} entering={FadeInDown.duration(280)} style={styles.mascotRow}>
+            <Guara size={150} pose={step.pose} />
+          </Animated.View>
 
           {/* Os pontinhos dizem "faltam dois" para quem enxerga; o rótulo diz o
               mesmo para quem ouve a tela. */}
