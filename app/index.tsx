@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
-import { KidooLogo } from '@/components/brand';
+import { GuaraEspiando, KidooLogo } from '@/components/brand';
 import { Text } from '@/components/ui';
 import { useAuthStore } from '@/stores/auth-store';
 import { spacing, useStyles, type ThemeColors, type ThemePalette } from '@/theme';
@@ -53,6 +53,10 @@ export default function SplashRoute() {
           </Text>
         </Animated.View>
       </Animated.View>
+
+      {/* Entra depois da marca e sai antes do corte: em 3,2 s de espera, ele
+          é a única coisa que acontece. */}
+      <GuaraEspiando />
     </View>
   );
 }
