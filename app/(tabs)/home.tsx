@@ -4,9 +4,9 @@ import { useMemo } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ActivityCard } from '@/features/activities';
-import { BlobBackdrop } from '@/components/brand';
+import { BlobBackdrop, Guara } from '@/components/brand';
 import { CategoryIcon } from '@/components/CategoryIcon';
-import { Mascot, TutorialOverlay, useTutorial } from '@/features/tutorial';
+import { TutorialOverlay, useTutorial } from '@/features/tutorial';
 import { Avatar, Button, Card, Chip, Input, ProgressBar, Screen, Text } from '@/components/ui';
 import {
   useActivities,
@@ -17,14 +17,7 @@ import {
 } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
-import {
-  blobRadius,
-  categoryTone,
-  spacing,
-  useStyles,
-  useTheme,
-  type ThemeColors,
-} from '@/theme';
+import { blobRadius, categoryTone, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import { daysUntilReset } from '@/lib/subscription';
 import { formatDaysUntil } from '@/lib/format';
 import type { Activity } from '@/types/domain';
@@ -122,7 +115,7 @@ export default function HomeScreen() {
           {/* Texto e botão empilhados: lado a lado, a descrição sobrava numa
               coluna de duas palavras por linha. */}
           <View style={styles.setupRow}>
-            <Mascot size={54} />
+            <Guara size={54} />
             <View style={styles.flex}>
               <Text variant="bodyStrong">
                 {authenticated ? 'Cadastre o seu pequeno' : 'Crie sua conta para reservar'}

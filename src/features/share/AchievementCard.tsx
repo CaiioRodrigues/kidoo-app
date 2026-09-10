@@ -29,7 +29,7 @@ export const AchievementCard = forwardRef<View, { data: AchievementShare }>(
     return (
       <View ref={ref} collapsable={false} style={styles.card}>
         <View style={styles.header}>
-          <KidooLogo size={26} onDark />
+          <KidooLogo size={26} />
         </View>
 
         <Avatar name={booking.child.name} uri={booking.child.photoUri} size={92} ring />

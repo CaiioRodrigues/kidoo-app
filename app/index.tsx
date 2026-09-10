@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
-import { KidooLogo, Sparkles } from '@/components/brand';
+import { KidooLogo } from '@/components/brand';
 import { Text } from '@/components/ui';
 import { useAuthStore } from '@/stores/auth-store';
 import { spacing, useStyles, type ThemeColors, type ThemePalette } from '@/theme';
@@ -46,8 +46,7 @@ export default function SplashRoute() {
       <View style={[styles.blob, styles.blobBottom]} />
 
       <Animated.View entering={FadeIn.duration(500)} style={styles.center}>
-        <Sparkles style={styles.sparkles} />
-        <KidooLogo size={54} onDark />
+        <KidooLogo size={54} />
         <Animated.View entering={FadeInDown.delay(250).duration(500)}>
           <Text variant="label" color="rgba(255,255,255,0.9)" center style={styles.tagline}>
             DESCUBRA. BRINQUE. MOVIMENTE-SE.
@@ -68,7 +67,6 @@ const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
       overflow: 'hidden',
     },
     center: { alignItems: 'center', gap: spacing.md },
-    sparkles: { marginBottom: spacing.xs },
     tagline: { letterSpacing: 2, marginTop: spacing.xs },
     blob: { position: 'absolute', borderRadius: 999, opacity: 0.35 },
     blobTop: {

@@ -4,7 +4,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
-import { Mascot } from './Mascot';
+import { Guara } from '@/components/brand';
 import { SpeechBubble } from './SpeechBubble';
 import { Button, Text } from '@/components/ui';
 import { hitSlop, radius, spacing, useStyles } from '@/theme';
@@ -133,7 +133,7 @@ export function TutorialOverlay({ visible, onFinish }: { visible: boolean; onFin
           </Animated.View>
 
           <View style={styles.mascotRow}>
-            <Mascot size={104} />
+            <Guara size={104} />
           </View>
 
           {/* Os pontinhos dizem "faltam dois" para quem enxerga; o rótulo diz o
