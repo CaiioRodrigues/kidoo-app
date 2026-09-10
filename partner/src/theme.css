@@ -147,7 +147,7 @@ input, select { font: inherit; color: inherit; }
    caber o filho mais largo — a grade da semana — e a PÁGINA INTEIRA ganha
    barra horizontal, em vez de a grade rolar dentro do próprio cartão. */
 .main { padding: 30px 34px 60px; max-width: 1060px; min-width: 0; }
-.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 26px; }
 .page-sub { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
 
 /* ------------------------------------------------------------------- peças */
@@ -158,12 +158,12 @@ input, select { font: inherit; color: inherit; }
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
-.card + .card { margin-top: 14px; }
-.card-pad { padding: 18px 20px; }
+.card + .card { margin-top: 18px; }
+.card-pad { padding: 20px 24px; }
 
 .row { display: flex; align-items: center; gap: 14px; }
 .grow { flex: 1; min-width: 0; }
-.stack { display: flex; flex-direction: column; gap: 14px; }
+.stack { display: flex; flex-direction: column; gap: 18px; }
 .muted { color: var(--text-muted); }
 .faint { color: var(--text-faint); font-size: 13px; }
 .mono { font-variant-numeric: tabular-nums; }
@@ -237,6 +237,21 @@ input, select { font: inherit; color: inherit; }
 .chip-modalidade:hover:not(:disabled) { border-color: var(--purple); }
 .chip-modalidade[aria-pressed='true'] {
   background: var(--purple); border-color: var(--purple); color: var(--on-purple);
+}
+
+/* O formulário de publicar turma, em três linhas de significado: o quê,
+   quando, e quanta gente. A faixa de colunas iguais que havia antes não dizia
+   nada sobre o que se relaciona com o quê — e estourava quando um campo
+   ganhava explicação. */
+.turma-grade { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.turma-lotacao {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  /* `start`: a explicação sob "Já matriculados" deixa essa célula mais alta, e
+     sem isto os campos vizinhos esticam junto e ficam desalinhados dela. */
+  align-items: start;
 }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
@@ -402,14 +417,22 @@ input, select { font: inherit; color: inherit; }
  * decidindo se vale a pena — e boa parte já viu o Kidoo na tela do filho.
  */
 .vitrine {
+  /* Um vão só, nomeado, para todo o ritmo vertical da página. Antes o valor
+     estava solto no `gap` e — pior — só separava cabeçalho, main e rodapé: as
+     seções moram DENTRO do main, que não tinha gap nenhum. Elas encostavam
+     umas nas outras a 0px, e a página inteira lia como um bloco só. */
+  --vao: 56px;
   max-width: 980px;
   margin: 0 auto;
   padding: 22px 20px 0;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: var(--vao);
   position: relative;
 }
+/* É aqui que o ritmo acontece de verdade. */
+.vitrine > main { display: flex; flex-direction: column; gap: var(--vao); }
+@media (max-width: 720px) { .vitrine { --vao: 40px; } }
 .vitrine-topo {
   position: relative; z-index: 1;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -459,7 +482,6 @@ input, select { font: inherit; color: inherit; }
 .vitrine-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
 .vitrine-acoes .btn { padding: 11px 20px; font-size: 15px; }
 
-.vitrine-modalidades { margin-top: 8px; }
 /* Cor de texto normal, não `faint`: logo acima dele fica a linha de Belo
    Horizonte, que é faint, e dois cinzas seguidos leem como um parágrafo só. */
 .vitrine-subtitulo { font-size: 15px; color: var(--text); margin: 0 0 12px; font-weight: 700; }

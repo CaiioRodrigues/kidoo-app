@@ -346,7 +346,15 @@ function NovaTurma({
         matriculados. As vagas que você abrir aqui vão para o app das famílias.
       </p>
 
-      <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+      {/*
+        Três linhas, e cada uma responde uma pergunta: o quê, quando, e quanta
+        gente. Antes era uma faixa só de colunas estreitas, e a explicação de
+        "Já matriculados" — que é o campo que decide o repasse — esticava a
+        célula dela, empurrava "Custo em coins" para baixo e abria um vazio sob
+        os campos vizinhos. Agrupar os três números de lotação resolve o vão e
+        diz o que eles têm a ver entre si.
+      */}
+      <div className="turma-grade">
         <div className="field" style={{ gridColumn: '1 / -1' }}>
           <label htmlFor="atividade">Atividade</label>
           <select
@@ -398,6 +406,12 @@ function NovaTurma({
           />
         </div>
         <div className="field">
+          <label htmlFor="coins">Custo em coins</label>
+          <input id="coins" className="input" type="number" min={1} max={6} value={coinCost}
+                 onChange={(e) => setCoinCost(e.target.value)} />
+        </div>
+        <div className="turma-lotacao">
+        <div className="field">
           <label htmlFor="capacidade">Lugares na turma</label>
           <input id="capacidade" className="input" type="number" min={1} value={capacity}
                  onChange={(e) => setCapacity(e.target.value)} />
@@ -417,10 +431,6 @@ function NovaTurma({
           <input id="vagas" className="input" type="number" min={0} value={slotsOpen}
                  onChange={(e) => setSlotsOpen(e.target.value)} />
         </div>
-        <div className="field">
-          <label htmlFor="coins">Custo em coins</label>
-          <input id="coins" className="input" type="number" min={1} max={6} value={coinCost}
-                 onChange={(e) => setCoinCost(e.target.value)} />
         </div>
       </div>
 
