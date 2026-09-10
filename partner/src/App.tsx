@@ -9,6 +9,7 @@ import { Login } from '@/screens/Login';
 import { Pedidos } from '@/screens/Pedidos';
 import { Repasse } from '@/screens/Repasse';
 import { Turmas } from '@/screens/Turmas';
+import { Rodape } from '@/components/Rodape';
 import { Vitrine } from '@/screens/Vitrine';
 
 type Aba = 'agenda' | 'turmas' | 'repasse' | 'pedidos';
@@ -219,6 +220,11 @@ export function App() {
         {aba === 'turmas' && <Turmas parceiros={parceiros} varios={varios} />}
         {aba === 'repasse' && <Repasse />}
         {aba === 'pedidos' && <Pedidos />}
+
+        {/* Sem ação: quem está aqui já entrou e já tem espaço cadastrado.
+            Repetir "Cadastrar meu espaço" para essa pessoa seria oferecer a
+            porta a quem já está dentro de casa. */}
+        <Rodape />
       </main>
     </div>
   );

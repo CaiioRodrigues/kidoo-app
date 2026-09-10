@@ -50,25 +50,62 @@ receber, clicar, entrar. Não dá para convidar ninguém.
 1. Conta em [resend.com](https://resend.com). A camada gratuita cobre muito mais
    do que esta fase.
 2. **Domains → Add Domain** → `sejakidoo.com.br`.
-3. Ele devolve três ou quatro registros (TXT, CNAME, MX). Cole no Cloudflare, em
-   **DNS → Records** — mas leia os dois erros abaixo antes de colar.
+3. Ele devolve **três** registros. Numa conta da região São Paulo (`sa-east-1`)
+   eles saem assim — confira contra a tela, porque o alvo muda com a região:
+
+   | Type | Name | Content |
+   | --- | --- | --- |
+   | `TXT` | `resend._domainkey` | `p=MIGfMA0GCSqG…` (a chave DKIM inteira) |
+   | `CNAME` | `rsend` | `rsend-sae1.forge.rmta.net` |
+   | `CNAME` | `send` | `send.forge.rmta.net` |
+
 4. **API Keys → Create API Key**.
 
 > A API key é segredo: ela manda e-mail em nome do seu domínio. Não vai para
 > arquivo nenhum deste repositório, e não precisa ser compartilhada com ninguém.
 
-### Os dois erros que custam a tarde
+### Os erros que custam a tarde
 
-**O Cloudflare completa o nome sozinho.** O Resend mostra o registro como
-`send.sejakidoo.com.br`. Colar isso inteiro no campo *Name* produz
+**`rsend` não é erro de digitação.** Um registro é `rsend` e o outro é `send`.
+Lidos rápido parecem o mesmo nome duas vezes.
+
+**O Cloudflare completa o nome sozinho.** Em `Name`, vai só `send`, `rsend` e
+`resend._domainkey`. Colar `send.sejakidoo.com.br` produz
 `send.sejakidoo.com.br.sejakidoo.com.br`, que nunca verifica e não acusa nada.
-Cole só **`send`**.
 
-**A nuvem laranja tem que ficar cinza.** Todo CNAME do Resend precisa estar em
-**DNS only** (Proxy status desligado). Com o proxy ligado, o Cloudflare responde
-no lugar do registro e a validação do Resend não enxerga o valor real.
+**A nuvem laranja tem que ficar cinza.** O Cloudflare liga o proxy por padrão em
+todo CNAME. Com ele ligado, quem consulta recebe os IPs do Cloudflare em vez do
+alvo, e o Resend conclui que o registro não existe. Os dois CNAME precisam ficar
+em **DNS only**.
 
-Juntos, são a causa de quase todo "não verifica e eu não sei por quê".
+**A chave DKIM aparece encurtada.** O Resend mostra `p=MIGfMA0GCSqG […]
+OoaLFJwIDAQAB` — aquele `[…]` é conteúdo faltando, não estilo. Use o botão de
+copiar ao lado do valor, nunca a seleção do que está na tela. O sintoma de ter
+copiado errado é traiçoeiro: os CNAME resolvem, o DKIM parece estar lá, e a
+verificação nunca fecha.
+
+### Se demorar mesmo com tudo certo
+
+Confira cada um por fora, em `dnschecker.org`:
+
+- `CNAME send.SEUDOMINIO` → o alvo `.forge.rmta.net`
+- `CNAME rsend.SEUDOMINIO` → idem
+- `TXT resend._domainkey.SEUDOMINIO` → a chave, **terminando** onde a do Resend termina
+
+Se os três batem, não há mais nada a fazer no DNS. O Resend consultou antes de
+os registros existirem, e resolvedores guardam resposta negativa por um tempo —
+no `.br` esse tempo é longo. Fecha sozinho, em geral em algumas horas.
+
+### O domínio do registro.br já vem blindado contra envio
+
+Domínio `.br` novo nasce com dois registros que dizem "aqui ninguém manda
+e-mail": `v=spf1 -all` na raiz e `_dmarc` com `p=reject`. É boa prática para
+domínio parado, e vira armadilha quando ele passa a enviar.
+
+`p=reject` manda o destinatário **descartar** o que não passar na verificação:
+não vai para o spam, some sem erro em lugar nenhum. Enquanto você configura,
+troque para `p=none` e aperte de volta depois que estiver entregando. A falha
+silenciosa é a mais cara de investigar — foi ela que escondeu o push por dias.
 
 ## Ligar no Supabase
 
@@ -77,12 +114,30 @@ SMTP** e preencha:
 
 | Campo | Valor |
 | --- | --- |
-| Sender email | `nao-responda@sejakidoo.com.br` |
+| Sender email | `nao-responda@sejakidoo.com.br` — mas veja a ponte abaixo |
 | Sender name | `Kidoo` |
 | Host | `smtp.resend.com` |
 | Port | `587` |
-| Username | `resend` |
+| Username | **`resend`** — a palavra, não o seu e-mail nem o nome da empresa |
 | Password | a API key do Resend |
+
+O **Username** é o campo que mais engana: parece que devia ser o endereço de
+quem envia, e é o mesmo literal `resend` para toda conta. Com outra coisa ali, a
+autenticação falha antes de qualquer envio — e a tentativa **não aparece nos
+logs do Resend**, porque a conexão nunca chegou a ser aceita. Log vazio, nesse
+caso, é o diagnóstico: o problema é o Username.
+
+### A ponte enquanto o domínio não verifica
+
+`onboarding@resend.dev` é um remetente do próprio Resend e funciona sem domínio
+verificado. Ele entrega **só para o endereço da sua conta**, o que basta para
+percorrer o cadastro inteiro sozinho e não serve para convidar ninguém.
+
+Vale usá-lo desde já: a verificação do domínio leva horas, e sem SMTP que
+funcione o cadastro não anda — o Supabase trata o envio do e-mail como parte da
+criação da conta, então um envio recusado **derruba o cadastro inteiro**, com
+`{"code":"unexpected_failure","message":"Error sending confirmation email"}`.
+Quando o domínio verificar, troque só este campo.
 
 Salve. Logo abaixo há o **Rate limit** de e-mails por hora — com SMTP próprio dá
 para subir; comece em algo como 30 e suba quando precisar.
@@ -123,7 +178,8 @@ quase sempre porque o e-mail não chegou.
 
 | Sintoma | Onde olhar |
 | --- | --- |
-| O domínio não verifica no Resend | os dois erros do Cloudflare acima: nome duplicado, ou proxy ligado |
+| O domínio não verifica no Resend | proxy ligado, nome duplicado, ou a chave DKIM copiada encurtada — veja "Se demorar mesmo com tudo certo" |
+| "Error sending confirmation email" ao criar conta | o SMTP recusou. Username diferente de `resend`, ou remetente num domínio ainda não verificado |
 | Nada chega, nem no spam | a chave está errada, ou o domínio ainda não terminou de verificar |
 | Chega, mas cai no spam | DKIM ainda não propagou, ou você está no caminho sem domínio |
 | "Email rate limit exceeded" | o Rate limit do Supabase ainda está no valor antigo |

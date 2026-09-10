@@ -1,3 +1,4 @@
+import { mensagemDeAuth } from '@/mensagens-de-auth';
 import { supabase } from '@/supabase';
 import { PainelError } from './types';
 import type {
@@ -103,14 +104,7 @@ async function criarConta(email: string, senha: string): Promise<ResultadoDaCont
     options: { emailRedirectTo: window.location.origin },
   });
 
-  if (error) {
-    const jaExiste = error.message.toLowerCase().includes('already');
-    throw new PainelError(
-      jaExiste
-        ? 'Este e-mail já tem conta. Entre com ele.'
-        : 'Não foi possível criar a conta.',
-    );
-  }
+  if (error) throw new PainelError(mensagemDeAuth(error.message, 'Não foi possível criar a conta.'));
 
   // Sem sessão = o projeto exige confirmar o e-mail. Não é erro; é outra tela.
   return data.session ? { status: 'entrou' } : { status: 'confirmar', email };
