@@ -318,10 +318,31 @@ export type BookingDetails = Booking & {
   child: Child;
 };
 
+/** Desenho da medalha da conquista. Cada um é um glifo em `AchievementIcon`. */
+export type AchievementIcon =
+  | 'estrela'
+  | 'raio'
+  | 'medalha'
+  | 'trofeu'
+  | 'mapa'
+  | 'bussola'
+  | 'coroa'
+  | 'bola'
+  | 'onda'
+  | 'nota'
+  | 'faixa'
+  | 'paleta';
+
+/** Cor da medalha. Não é a cor da modalidade: medalha é objeto, não superfície. */
+export type AchievementTone = 'ouro' | 'laranja' | 'agua' | 'verde' | 'rosa' | 'roxo';
+
 export type Achievement = {
   id: string;
   label: string;
-  emoji: string;
+  /** O que falta fazer. É o que a medalha bloqueada mostra em vez de nada. */
+  hint: string;
+  icon: AchievementIcon;
+  tone: AchievementTone;
   /** Null enquanto a conquista ainda não foi desbloqueada. */
   unlockedAt: IsoDateTime | null;
 };
@@ -398,8 +419,7 @@ export type Journey = {
  * uma mensagem vermelha para quem acabou de fazer tudo certo.
  */
 export type SignUpResult =
-  | { status: 'signed_in'; session: Session }
-  | { status: 'needs_confirmation'; email: string };
+  { status: 'signed_in'; session: Session } | { status: 'needs_confirmation'; email: string };
 
 export type Session = {
   guardian: Guardian;

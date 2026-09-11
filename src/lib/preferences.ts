@@ -19,7 +19,19 @@ export const PreferenceKeys = {
   hintAgenda: 'kidoo.pref.hint.agenda',
 } as const;
 
-type PreferenceKey = (typeof PreferenceKeys)[keyof typeof PreferenceKeys];
+/**
+ * Conquistas que a criança já viu comemoradas.
+ *
+ * É a única preferência por criança, e por isso a chave é montada em vez de
+ * listada: duas crianças na mesma conta têm jornadas independentes, e uma
+ * chave só faria a segunda herdar o silêncio da primeira.
+ */
+export function conquistasVistasKey(childId: string): PreferenceKey {
+  return `kidoo.pref.conquistasVistas.${childId}`;
+}
+
+type PreferenceKey =
+  (typeof PreferenceKeys)[keyof typeof PreferenceKeys] | `kidoo.pref.conquistasVistas.${string}`;
 
 /**
  * Espelho em memória do que já foi lido ou escrito nesta execução.
