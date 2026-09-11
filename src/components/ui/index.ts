@@ -4,6 +4,7 @@ export { Button, type ButtonProps } from './Button';
 export { Card, type CardProps } from './Card';
 export { Chip, type ChipProps } from './Chip';
 export { CoinBadge } from './CoinBadge';
+export { CoinIcon } from './CoinIcon';
 export { ComingSoon } from './ComingSoon';
 export { Divider } from './Divider';
 export { Input, type InputProps } from './Input';

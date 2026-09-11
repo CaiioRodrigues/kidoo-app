@@ -7,7 +7,17 @@ import { ActivityCard } from '@/features/activities';
 import { BlobBackdrop, Guara } from '@/components/brand';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { TutorialOverlay, useTutorial } from '@/features/tutorial';
-import { Avatar, Button, Card, Chip, Input, ProgressBar, Screen, Text } from '@/components/ui';
+import {
+  Avatar,
+  Button,
+  Card,
+  Chip,
+  CoinIcon,
+  Input,
+  ProgressBar,
+  Screen,
+  Text,
+} from '@/components/ui';
 import {
   useActivities,
   useCategories,
@@ -221,7 +231,7 @@ export default function HomeScreen() {
 
       {subscription ? (
         <Card style={styles.coinsCard} background={palette.yellowSoft} elevation="none">
-          <Text style={styles.coinEmoji}>🪙</Text>
+          <CoinIcon size={22} />
           <View style={styles.flex}>
             <Text variant="label" color={colors.text}>
               {subscription.coinsRemaining} de {subscription.coinsPerWeek} coins nesta semana
@@ -337,6 +347,5 @@ const makeStyles = (colors: ThemeColors) =>
       marginHorizontal: spacing.xl,
       marginTop: spacing.base,
     },
-    coinEmoji: { fontSize: 20 },
     flex: { flex: 1 },
   });

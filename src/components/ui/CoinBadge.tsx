@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { CoinIcon } from './CoinIcon';
 import { Text } from './Text';
 import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 
@@ -13,7 +14,7 @@ export function CoinBadge({ amount, size = 'md' }: { amount: number; size?: 'sm'
       style={[styles.badge, small && styles.badgeSm]}
       accessibilityLabel={`${amount} Kidoo Coins`}
     >
-      <Text style={[styles.coin, small && styles.coinSm]}>🪙</Text>
+      <CoinIcon size={small ? 13 : 16} />
       <Text variant={small ? 'caption' : 'label'} color={colors.warning}>
         {amount} {small ? 'coins' : 'Kidoo Coins'}
       </Text>
@@ -34,6 +35,4 @@ const makeStyles = (_colors: ThemeColors, palette: ThemePalette) =>
       backgroundColor: palette.yellowSoft,
     },
     badgeSm: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xxs },
-    coin: { fontSize: 14 },
-    coinSm: { fontSize: 11 },
   });
