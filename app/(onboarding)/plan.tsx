@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Badge, Button, Card, Text } from '@/components/ui';
+import { Badge, Button, Card, CoinIcon, Text } from '@/components/ui';
 import { HeaderBar } from '@/components/navigation';
 import { formatPrice } from '@/lib/format';
 import { toUserMessage } from '@/services';
@@ -165,7 +165,7 @@ function PlanCard({
         </View>
 
         <View style={styles.planCoins}>
-          <Text style={styles.coinEmoji}>🪙</Text>
+          <CoinIcon size={15} />
           <Text variant="label" color={colors.warning}>
             {plan.coinsPerWeek} coins por semana
           </Text>
@@ -223,7 +223,6 @@ const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
     planHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     planPrice: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
     planCoins: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-    coinEmoji: { fontSize: 14 },
     cycleCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     cycleEmoji: { fontSize: 20 },
     cycleText: { flex: 1 },
