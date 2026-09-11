@@ -28,7 +28,7 @@ import {
 import { ApiError, type ApiErrorCode } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
 import { buildAchievements } from '@/lib/achievements';
-import { linkDeConfirmacao } from '@/lib/deep-link';
+import { linkDeConfirmacao, linkDeNovaSenha } from '@/lib/deep-link';
 import { MAX_LEVEL, bonusForLevel, levelFromXp } from '@/lib/levels';
 import { rankForChild } from '@/lib/recommendation';
 import { ehArquivoLocal, lerArquivoLocal, tipoDaImagem } from '@/lib/upload';
@@ -470,6 +470,34 @@ export const supabaseApi: KidooApi = {
           'unknown',
           'Não foi possível reenviar agora. Aguarde um minuto e tente de novo.',
         );
+      }
+    },
+
+    /**
+     * Manda o link de redefinição.
+     *
+     * O erro do Supabase é engolido de propósito — e só este. Ele distingue
+     * "e-mail não cadastrado" de "limite de envio atingido", e propagar essa
+     * diferença faria desta tela um verificador de cadastro: quem quisesse
+     * saber se um endereço tem conta no Kidoo bastaria tentar aqui. O preço é
+     * que um limite de envio também passa em silêncio, e a tela já cobre isso
+     * dizendo para conferir a caixa e tentar de novo em alguns minutos.
+     */
+    async requestPasswordReset(email) {
+      await supabase().auth.resetPasswordForEmail(email, {
+        // Volta para o APP, não para o "Site URL" do projeto (o painel dos
+        // parceiros) — mesma armadilha do link de confirmação.
+        redirectTo: linkDeNovaSenha(),
+      });
+    },
+
+    async updatePassword(password) {
+      const { error } = await supabase().auth.updateUser({ password });
+      if (error) {
+        // A mensagem do servidor vai junto: aqui ela é útil e não vaza nada
+        // sobre quem tem conta — fala da senha escolhida (curta demais,
+        // vazada em base pública, igual à anterior), de quem já está dentro.
+        throw new ApiError('unknown', `Não foi possível salvar a senha. (${error.message})`);
       }
     },
 

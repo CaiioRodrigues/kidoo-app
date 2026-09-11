@@ -31,6 +31,10 @@ type AuthState = {
   signUp: (input: SignUpInput) => Promise<SignUpResult>;
   /** Reenvia o e-mail de confirmação. */
   resendConfirmation: (email: string) => Promise<void>;
+  /** Manda o link de redefinição de senha. Não diz se o e-mail tem conta. */
+  requestPasswordReset: (email: string) => Promise<void>;
+  /** Troca a senha de quem já está com sessão aberta. */
+  updatePassword: (password: string) => Promise<void>;
   /** Entra com a sessão que veio no link do e-mail de confirmação. */
   confirmByLink: (tokens: { accessToken: string; refreshToken: string }) => Promise<void>;
   signOut: () => Promise<void>;
@@ -154,6 +158,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   async resendConfirmation(email) {
     await api.auth.resendConfirmation(email);
+  },
+
+  async requestPasswordReset(email) {
+    await api.auth.requestPasswordReset(email);
+  },
+
+  async updatePassword(password) {
+    await api.auth.updatePassword(password);
   },
 
   async signOut() {

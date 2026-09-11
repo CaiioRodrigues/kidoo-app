@@ -222,6 +222,32 @@ export const mockApi: KidooApi = {
     async resendConfirmation() {
       return delay(undefined, 200);
     },
+
+    /**
+     * Não manda e-mail nenhum, e não falha nunca — que é exatamente o
+     * comportamento do real visto de fora.
+     *
+     * O adapter do Supabase engole o erro de propósito, para a tela não virar
+     * um verificador de quais e-mails têm conta. Um mock que rejeitasse
+     * e-mail desconhecido quebraria essa paridade no lugar mais perigoso: a
+     * tela passaria a tratar como erro algo que em produção nunca chega.
+     */
+    async requestPasswordReset() {
+      return delay(undefined, 250);
+    },
+
+    async updatePassword(password) {
+      if (!state.session) {
+        throw new ApiError('invalid_credentials', 'Entre de novo para trocar a senha.');
+      }
+      // A senha não é guardada: o mock aceita qualquer uma para entrar. O que
+      // ele precisa reproduzir é a recusa por senha curta, porque é a única
+      // que a tela trata de forma diferente.
+      if (password.length < 8) {
+        throw new ApiError('unknown', 'A senha precisa ter pelo menos 8 caracteres.');
+      }
+      return delay(undefined, 250);
+    },
     /**
      * O backend em memória não manda e-mail, então não há link de verdade —
      * mas a tela que o recebe precisa de um caminho para exercitar. Aqui

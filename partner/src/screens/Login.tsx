@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api, emDemonstracao } from '@/api';
 import { Erro, Marca } from '@/components/ui';
 
-type Modo = 'entrar' | 'criar';
+type Modo = 'entrar' | 'criar' | 'recuperar';
 
 /**
  * Entrar e criar conta, na mesma tela.
@@ -17,28 +17,44 @@ type Modo = 'entrar' | 'criar';
 export function Login({
   aoEntrar,
   modoInicial = 'entrar',
+  avisoInicial = null,
   aoVoltar,
 }: {
   aoEntrar: () => void;
   /** Em que aba abrir: quem clicou "quero ser parceiro" já pediu a de criar. */
   modoInicial?: Modo;
+  /**
+   * Recado que veio do endereço, não do formulário.
+   *
+   * Hoje é um só: o link de redefinição que venceu. Sem ele a pessoa clica no
+   * e-mail, cai no login e não descobre por quê — e tentaria de novo o mesmo
+   * link, que continua vencido.
+   */
+  avisoInicial?: string | null;
   /** Volta para a vitrine. Ausente quando não há vitrine atrás. */
   aoVoltar?: () => void;
 }) {
   const [modo, setModo] = useState<Modo>(modoInicial);
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [erro, setErro] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(avisoInicial);
   const [enviando, setEnviando] = useState(false);
   const [confirmar, setConfirmar] = useState<string | null>(null);
+  const [linkEnviado, setLinkEnviado] = useState<string | null>(null);
 
   const criando = modo === 'criar';
+  const recuperando = modo === 'recuperar';
 
   const enviar = async (evento: React.FormEvent) => {
     evento.preventDefault();
     setEnviando(true);
     setErro(null);
     try {
+      if (recuperando) {
+        await api.pedirNovaSenha(email.trim());
+        setLinkEnviado(email.trim());
+        return;
+      }
       if (criando) {
         const r = await api.criarConta(email.trim(), senha);
         if (r.status === 'confirmar') {
@@ -61,6 +77,47 @@ export function Login({
     fez tudo certo e a conta existe. Trocar a tela inteira é mais honesto do
     que uma mensagem vermelha embaixo de um formulário que ele já enviou.
   */
+  /*
+    A mesma tela para e-mail com conta e sem conta.
+
+    Dizer "não encontramos este e-mail" seria simpático e seria um vazamento:
+    quem quisesse saber quais estabelecimentos são parceiros do Kidoo bastaria
+    digitar uma lista aqui. A frase está no condicional porque ela precisa ser
+    verdadeira nos dois casos.
+  */
+  if (linkEnviado) {
+    return (
+      <div className="login">
+        <div className="login-card">
+          <Marca style={{ padding: '0 0 20px' }} />
+          <section className="card">
+            <div className="card-pad">
+              <h2 style={{ marginBottom: 6 }}>Confira seu e-mail</h2>
+              <p className="muted">
+                Se <strong>{linkEnviado}</strong> tiver conta no painel, o link para criar uma
+                senha nova já está a caminho. Ele vale por uma hora e só serve uma vez.
+              </p>
+              <p className="faint" style={{ marginTop: 10 }}>
+                Não achou? Procure na caixa de spam antes de pedir outro.
+              </p>
+              <button
+                className="btn btn-ghost"
+                style={{ marginTop: 18 }}
+                onClick={() => {
+                  setLinkEnviado(null);
+                  setModo('entrar');
+                  setSenha('');
+                }}
+              >
+                Voltar para entrar
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   if (confirmar) {
     return (
       <div className="login">
@@ -116,11 +173,15 @@ export function Login({
 
         <section className="card">
           <form className="card-pad" onSubmit={(e) => void enviar(e)}>
-            <h2 style={{ marginBottom: 4 }}>{criando ? 'Criar conta' : 'Entrar'}</h2>
+            <h2 style={{ marginBottom: 4 }}>
+              {recuperando ? 'Recuperar acesso' : criando ? 'Criar conta' : 'Entrar'}
+            </h2>
             <p className="faint" style={{ marginBottom: 18 }}>
-              {criando
-                ? 'Primeiro a conta; depois você conta onde fica o espaço e o que oferece.'
-                : 'Use o e-mail cadastrado para o seu estabelecimento.'}
+              {recuperando
+                ? 'Informe o e-mail da conta e mandamos um link para você escolher outra senha.'
+                : criando
+                  ? 'Primeiro a conta; depois você conta onde fica o espaço e o que oferece.'
+                  : 'Use o e-mail cadastrado para o seu estabelecimento.'}
             </p>
 
             <div className="stack">
@@ -136,6 +197,7 @@ export function Login({
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
+              {!recuperando && (
               <div className="field">
                 <label htmlFor="senha">Senha</label>
                 <input
@@ -150,14 +212,32 @@ export function Login({
                 />
                 {criando && <span className="faint">Pelo menos 8 caracteres.</span>}
               </div>
+              )}
 
               {erro && <Erro>{erro}</Erro>}
 
               <button className="btn" type="submit" disabled={enviando}>
                 {enviando
-                  ? criando ? 'Criando…' : 'Entrando…'
-                  : criando ? 'Criar conta' : 'Entrar'}
+                  ? recuperando ? 'Mandando…' : criando ? 'Criando…' : 'Entrando…'
+                  : recuperando ? 'Mandar o link' : criando ? 'Criar conta' : 'Entrar'}
               </button>
+
+              {/* Só na aba de entrar: quem está criando conta não tem senha
+                  para esquecer, e quem já está aqui não precisa da volta. */}
+              {!criando && (
+                <button
+                  type="button"
+                  className="btn-link"
+                  style={{ alignSelf: 'center' }}
+                  onClick={() => {
+                    setModo(recuperando ? 'entrar' : 'recuperar');
+                    setErro(null);
+                    setSenha('');
+                  }}
+                >
+                  {recuperando ? 'Lembrei, quero entrar' : 'Esqueci minha senha'}
+                </button>
+              )}
             </div>
           </form>
         </section>

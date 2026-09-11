@@ -15,4 +15,19 @@ export function linkDeConfirmacao(): string {
   return Linking.createURL('/confirmado');
 }
 
+/**
+ * Para onde o link de redefinição de senha volta.
+ *
+ * Rota separada da confirmação porque o destino é outro: confirmar termina na
+ * Home, redefinir tem de parar e pedir a senha nova. Os dois links trazem uma
+ * sessão no fim da URL e são indistinguíveis pelo conteúdo — é o endereço que
+ * diz qual é qual.
+ *
+ * Precisa estar na lista de Redirect URLs do projeto no Supabase, como o de
+ * confirmação: `kidoo://nova-senha` e o equivalente em Expo Go.
+ */
+export function linkDeNovaSenha(): string {
+  return Linking.createURL('/nova-senha');
+}
+
 export { lerErroDoLink, lerSessaoDoLink, type SessaoDoLink } from './confirmacao';

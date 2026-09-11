@@ -31,18 +31,27 @@ const b = await chromium.launch(executablePath ? { executablePath } : {});
 const p = await b.newPage({ viewport: { width: 390, height: 844 } });
 const txt = () => p.evaluate(() => document.body.innerText);
 let falhas = 0;
-const ok = (c, d) => { console.log(`${c ? '  ok ' : 'FALHA'}  ${d}`); if (!c) falhas++; };
+const ok = (c, d) => {
+  console.log(`${c ? '  ok ' : 'FALHA'}  ${d}`);
+  if (!c) falhas++;
+};
 
 // Quantos pontinhos o StepIndicator está mostrando.
-const pontos = () => p.evaluate(() => {
-  const alvos = [...document.querySelectorAll('div')].filter((el) => {
-    const s = getComputedStyle(el);
-    const l = parseFloat(s.height);
-    return l >= 4 && l <= 12 && parseFloat(s.borderTopLeftRadius) >= l / 2 - 0.5
-      && el.childElementCount === 0 && parseFloat(s.width) >= 4;
+const pontos = () =>
+  p.evaluate(() => {
+    const alvos = [...document.querySelectorAll('div')].filter((el) => {
+      const s = getComputedStyle(el);
+      const l = parseFloat(s.height);
+      return (
+        l >= 4 &&
+        l <= 12 &&
+        parseFloat(s.borderTopLeftRadius) >= l / 2 - 0.5 &&
+        el.childElementCount === 0 &&
+        parseFloat(s.width) >= 4
+      );
+    });
+    return alvos.length;
   });
-  return alvos.length;
-});
 
 await p.goto(BASE, { waitUntil: 'networkidle' });
 await p.waitForTimeout(4500);
@@ -67,8 +76,10 @@ await p.getByText('Continuar').last().click();
 await p.waitForTimeout(1500);
 ok(p.url().endsWith('/interests'), 'foi para interesses');
 const tPrimeira = await txt();
-ok(tPrimeira.includes('Continuar') && !tPrimeira.includes('Concluir cadastro'),
-   'botão diz "Continuar" (ainda falta o plano)');
+ok(
+  tPrimeira.includes('Continuar') && !tPrimeira.includes('Concluir cadastro'),
+  'botão diz "Continuar" (ainda falta o plano)',
+);
 await p.getByText('Futebol', { exact: true }).last().click();
 await p.getByText('Continuar').last().click();
 await p.waitForTimeout(1800);

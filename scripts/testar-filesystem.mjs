@@ -39,10 +39,7 @@ function ok(condicao, descricao) {
  * aviso, e aviso não quebra a foto de ninguém. O que interessa é o `throw`.
  */
 function metodosQueLancam() {
-  const fonte = readFileSync(
-    join('node_modules', MODULO, 'src', 'legacyWarnings.ts'),
-    'utf8',
-  );
+  const fonte = readFileSync(join('node_modules', MODULO, 'src', 'legacyWarnings.ts'), 'utf8');
   const nomes = new Set();
   const declaracao = /export\s+(?:async\s+)?function\s+(\w+)\s*\(/g;
 

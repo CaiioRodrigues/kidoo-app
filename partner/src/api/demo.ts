@@ -168,6 +168,24 @@ export const demoApi: PainelApi = {
     return { status: 'entrou' as const };
   },
 
+  /**
+   * Não manda e-mail e não falha nunca — que é o comportamento do real visto
+   * de fora. O adapter do Supabase engole o erro de propósito para a tela não
+   * virar um verificador de quem é parceiro; uma demonstração que recusasse
+   * e-mail desconhecido quebraria a paridade no ponto mais perigoso.
+   */
+  async pedirNovaSenha() {
+    await espera(null, 420);
+  },
+
+  async definirNovaSenha(senha) {
+    if (senha.length < 8) {
+      throw new PainelError('A senha precisa de pelo menos 8 caracteres.');
+    }
+    await espera(null, 380);
+    logado = true;
+  },
+
   async sair() {
     logado = false;
     await espera(null, 100);

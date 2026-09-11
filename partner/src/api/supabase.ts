@@ -110,6 +110,36 @@ async function criarConta(email: string, senha: string): Promise<ResultadoDaCont
   return data.session ? { status: 'entrou' } : { status: 'confirmar', email };
 }
 
+/**
+ * Manda o link de redefinição.
+ *
+ * O erro é engolido — e só aqui. Ele distingue "e-mail não cadastrado" de
+ * "limite de envio atingido", e propagar essa diferença faria da tela um
+ * verificador: quem quisesse saber quais estabelecimentos são parceiros do
+ * Kidoo bastaria tentar aqui. O preço é o limite de envio passar calado, e a
+ * tela já cobre isso dizendo para conferir a caixa antes de pedir outro.
+ *
+ * `redirectTo` é a origem do painel, sem caminho novo: o link volta para a
+ * mesma página que o de confirmação já usa, e é o `type=recovery` no fim da
+ * URL que decide qual tela abrir. Assim não é preciso cadastrar nenhum
+ * endereço a mais nas Redirect URLs do projeto.
+ */
+async function pedirNovaSenha(email: string): Promise<void> {
+  await supabase().auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+}
+
+async function definirNovaSenha(senha: string): Promise<void> {
+  const { error } = await supabase().auth.updateUser({ password: senha });
+  // Aqui a frase do servidor vai junto: ela fala da senha escolhida — curta
+  // demais, repetida, vazada em base pública — para quem já está autenticado.
+  // Não vaza nada sobre quem tem conta.
+  if (error) {
+    throw new PainelError(mensagemDeAuth(error.message, 'Não foi possível salvar a senha.'));
+  }
+}
+
 async function sair(): Promise<void> {
   await supabase().auth.signOut();
 }
@@ -610,6 +640,8 @@ async function sessaoAtiva(): Promise<boolean> {
 export const supabaseApi: PainelApi = {
   entrar,
   criarConta,
+  pedirNovaSenha,
+  definirNovaSenha,
   sair,
   meusParceiros,
   agenda,
