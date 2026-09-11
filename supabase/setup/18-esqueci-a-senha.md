@@ -41,15 +41,31 @@ teste, não de produção.
 
 **Authentication → Emails → Reset Password.**
 
-O modelo padrão do Supabase é em inglês e assinado como "Supabase Auth". Vale
-trocar pelo mesmo tom do
-[`email-confirmacao.html`](email-confirmacao.html), com o assunto
+[`email-nova-senha.html`](email-nova-senha.html) é o modelo do Kidoo, pronto
+para colar na aba **Source**. Assunto sugerido:
 `Criar uma senha nova no Kidoo`.
 
-O corpo precisa conter `{{ .ConfirmationURL }}` — é ele que vira o link.
+Ele é irmão do [`email-confirmacao.html`](email-confirmacao.html), e de
+propósito: os dois chegam na mesma caixa de entrada, com dias de diferença, e
+precisam parecer vindos do mesmo lugar.
+
+O modelo padrão do Supabase **funciona** — o e-mail sai igual. Ele só chega em
+inglês e assinado como "Supabase Auth", que é ruim justamente no momento em que
+a pessoa está mais desconfiada: pedido de troca de senha é o formato preferido
+de golpe, e um remetente que não parece o Kidoo convida a ignorar a mensagem
+legítima ou, pior, a treinar a pessoa a clicar em links de remetentes
+estranhos.
 
 Como o de confirmação, **só é editável com SMTP próprio**. Com o serviço padrão
 do Supabase os campos aparecem travados.
+
+Duas coisas no modelo que não são enfeite:
+
+- **O prazo escrito em voz alta.** É a diferença entre "cliquei e deu erro" e
+  "deixei passar do prazo". Se você mudar o prazo abaixo, mude a frase também.
+- **"Não foi você? Pode ignorar."** É o parágrafo mais importante para quem
+  **não** pediu a troca. Um pedido que a pessoa não fez assusta, e o primeiro
+  impulso é clicar para ver o que é — que é exatamente o que não se deve fazer.
 
 ### Validade do link
 

@@ -1,0 +1,200 @@
+<!--
+  Kidoo — e-mail de redefinição de senha.
+
+  Cole em Authentication → Emails → Reset Password → Body (aba "Source").
+  Assunto sugerido: Criar uma senha nova no Kidoo
+  Só é editável com SMTP próprio configurado; com o serviço padrão do Supabase
+  o template fica travado no dele.
+
+  Irmão de `email-confirmacao.html`, e de propósito: os dois chegam na mesma
+  caixa de entrada, com dias de diferença, e precisam parecer vindos do mesmo
+  lugar. A estrutura é idêntica — o que muda é o texto e o tom.
+
+  Por que ele é feito de tabelas e estilos inline, e não de CSS moderno:
+  cliente de e-mail não é navegador. O Outlook no Windows renderiza com o motor
+  do Word, que ignora flexbox, grid e `<style>` em boa parte dos casos. Tabela
+  aninhada com `style=""` em cada célula é feio de ler e é o que chega inteiro
+  na caixa de entrada de todo mundo.
+
+  Variáveis do Supabase usadas aqui:
+    {{ .ConfirmationURL }}  link que abre a tela de escolher a senha
+    {{ .Email }}            e-mail de quem pediu a troca
+-->
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Criar uma senha nova no Kidoo</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:#f6f5fb;">
+    <!--
+      Pré-cabeçalho: é o texto que a caixa de entrada mostra ao lado do assunto,
+      antes de abrir. Sem ele, o cliente pega a primeira frase do corpo — que
+      costuma ser "se você não consegue ver este e-mail". Escondido no corpo.
+    -->
+    <div
+      style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;"
+    >
+      O link vale por uma hora. Sua senha atual continua valendo até você trocar.
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="background-color:#f6f5fb;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                 style="max-width:520px; background-color:#ffffff; border-radius:20px 8px 20px 8px;">
+
+            <!-- Marca -->
+            <tr>
+              <td align="center" style="padding:36px 32px 8px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="width:44px; height:44px; background-color:#6a3fc6;
+                               border-radius:14px 6px 14px 6px; text-align:center;
+                               vertical-align:middle; font-family:-apple-system,
+                               BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+                               font-size:22px; font-weight:800; color:#ffffff;
+                               line-height:44px;">
+                      K
+                    </td>
+                    <td style="width:10px;">&nbsp;</td>
+                    <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',
+                               Roboto,Arial,sans-serif; font-size:19px; font-weight:700;
+                               color:#1e1e2f; letter-spacing:-0.01em;">
+                      Kidoo
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Assunto da mensagem -->
+            <tr>
+              <td align="center" style="padding:20px 32px 0;">
+                <h1 style="margin:0; font-family:-apple-system,BlinkMacSystemFont,
+                           'Segoe UI',Roboto,Arial,sans-serif; font-size:26px;
+                           line-height:1.25; font-weight:800; color:#1e1e2f;
+                           letter-spacing:-0.02em;">
+                  Criar uma senha nova
+                </h1>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:12px 36px 0;">
+                <p style="margin:0; font-family:-apple-system,BlinkMacSystemFont,
+                          'Segoe UI',Roboto,Arial,sans-serif; font-size:16px;
+                          line-height:1.55; color:#5c5c72;">
+                  Alguém pediu para trocar a senha da conta
+                  <strong style="color:#1e1e2f;">{{ .Email }}</strong>. Se foi você,
+                  é só tocar no botão abaixo.
+                </p>
+              </td>
+            </tr>
+
+            <!--
+              Botão "à prova de bala": o padding vive na célula da tabela, não no
+              <a>. No Outlook, padding em <a> é ignorado e o botão vira um link
+              solto no meio do e-mail.
+            -->
+            <tr>
+              <td align="center" style="padding:28px 32px 0;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" style="background-color:#6a3fc6;
+                               border-radius:999px;">
+                      <a href="{{ .ConfirmationURL }}"
+                         style="display:inline-block; padding:15px 40px;
+                                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',
+                                Roboto,Arial,sans-serif; font-size:16px; font-weight:700;
+                                color:#ffffff; text-decoration:none; border-radius:999px;">
+                        Escolher senha nova
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!--
+              O prazo dito em voz alta.
+
+              É a diferença entre "cliquei e deu erro" e "deixei passar do prazo".
+              Sem esta frase, quem abre o e-mail no dia seguinte descobre o
+              vencimento só na tela, depois de já ter clicado — e costuma tentar
+              o mesmo link de novo, que continua vencido.
+
+              Se você mudar o prazo em Authentication → Email OTP Expiration,
+              mude aqui também: prazo escrito que não bate com o do servidor é
+              pior que nenhum, porque a pessoa confia nele.
+            -->
+            <tr>
+              <td style="padding:28px 32px 0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                       border="0" style="background-color:#f7f4fe; border-radius:14px;">
+                  <tr>
+                    <td style="padding:16px 18px; font-family:-apple-system,
+                               BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+                               font-size:14px; line-height:1.55; color:#5c5c72;">
+                      O link vale por <strong style="color:#1e1e2f;">uma hora</strong> e
+                      só pode ser usado uma vez. Até você escolher a senha nova, a
+                      atual continua valendo normalmente.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- O link em texto, para quem o botão não funciona. -->
+            <tr>
+              <td style="padding:24px 32px 0;">
+                <p style="margin:0; font-family:-apple-system,BlinkMacSystemFont,
+                          'Segoe UI',Roboto,Arial,sans-serif; font-size:13px;
+                          line-height:1.5; color:#8e8ea6;">
+                  Se o botão não funcionar, copie e cole este endereço no navegador:
+                </p>
+                <p style="margin:8px 0 0; font-family:-apple-system,BlinkMacSystemFont,
+                          'Segoe UI',Roboto,Arial,sans-serif; font-size:13px;
+                          line-height:1.5; word-break:break-all;">
+                  <a href="{{ .ConfirmationURL }}" style="color:#6a3fc6;">{{ .ConfirmationURL }}</a>
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:24px 32px 36px;">
+                <div style="height:1px; background-color:#e6e6f0; line-height:1px;
+                            font-size:0;">&nbsp;</div>
+                <!--
+                  Este parágrafo é o mais importante do e-mail para quem NÃO pediu
+                  a troca. Pedido de senha que a pessoa não fez assusta, e o
+                  primeiro impulso é clicar para "ver o que é" — que é exatamente
+                  o que não se deve fazer. Dizer que ignorar é seguro, e por quê,
+                  vale mais que qualquer aviso de segurança genérico.
+                -->
+                <p style="margin:20px 0 0; font-family:-apple-system,BlinkMacSystemFont,
+                          'Segoe UI',Roboto,Arial,sans-serif; font-size:13px;
+                          line-height:1.55; color:#8e8ea6;">
+                  Não foi você que pediu? Pode ignorar esta mensagem. Sua senha
+                  continua a mesma — ela só muda depois que alguém abre este link
+                  e escolhe outra.
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:20px 0 0; font-family:-apple-system,BlinkMacSystemFont,
+                    'Segoe UI',Roboto,Arial,sans-serif; font-size:12px; color:#8e8ea6;">
+            Kidoo · atividades para crianças
+          </p>
+
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
