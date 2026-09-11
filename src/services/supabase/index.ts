@@ -28,7 +28,8 @@ import {
 import { ApiError, type ApiErrorCode } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
 import { buildAchievements } from '@/lib/achievements';
-import { linkDeConfirmacao } from '@/lib/deep-link';
+import { linkDeConfirmacao, linkDeNovaSenha } from '@/lib/deep-link';
+import { erroDeEnvio } from '@shared/erro-de-envio';
 import { MAX_LEVEL, bonusForLevel, levelFromXp } from '@/lib/levels';
 import { rankForChild } from '@/lib/recommendation';
 import { ehArquivoLocal, lerArquivoLocal, tipoDaImagem } from '@/lib/upload';
@@ -189,7 +190,16 @@ async function subirFotoDaCrianca(
     .storage.from(BUCKET_CRIANCAS)
     .upload(caminho, bytes, { contentType: tipoDaImagem(localUri), upsert: true });
 
-  if (error) throw new ApiError('unknown', 'Não foi possível enviar a foto.');
+  // A mensagem do servidor vai junto, entre parênteses.
+  //
+  // Antes ela era descartada, e "Não foi possível enviar a foto" servia para
+  // bucket inexistente, policy negando, MIME fora da lista e arquivo grande
+  // demais — quatro causas com quatro consertos diferentes, indistinguíveis
+  // de fora. É o mesmo defeito que escondeu o `Error sending confirmation
+  // email` do cadastro de parceiro e custou uma tarde de DNS.
+  if (error) {
+    throw new ApiError('unknown', `Não foi possível enviar a foto. (${error.message})`);
+  }
   return `${BUCKET_CRIANCAS}/${caminho}`;
 }
 
@@ -461,6 +471,44 @@ export const supabaseApi: KidooApi = {
           'unknown',
           'Não foi possível reenviar agora. Aguarde um minuto e tente de novo.',
         );
+      }
+    },
+
+    /**
+     * Manda o link de redefinição.
+     *
+     * O que pode ser dito sobre a falha não é decidido aqui: `erroDeEnvio`
+     * separa os erros que valem para todo endereço igualmente — destino fora
+     * das Redirect URLs, SMTP recusando — dos que dependeriam do e-mail
+     * digitado. Os primeiros passam; os outros, e todo desconhecido, ficam
+     * calados.
+     *
+     * A primeira versão disto engolia tudo, para a tela não virar um
+     * verificador de quais famílias são clientes. Só que aí ela engolia junto a
+     * configuração quebrada: a tela dizia "confira seu e-mail", nada chegava, e
+     * o motivo só existia em Authentication → Logs.
+     */
+    async requestPasswordReset(email) {
+      const { error } = await supabase().auth.resetPasswordForEmail(email, {
+        // Volta para o APP, não para o "Site URL" do projeto (o painel dos
+        // parceiros) — mesma armadilha do link de confirmação.
+        redirectTo: linkDeNovaSenha(),
+      });
+      if (!error) return;
+
+      const dizivel = erroDeEnvio(error.message);
+      if (dizivel) throw new ApiError('unknown', dizivel);
+      // Calado de propósito: a tela segue para "confira seu e-mail", que é a
+      // mesma resposta que um endereço sem conta recebe.
+    },
+
+    async updatePassword(password) {
+      const { error } = await supabase().auth.updateUser({ password });
+      if (error) {
+        // A mensagem do servidor vai junto: aqui ela é útil e não vaza nada
+        // sobre quem tem conta — fala da senha escolhida (curta demais,
+        // vazada em base pública, igual à anterior), de quem já está dentro.
+        throw new ApiError('unknown', `Não foi possível salvar a senha. (${error.message})`);
       }
     },
 

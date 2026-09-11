@@ -61,5 +61,32 @@ ok(
   'qualquer outro erro também termina com um caminho de saída',
 );
 
+
+/*
+  A instrução de onde pedir outro link é parâmetro, não texto fixo.
+
+  O mesmo erro chega por dois caminhos — confirmação de e-mail e redefinição de
+  senha — e o conserto é diferente em cada um. A frase fixa dizia "peça um novo
+  na tela de confirmação" também na tela de senha nova, mandando a pessoa para
+  um lugar sem relação com o que ela estava fazendo e contradizendo o botão
+  logo abaixo. Esta asserção existe porque isso passou despercebido até a
+  captura de tela.
+*/
+const VENCIDO = 'kidoo://nova-senha#error_code=otp_expired&error_description=Email+link+has+expired';
+ok(
+  lerErroDoLink(VENCIDO)?.includes('tela de confirmação') === true,
+  'sem contexto, a frase continua a da confirmação',
+);
+ok(
+  lerErroDoLink(VENCIDO, 'Peça outro e use dentro de uma hora.')?.includes('dentro de uma hora') ===
+    true,
+  'com contexto, a instrução é a da redefinição de senha',
+);
+ok(
+  lerErroDoLink(VENCIDO, 'Peça outro e use dentro de uma hora.')?.includes('tela de confirmação') ===
+    false,
+  'e a frase da confirmação não sobra grudada junto',
+);
+
 console.log(falhas.length ? `\n>>> ${falhas.length} FALHA(S)` : '\n>>> link ok');
 process.exit(falhas.length ? 1 : 0);

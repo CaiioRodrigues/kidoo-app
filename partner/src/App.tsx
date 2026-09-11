@@ -6,11 +6,13 @@ import { IconeHoje, IconePedidos, IconeRepasse, IconeSair, IconeTurmas } from '@
 import { Agenda } from '@/screens/Agenda';
 import { Cadastro } from '@/screens/Cadastro';
 import { Login } from '@/screens/Login';
+import { NovaSenha } from '@/screens/NovaSenha';
 import { Pedidos } from '@/screens/Pedidos';
 import { Repasse } from '@/screens/Repasse';
 import { Turmas } from '@/screens/Turmas';
 import { Rodape } from '@/components/Rodape';
 import { Vitrine } from '@/screens/Vitrine';
+import { ehLinkDeRecuperacao, erroDoLink } from '@/recuperacao';
 
 type Aba = 'agenda' | 'turmas' | 'repasse' | 'pedidos';
 
@@ -25,6 +27,20 @@ const ABAS: ItemDeMenu[] = [
   { id: 'repasse', rotulo: 'Repasse', Icone: IconeRepasse },
 ];
 
+/*
+  Lido no carregamento do módulo, antes de qualquer chamada a `supabase()`.
+
+  O cliente roda com `detectSessionInUrl: true` e limpa o fim da URL assim que
+  nasce — e ele nasce preguiçoso, na primeira chamada, que acontece dentro de
+  um efeito. Ler aqui é ler enquanto o endereço ainda está inteiro. Se esta
+  leitura acontecesse dentro do componente, o resultado dependeria de quem
+  chegasse primeiro, e o modo de falhar seria o silencioso: cair no painel
+  logado, com a senha antiga valendo.
+*/
+const HASH_DA_CHEGADA = typeof window === 'undefined' ? '' : window.location.hash;
+const CHEGOU_PARA_TROCAR_SENHA = ehLinkDeRecuperacao(HASH_DA_CHEGADA);
+const ERRO_DA_CHEGADA = erroDoLink(HASH_DA_CHEGADA);
+
 export function App() {
   const [estado, setEstado] = useState<'verificando' | 'fora' | 'dentro'>('verificando');
   const [parceiros, setParceiros] = useState<Partner[]>([]);
@@ -36,7 +52,11 @@ export function App() {
   const [gatilho, setGatilho] = useState(0);
   // Quem chega sem sessão vê a vitrine primeiro. Só depois de escolher um
   // caminho é que aparece o formulário — e ele já abre na aba certa.
-  const [porta, setPorta] = useState<null | 'entrar' | 'criar'>(null);
+  const [porta, setPorta] = useState<null | 'entrar' | 'criar'>(
+    ERRO_DA_CHEGADA ? 'entrar' : null,
+  );
+  // Some depois que a senha é salva; até lá, esta tela vem antes de tudo.
+  const [trocandoSenha, setTrocandoSenha] = useState(CHEGOU_PARA_TROCAR_SENHA);
 
   const carregar = useCallback(async () => {
     if (!(await api.sessaoAtiva())) {
@@ -60,6 +80,24 @@ export function App() {
     void carregar();
   }, [carregar]);
 
+  /*
+    Antes de qualquer outra coisa — inclusive de "verificando".
+
+    O link já abriu a sessão, então sem esta parada a pessoa entraria direto no
+    painel e a senha antiga continuaria valendo: ela pediu a troca, clicou no
+    e-mail, e nada aconteceu. A tela só sai depois que a senha nova é salva.
+  */
+  if (trocandoSenha) {
+    return (
+      <NovaSenha
+        aoSalvar={() => {
+          setTrocandoSenha(false);
+          void carregar();
+        }}
+      />
+    );
+  }
+
   if (estado === 'verificando') {
     return (
       <div className="login">
@@ -77,6 +115,7 @@ export function App() {
     return (
       <Login
         modoInicial={porta}
+        avisoInicial={ERRO_DA_CHEGADA}
         aoVoltar={() => setPorta(null)}
         aoEntrar={() => void carregar()}
       />

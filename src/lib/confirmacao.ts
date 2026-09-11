@@ -31,8 +31,19 @@ export function lerSessaoDoLink(url: string | null): SessaoDoLink | null {
   return { accessToken, refreshToken };
 }
 
-/** O erro que o Supabase devolve no mesmo lugar quando o link não vale mais. */
-export function lerErroDoLink(url: string | null): string | null {
+/**
+ * O erro que o Supabase devolve no mesmo lugar quando o link não vale mais.
+ *
+ * `ondePedirOutro` existe porque o mesmo erro chega por dois caminhos e o
+ * conserto é diferente em cada um. A frase fixa era escrita para a confirmação
+ * de e-mail, e na tela de redefinição de senha mandava a pessoa para a tela de
+ * confirmação — um lugar que não tem nada a ver com o que ela estava fazendo, e
+ * que contradizia o botão logo abaixo.
+ */
+export function lerErroDoLink(
+  url: string | null,
+  ondePedirOutro = 'Peça um novo na tela de confirmação.',
+): string | null {
   if (!url) return null;
   const corte = url.indexOf('#');
   if (corte === -1) return null;
@@ -46,7 +57,7 @@ export function lerErroDoLink(url: string | null): string | null {
   // recebeu o e-mail ontem e clicou hoje precisa saber o que fazer, não o nome
   // do erro.
   if (codigo === 'otp_expired' || descricao?.includes('expired')) {
-    return 'Este link expirou. Peça um novo na tela de confirmação.';
+    return `Este link expirou. ${ondePedirOutro}`;
   }
-  return 'Não consegui confirmar por este link. Peça um novo e tente de novo.';
+  return `Não consegui abrir este link. ${ondePedirOutro}`;
 }

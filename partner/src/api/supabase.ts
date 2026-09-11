@@ -1,3 +1,4 @@
+import { erroDeEnvio } from '@shared/erro-de-envio';
 import { mensagemDeAuth } from '@/mensagens-de-auth';
 import { supabase } from '@/supabase';
 import { PainelError } from './types';
@@ -108,6 +109,47 @@ async function criarConta(email: string, senha: string): Promise<ResultadoDaCont
 
   // Sem sessão = o projeto exige confirmar o e-mail. Não é erro; é outra tela.
   return data.session ? { status: 'entrou' } : { status: 'confirmar', email };
+}
+
+/**
+ * Manda o link de redefinição.
+ *
+ * O que pode ser dito sobre a falha vem de `erroDeEnvio`, o mesmo módulo que o
+ * app usa: ele separa os erros que valem para todo endereço igualmente —
+ * destino fora das Redirect URLs, SMTP recusando — dos que dependeriam do
+ * e-mail digitado. Os primeiros passam; os outros, e todo desconhecido, ficam
+ * calados, senão a tela viraria um verificador de quais estabelecimentos são
+ * parceiros do Kidoo.
+ *
+ * Regra compartilhada e não copiada de propósito: duas cópias é como um lado
+ * ganharia um caso que o outro não tem, e aqui isso significaria um vazamento
+ * num dos dois.
+ *
+ * `redirectTo` é a origem do painel, sem caminho novo: o link volta para a
+ * mesma página que o de confirmação já usa, e é o `type=recovery` no fim da
+ * URL que decide qual tela abrir. Assim não é preciso cadastrar nenhum
+ * endereço a mais nas Redirect URLs do projeto.
+ */
+async function pedirNovaSenha(email: string): Promise<void> {
+  const { error } = await supabase().auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  if (!error) return;
+
+  const dizivel = erroDeEnvio(error.message);
+  if (dizivel) throw new PainelError(dizivel);
+  // Calado de propósito: a tela segue para "confira seu e-mail", que é a mesma
+  // resposta que um endereço sem conta recebe.
+}
+
+async function definirNovaSenha(senha: string): Promise<void> {
+  const { error } = await supabase().auth.updateUser({ password: senha });
+  // Aqui a frase do servidor vai junto: ela fala da senha escolhida — curta
+  // demais, repetida, vazada em base pública — para quem já está autenticado.
+  // Não vaza nada sobre quem tem conta.
+  if (error) {
+    throw new PainelError(mensagemDeAuth(error.message, 'Não foi possível salvar a senha.'));
+  }
 }
 
 async function sair(): Promise<void> {
@@ -610,6 +652,8 @@ async function sessaoAtiva(): Promise<boolean> {
 export const supabaseApi: PainelApi = {
   entrar,
   criarConta,
+  pedirNovaSenha,
+  definirNovaSenha,
   sair,
   meusParceiros,
   agenda,

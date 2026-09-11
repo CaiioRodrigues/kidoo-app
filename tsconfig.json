@@ -12,7 +12,11 @@
     "verbatimModuleSyntax": false,
     "paths": {
       "@/*": ["./src/*"],
-      "@app/*": ["./app/*"]
+      "@app/*": ["./app/*"],
+      // Código que o app e o painel compilam. Mora fora de `src/` porque o
+      // build do painel roda a partir de `partner/`, onde o `expo` — que este
+      // tsconfig estende — não está instalado.
+      "@shared/*": ["./shared/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],

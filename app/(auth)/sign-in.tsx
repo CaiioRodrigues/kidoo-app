@@ -93,6 +93,19 @@ export default function SignInScreen() {
 
           <View style={styles.actions}>
             <Button title="Entrar" loading={submitting} onPress={() => void handleSubmit()} />
+            {/* Leva o e-mail já digitado: quem chega aqui normalmente tentou
+                entrar antes, e digitar de novo é atrito em cima de frustração. */}
+            <Button
+              title="Esqueci minha senha"
+              variant="ghost"
+              size="md"
+              onPress={() =>
+                router.push({
+                  pathname: '/(auth)/forgot-password',
+                  params: email.trim() ? { email: email.trim() } : {},
+                })
+              }
+            />
             <Button
               title="Ainda não tenho conta"
               variant="ghost"

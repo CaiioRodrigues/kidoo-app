@@ -1,0 +1,22 @@
+{
+  // Este arquivo existe para o esbuild parar aqui.
+  //
+  // O Vite procura o tsconfig mais próximo de cada arquivo que transforma,
+  // subindo diretório por diretório. Enquanto o código compartilhado morava em
+  // `src/`, essa busca chegava ao tsconfig da raiz — que estende
+  // `expo/tsconfig.base`. No build do painel, publicado a partir de `partner/`,
+  // o `expo` não está instalado, e a compilação quebrava ao resolver o extends.
+  //
+  // Sem extends de propósito: o que é compartilhado não pode depender das
+  // opções de compilador de nenhum dos dois lados, senão volta a ser de um só.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true
+  },
+  "include": ["**/*.ts"]
+}

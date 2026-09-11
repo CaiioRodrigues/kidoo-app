@@ -5,7 +5,9 @@ import { StyleSheet, View } from 'react-native';
 import { HeaderBar } from '@/components/navigation';
 import { Guara } from '@/components/brand';
 import { Button, Card, Screen, SelectableCard, StepIndicator, Text } from '@/components/ui';
-import { useCategories } from '@/hooks/queries';
+import { useCategories, useSubscription } from '@/hooks/queries';
+import { useCriarCriancaDoRascunho } from '@/hooks/onboarding';
+import { toUserMessage } from '@/services';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 
@@ -17,20 +19,67 @@ export default function InterestsScreen() {
   const { data: categories = [], isPending } = useCategories();
   const interests = useOnboardingStore((state) => state.draft.interests);
   const toggleInterest = useOnboardingStore((state) => state.toggleInterest);
+  const reset = useOnboardingStore((state) => state.reset);
+  const {
+    data: subscription,
+    isPending: assinaturaPendente,
+    fetchStatus: assinaturaFetchStatus,
+  } = useSubscription();
+  const { criar, criando } = useCriarCriancaDoRascunho();
   const [error, setError] = useState<string | null>(null);
 
-  const handleContinue = useCallback(() => {
+  const jaAssina = subscription != null;
+
+  /**
+   * `subscription` é `undefined` tanto para quem não assina quanto enquanto a
+   * resposta não chegou — e os dois casos levam a telas diferentes. Decidir com
+   * `undefined` mandaria uma família que já assina para a tela de planos só por
+   * ela ter tocado no botão rápido demais.
+   *
+   * `isPending` sozinho não serve: a consulta é `enabled: authenticated`, e uma
+   * consulta desligada fica em `pending` para sempre — o botão nunca liberaria
+   * para quem está sem conta. Buscando de verdade é `pending` **e**
+   * `fetchStatus === 'fetching'`; desligada é `pending` com `'idle'`.
+   */
+  const conferindoAssinatura = assinaturaPendente && assinaturaFetchStatus === 'fetching';
+
+  /**
+   * Quem já assina não passa pela tela de planos — e isso não é atalho de
+   * conveniência.
+   *
+   * `subscribe_plan` resolve o conflito com `renews_at = excluded.renews_at`.
+   * Mandar uma família que já assina para a tela de planos e deixá-la
+   * confirmar empurraria a renovação um mês para a frente a cada irmão
+   * cadastrado: um mês de graça por filho, sem nada na tela denunciando.
+   * O plano é da família, não da criança; cadastrar irmão não toca na
+   * assinatura.
+   */
+  const handleContinue = useCallback(async () => {
     if (interests.length === 0) {
       setError('Escolha ao menos uma atividade para personalizarmos as sugestões.');
       return;
     }
     setError(null);
-    router.push('/(onboarding)/plan');
-  }, [interests.length, router]);
+
+    if (!jaAssina) {
+      router.push('/(onboarding)/plan');
+      return;
+    }
+
+    try {
+      await criar();
+      reset();
+      router.replace('/(tabs)/home');
+    } catch (caught) {
+      setError(toUserMessage(caught));
+    }
+  }, [criar, interests.length, jaAssina, reset, router]);
 
   return (
     <Screen scroll contentContainerStyle={styles.scroll}>
-      <HeaderBar center={<StepIndicator total={4} current={2} />} />
+      {/* Quem já assina percorre duas telas, não quatro: a contagem acompanha
+          o caminho que a pessoa está fazendo, senão os pontos param no meio. */}
+      <HeaderBar center={<StepIndicator total={jaAssina ? 2 : 4} current={2} />} />
 
       <View style={styles.intro}>
         <View style={styles.introText}>
@@ -82,7 +131,12 @@ export default function InterestsScreen() {
         </Text>
       ) : null}
 
-      <Button title="Continuar" onPress={handleContinue} style={styles.cta} />
+      <Button
+        title={jaAssina ? 'Concluir cadastro' : 'Continuar'}
+        onPress={() => void handleContinue()}
+        loading={criando || conferindoAssinatura}
+        style={styles.cta}
+      />
     </Screen>
   );
 }

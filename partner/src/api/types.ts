@@ -156,6 +156,22 @@ export type PainelApi = {
   entrar(email: string, senha: string): Promise<void>;
   /** Cria a conta de quem vai administrar o estabelecimento. */
   criarConta(email: string, senha: string): Promise<ResultadoDaConta>;
+  /**
+   * Manda o link de redefinição de senha.
+   *
+   * Não devolve nada, e não devolve de propósito: dizer se o e-mail tem conta
+   * transformaria esta tela num verificador de quais estabelecimentos são
+   * parceiros do Kidoo. É a mesma regra que `entrar` segue ao não separar
+   * "e-mail não existe" de "senha errada".
+   */
+  pedirNovaSenha(email: string): Promise<void>;
+  /**
+   * Grava a senha nova.
+   *
+   * Exige a sessão que o link de redefinição abriu — o clique no link é a
+   * prova de acesso à caixa de entrada.
+   */
+  definirNovaSenha(senha: string): Promise<void>;
   sair(): Promise<void>;
   /**
    * Todos os estabelecimentos que esta conta administra.

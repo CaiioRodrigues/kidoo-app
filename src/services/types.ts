@@ -51,6 +51,24 @@ export type KidooApi = {
     signUp(input: SignUpInput): Promise<SignUpResult>;
     /** Reenvia o e-mail de confirmação para quem não recebeu. */
     resendConfirmation(email: string): Promise<void>;
+    /**
+     * Manda o link de redefinição de senha.
+     *
+     * Não devolve nada, e não devolve de propósito: dizer se o e-mail tem
+     * conta transformaria esta tela num verificador de cadastro — digita-se
+     * uma lista de endereços e descobre-se quais são clientes do Kidoo. Pelo
+     * mesmo motivo a tela responde a mesma frase nos dois casos. É a regra que
+     * `signIn` já segue ao não separar "e-mail não existe" de "senha errada".
+     */
+    requestPasswordReset(email: string): Promise<void>;
+    /**
+     * Troca a senha da sessão atual.
+     *
+     * Exige sessão: quem chega pelo link de redefinição entra primeiro com
+     * `confirmByLink` — o clique no link é a prova de acesso à caixa de
+     * entrada — e só então escolhe a senha nova.
+     */
+    updatePassword(password: string): Promise<void>;
     signOut(): Promise<void>;
     /** Valida a sessão restaurada do armazenamento seguro. */
     restore(token: string): Promise<Session | null>;

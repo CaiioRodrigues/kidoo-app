@@ -222,6 +222,34 @@ export const mockApi: KidooApi = {
     async resendConfirmation() {
       return delay(undefined, 200);
     },
+
+    /**
+     * Não manda e-mail nenhum, e não falha nunca.
+     *
+     * O real falha em dois casos, e nenhum deles existe aqui: destino fora das
+     * Redirect URLs e SMTP recusando são erros de configuração de um projeto
+     * Supabase, e não há projeto nenhum atrás deste backend. O que o real
+     * NUNCA faz é recusar por o e-mail não ter conta — e é essa parte que o
+     * mock precisa reproduzir. Um mock que rejeitasse e-mail desconhecido
+     * ensinaria a tela a tratar como erro algo que em produção não chega, e o
+     * tratamento errado só apareceria com uma família de verdade na frente.
+     */
+    async requestPasswordReset() {
+      return delay(undefined, 250);
+    },
+
+    async updatePassword(password) {
+      if (!state.session) {
+        throw new ApiError('invalid_credentials', 'Entre de novo para trocar a senha.');
+      }
+      // A senha não é guardada: o mock aceita qualquer uma para entrar. O que
+      // ele precisa reproduzir é a recusa por senha curta, porque é a única
+      // que a tela trata de forma diferente.
+      if (password.length < 8) {
+        throw new ApiError('unknown', 'A senha precisa ter pelo menos 8 caracteres.');
+      }
+      return delay(undefined, 250);
+    },
     /**
      * O backend em memória não manda e-mail, então não há link de verdade —
      * mas a tela que o recebe precisa de um caminho para exercitar. Aqui

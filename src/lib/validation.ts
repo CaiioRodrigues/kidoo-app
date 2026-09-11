@@ -33,6 +33,23 @@ export const signInSchema = z.object({
   password: z.string().min(1, 'Informe sua senha'),
 });
 
+/** Só o e-mail: é tudo o que a tela de "esqueci a senha" tem para validar. */
+export const passwordResetRequestSchema = z.object({ email: emailSchema });
+
+/**
+ * A senha nova, digitada duas vezes.
+ *
+ * A confirmação existe porque aqui não há como errar e descobrir depois: a
+ * senha antiga já não vale, e um deslize de digitação tranca a pessoa para
+ * fora de novo — que é exatamente o buraco em que ela estava.
+ */
+export const newPasswordSchema = z
+  .object({ password: passwordSchema, confirmation: z.string() })
+  .refine((valor) => valor.password === valor.confirmation, {
+    message: 'As duas senhas precisam ser iguais',
+    path: ['confirmation'],
+  });
+
 export const signUpSchema = z.object({
   name: guardianNameSchema,
   email: emailSchema,
@@ -70,6 +87,7 @@ export const childInterestsSchema = z.object({
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;
+export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type ChildProfileInput = z.infer<typeof childProfileSchema>;
 
