@@ -9,6 +9,7 @@ import { Avatar, Button, Chip, Input, Screen, StepIndicator, Text } from '@/comp
 import { brDateToIso, isoDateToBr, maskBirthDate } from '@/lib/format';
 import { logger } from '@/lib/logger';
 import { ageFromBirthDate, childProfileSchema, fieldErrors } from '@/lib/validation';
+import { useSubscription } from '@/hooks/queries';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Gender } from '@/types/domain';
@@ -26,6 +27,10 @@ export default function ChildProfileScreen() {
   const router = useRouter();
   const draft = useOnboardingStore((state) => state.draft);
   const setProfile = useOnboardingStore((state) => state.setProfile);
+  // Esta tela também é a de "adicionar irmão", vinda do Perfil. Aí o caminho
+  // tem duas etapas, não quatro: a família já escolheu plano.
+  const { data: subscription } = useSubscription();
+  const jaAssina = subscription != null;
 
   const [name, setName] = useState(draft.name);
   const [birthDate, setBirthDate] = useState(draft.birthDate ? isoDateToBr(draft.birthDate) : '');
@@ -78,7 +83,7 @@ export default function ChildProfileScreen() {
 
   return (
     <Screen scroll contentContainerStyle={styles.scroll}>
-      <HeaderBar center={<StepIndicator total={4} current={1} />} />
+      <HeaderBar center={<StepIndicator total={jaAssina ? 2 : 4} current={1} />} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.intro}>

@@ -5,6 +5,7 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar, Button, Card, Divider, Screen, Text, ThemePicker } from '@/components/ui';
 import { BlobBackdrop } from '@/components/brand';
+import { useOnboardingStore } from '@/stores/onboarding-store';
 import { useTutorialStore } from '@/stores/tutorial-store';
 import { confirmAction } from '@/lib/confirm';
 import { formatAge, formatDaysUntil } from '@/lib/format';
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
   const { data: subscription } = useSubscription();
   const [signingOut, setSigningOut] = useState(false);
   const restartTutorial = useTutorialStore((state) => state.restart);
+  const resetRascunho = useOnboardingStore((state) => state.reset);
   const updatePhoto = useUpdateChildPhoto();
   const [trocandoFoto, setTrocandoFoto] = useState<string | null>(null);
   const [erroFoto, setErroFoto] = useState<string | null>(null);
@@ -81,6 +83,20 @@ export default function ProfileScreen() {
     },
     [updatePhoto],
   );
+
+  /**
+   * O rascunho é limpo antes de abrir o formulário.
+   *
+   * Ele vive em memória e sobrevive a um cadastro abandonado no meio. Sem esta
+   * limpeza, quem desistisse na tela de interesses e voltasse depois para
+   * cadastrar outro filho encontraria o formulário preenchido com o nome e a
+   * data de nascimento do anterior — e é o tipo de campo que se confirma sem
+   * reler.
+   */
+  const adicionarCrianca = useCallback(() => {
+    resetRascunho();
+    router.push('/(onboarding)/child');
+  }, [resetRascunho, router]);
 
   const handleReplayTutorial = useCallback(() => {
     restartTutorial();
@@ -142,18 +158,7 @@ export default function ProfileScreen() {
         Crianças
       </Text>
       <Card bordered elevation="none" padded={false}>
-        {children.length === 0 ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/(onboarding)/child')}
-            style={styles.row}
-          >
-            <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
-            <Text variant="body" color={colors.primary} style={styles.flex}>
-              Cadastrar criança
-            </Text>
-          </Pressable>
-        ) : (
+        {children.length > 0 &&
           children.map((child, index) => (
             <View key={child.id}>
               {index > 0 ? <Divider /> : null}
@@ -203,8 +208,25 @@ export default function ProfileScreen() {
                 ) : null}
               </View>
             </View>
-          ))
-        )}
+          ))}
+
+        {/* Sempre presente, e não só com a lista vazia.
+            Até aqui "Cadastrar criança" aparecia apenas quando não havia
+            nenhuma, então a família com dois filhos cadastrava o primeiro e
+            não tinha por onde cadastrar o segundo — o banco sempre aceitou
+            vários, era a tela que fechava a porta. */}
+        {children.length > 0 ? <Divider /> : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={adicionarCrianca}
+          style={styles.row}
+        >
+          <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+          <Text variant="body" color={colors.primary} style={styles.flex}>
+            {children.length === 0 ? 'Cadastrar criança' : 'Adicionar outra criança'}
+          </Text>
+        </Pressable>
+
         {erroFoto ? (
           <Text variant="caption" color={colors.danger}>
             {erroFoto}

@@ -189,7 +189,16 @@ async function subirFotoDaCrianca(
     .storage.from(BUCKET_CRIANCAS)
     .upload(caminho, bytes, { contentType: tipoDaImagem(localUri), upsert: true });
 
-  if (error) throw new ApiError('unknown', 'Não foi possível enviar a foto.');
+  // A mensagem do servidor vai junto, entre parênteses.
+  //
+  // Antes ela era descartada, e "Não foi possível enviar a foto" servia para
+  // bucket inexistente, policy negando, MIME fora da lista e arquivo grande
+  // demais — quatro causas com quatro consertos diferentes, indistinguíveis
+  // de fora. É o mesmo defeito que escondeu o `Error sending confirmation
+  // email` do cadastro de parceiro e custou uma tarde de DNS.
+  if (error) {
+    throw new ApiError('unknown', `Não foi possível enviar a foto. (${error.message})`);
+  }
   return `${BUCKET_CRIANCAS}/${caminho}`;
 }
 

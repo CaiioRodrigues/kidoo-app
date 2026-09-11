@@ -8,7 +8,8 @@ import { Badge, Button, Card, Text } from '@/components/ui';
 import { HeaderBar } from '@/components/navigation';
 import { formatPrice } from '@/lib/format';
 import { toUserMessage } from '@/services';
-import { useCreateChild, usePlans, useSubscribe } from '@/hooks/queries';
+import { usePlans, useSubscribe } from '@/hooks/queries';
+import { useCriarCriancaDoRascunho } from '@/hooks/onboarding';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 import type { Plan, PlanId } from '@/types/domain';
@@ -19,13 +20,11 @@ export default function PlanScreen() {
   const styles = useStyles(makeStyles);
   const router = useRouter();
   const { data: plans = [] } = usePlans();
-  const draft = useOnboardingStore((state) => state.draft);
   const selectedPlanId = useOnboardingStore((state) => state.selectedPlanId);
   const selectPlan = useOnboardingStore((state) => state.selectPlan);
-  const setActiveChild = useOnboardingStore((state) => state.setActiveChild);
   const reset = useOnboardingStore((state) => state.reset);
 
-  const createChild = useCreateChild();
+  const { criar, criando } = useCriarCriancaDoRascunho();
   const subscribe = useSubscribe();
   const [error, setError] = useState<string | null>(null);
 
@@ -38,20 +37,8 @@ export default function PlanScreen() {
 
     try {
       // Esta tela também é usada por quem só quer assinar (já tem criança
-      // cadastrada). Sem rascunho preenchido, não há criança nova para criar.
-      const hasDraft = draft.name.trim().length > 0 && draft.birthDate.length > 0;
-
-      if (hasDraft) {
-        // O cadastro da criança só é enviado agora, ao final do fluxo consentido.
-        const child = await createChild.mutateAsync({
-          name: draft.name,
-          birthDate: draft.birthDate,
-          gender: draft.gender,
-          photoUri: draft.photoUri,
-          interests: draft.interests,
-        });
-        setActiveChild(child.id);
-      }
+      // cadastrada); nesse caso `criar` devolve `null` e não há o que criar.
+      await criar();
 
       await subscribe.mutateAsync(activePlanId);
 
@@ -60,9 +47,9 @@ export default function PlanScreen() {
     } catch (caught) {
       setError(toUserMessage(caught));
     }
-  }, [activePlanId, createChild, draft, reset, router, setActiveChild, subscribe]);
+  }, [activePlanId, criar, reset, router, subscribe]);
 
-  const submitting = createChild.isPending || subscribe.isPending;
+  const submitting = criando || subscribe.isPending;
 
   return (
     <View style={styles.container}>
