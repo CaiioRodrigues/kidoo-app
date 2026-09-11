@@ -1,3 +1,4 @@
+import { erroDeEnvio } from '@app/lib/erro-de-envio';
 import { mensagemDeAuth } from '@/mensagens-de-auth';
 import { supabase } from '@/supabase';
 import { PainelError } from './types';
@@ -113,11 +114,16 @@ async function criarConta(email: string, senha: string): Promise<ResultadoDaCont
 /**
  * Manda o link de redefinição.
  *
- * O erro é engolido — e só aqui. Ele distingue "e-mail não cadastrado" de
- * "limite de envio atingido", e propagar essa diferença faria da tela um
- * verificador: quem quisesse saber quais estabelecimentos são parceiros do
- * Kidoo bastaria tentar aqui. O preço é o limite de envio passar calado, e a
- * tela já cobre isso dizendo para conferir a caixa antes de pedir outro.
+ * O que pode ser dito sobre a falha vem de `erroDeEnvio`, o mesmo módulo que o
+ * app usa: ele separa os erros que valem para todo endereço igualmente —
+ * destino fora das Redirect URLs, SMTP recusando — dos que dependeriam do
+ * e-mail digitado. Os primeiros passam; os outros, e todo desconhecido, ficam
+ * calados, senão a tela viraria um verificador de quais estabelecimentos são
+ * parceiros do Kidoo.
+ *
+ * Regra compartilhada e não copiada de propósito: duas cópias é como um lado
+ * ganharia um caso que o outro não tem, e aqui isso significaria um vazamento
+ * num dos dois.
  *
  * `redirectTo` é a origem do painel, sem caminho novo: o link volta para a
  * mesma página que o de confirmação já usa, e é o `type=recovery` no fim da
@@ -125,9 +131,15 @@ async function criarConta(email: string, senha: string): Promise<ResultadoDaCont
  * endereço a mais nas Redirect URLs do projeto.
  */
 async function pedirNovaSenha(email: string): Promise<void> {
-  await supabase().auth.resetPasswordForEmail(email, {
+  const { error } = await supabase().auth.resetPasswordForEmail(email, {
     redirectTo: window.location.origin,
   });
+  if (!error) return;
+
+  const dizivel = erroDeEnvio(error.message);
+  if (dizivel) throw new PainelError(dizivel);
+  // Calado de propósito: a tela segue para "confira seu e-mail", que é a mesma
+  // resposta que um endereço sem conta recebe.
 }
 
 async function definirNovaSenha(senha: string): Promise<void> {

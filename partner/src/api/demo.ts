@@ -169,10 +169,14 @@ export const demoApi: PainelApi = {
   },
 
   /**
-   * Não manda e-mail e não falha nunca — que é o comportamento do real visto
-   * de fora. O adapter do Supabase engole o erro de propósito para a tela não
-   * virar um verificador de quem é parceiro; uma demonstração que recusasse
-   * e-mail desconhecido quebraria a paridade no ponto mais perigoso.
+   * Não manda e-mail e não falha nunca.
+   *
+   * O real falha só em erro de configuração do projeto Supabase — destino fora
+   * das Redirect URLs, SMTP recusando — e não há projeto atrás da
+   * demonstração. O que ele nunca faz é recusar por o e-mail não ter conta, e
+   * é essa parte que importa reproduzir: uma demonstração que recusasse
+   * e-mail desconhecido ensinaria a tela a tratar como erro algo que em
+   * produção não chega.
    */
   async pedirNovaSenha() {
     await espera(null, 420);

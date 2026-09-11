@@ -224,13 +224,15 @@ export const mockApi: KidooApi = {
     },
 
     /**
-     * Não manda e-mail nenhum, e não falha nunca — que é exatamente o
-     * comportamento do real visto de fora.
+     * Não manda e-mail nenhum, e não falha nunca.
      *
-     * O adapter do Supabase engole o erro de propósito, para a tela não virar
-     * um verificador de quais e-mails têm conta. Um mock que rejeitasse
-     * e-mail desconhecido quebraria essa paridade no lugar mais perigoso: a
-     * tela passaria a tratar como erro algo que em produção nunca chega.
+     * O real falha em dois casos, e nenhum deles existe aqui: destino fora das
+     * Redirect URLs e SMTP recusando são erros de configuração de um projeto
+     * Supabase, e não há projeto nenhum atrás deste backend. O que o real
+     * NUNCA faz é recusar por o e-mail não ter conta — e é essa parte que o
+     * mock precisa reproduzir. Um mock que rejeitasse e-mail desconhecido
+     * ensinaria a tela a tratar como erro algo que em produção não chega, e o
+     * tratamento errado só apareceria com uma família de verdade na frente.
      */
     async requestPasswordReset() {
       return delay(undefined, 250);

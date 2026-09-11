@@ -104,8 +104,27 @@ Não é esta tela que está quebrada; é o SMTP ou a lista de Redirect URLs.
 - Nada nos logs → o pedido nem chegou. Confira `VITE_SUPABASE_URL` no painel e
   `EXPO_PUBLIC_SUPABASE_URL` no app.
 
-Há um limite de envios por hora no Supabase. Ele é engolido de propósito pelo
-app e pelo painel — propagá-lo revelaria a diferença entre "e-mail não existe"
-e "limite atingido", e essa diferença é a que entrega quais e-mails têm conta.
-O preço é que um limite estourado passa calado: se o e-mail não chega e os logs
-não acusam nada, confira o limite antes de procurar defeito no código.
+### O que a tela diz, e o que ela cala
+
+Um erro que vale para **todo endereço igualmente** aparece na tela, com a frase
+crua do servidor entre parênteses:
+
+- destino fora das Redirect URLs;
+- SMTP recusando o envio;
+- limite de e-mails por hora do projeto atingido.
+
+Nenhum deles conta nada sobre o e-mail digitado — são idênticos para qualquer
+endereço do mundo —, e mostrá-los é o que transforma uma captura de tela em
+diagnóstico. Foi assim que o erro do SMTP foi finalmente encontrado.
+
+Tudo o mais fica calado, inclusive o desconhecido: um erro que a regra não
+reconhece **pode** depender do e-mail digitado, e aí a tela viraria um
+verificador de quais famílias são clientes do Kidoo. A separação é por lista de
+permitidos, não de proibidos, exatamente por isso.
+
+O caso mais sutil que fica de fora: o intervalo **por endereço** ("you can only
+request this after 60 seconds"). Ele só existe depois de um envio ter
+acontecido para aquele e-mail, então responder "espere um minuto" a um endereço
+e "pronto" a outro separaria os dois. Se o e-mail não chega, a tela não acusa
+nada e os logs não mostram erro, é provavelmente esse intervalo — espere um
+minuto e peça de novo.

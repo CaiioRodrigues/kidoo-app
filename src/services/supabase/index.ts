@@ -29,6 +29,7 @@ import { ApiError, type ApiErrorCode } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
 import { buildAchievements } from '@/lib/achievements';
 import { linkDeConfirmacao, linkDeNovaSenha } from '@/lib/deep-link';
+import { erroDeEnvio } from '@/lib/erro-de-envio';
 import { MAX_LEVEL, bonusForLevel, levelFromXp } from '@/lib/levels';
 import { rankForChild } from '@/lib/recommendation';
 import { ehArquivoLocal, lerArquivoLocal, tipoDaImagem } from '@/lib/upload';
@@ -476,19 +477,29 @@ export const supabaseApi: KidooApi = {
     /**
      * Manda o link de redefinição.
      *
-     * O erro do Supabase é engolido de propósito — e só este. Ele distingue
-     * "e-mail não cadastrado" de "limite de envio atingido", e propagar essa
-     * diferença faria desta tela um verificador de cadastro: quem quisesse
-     * saber se um endereço tem conta no Kidoo bastaria tentar aqui. O preço é
-     * que um limite de envio também passa em silêncio, e a tela já cobre isso
-     * dizendo para conferir a caixa e tentar de novo em alguns minutos.
+     * O que pode ser dito sobre a falha não é decidido aqui: `erroDeEnvio`
+     * separa os erros que valem para todo endereço igualmente — destino fora
+     * das Redirect URLs, SMTP recusando — dos que dependeriam do e-mail
+     * digitado. Os primeiros passam; os outros, e todo desconhecido, ficam
+     * calados.
+     *
+     * A primeira versão disto engolia tudo, para a tela não virar um
+     * verificador de quais famílias são clientes. Só que aí ela engolia junto a
+     * configuração quebrada: a tela dizia "confira seu e-mail", nada chegava, e
+     * o motivo só existia em Authentication → Logs.
      */
     async requestPasswordReset(email) {
-      await supabase().auth.resetPasswordForEmail(email, {
+      const { error } = await supabase().auth.resetPasswordForEmail(email, {
         // Volta para o APP, não para o "Site URL" do projeto (o painel dos
         // parceiros) — mesma armadilha do link de confirmação.
         redirectTo: linkDeNovaSenha(),
       });
+      if (!error) return;
+
+      const dizivel = erroDeEnvio(error.message);
+      if (dizivel) throw new ApiError('unknown', dizivel);
+      // Calado de propósito: a tela segue para "confira seu e-mail", que é a
+      // mesma resposta que um endereço sem conta recebe.
     },
 
     async updatePassword(password) {
