@@ -1,4 +1,4 @@
-import { erroDeEnvio } from '@app/lib/erro-de-envio';
+import { erroDeEnvio } from '@shared/erro-de-envio';
 import { mensagemDeAuth } from '@/mensagens-de-auth';
 import { supabase } from '@/supabase';
 import { PainelError } from './types';

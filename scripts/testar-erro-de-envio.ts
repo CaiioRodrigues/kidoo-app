@@ -15,7 +15,7 @@
  *
  * `npm run test:erro-de-envio`
  */
-import { erroDeEnvio } from '@/lib/erro-de-envio';
+import { erroDeEnvio } from '@shared/erro-de-envio';
 
 const falhas: string[] = [];
 const ok = (cond: boolean, msg: string) => {

@@ -34,6 +34,10 @@ export default defineConfig(({ command, mode }) => {
       // curva de níveis. É um repositório só justamente para isso — se o tipo
       // fosse copiado, uma mudança no app só apareceria aqui quando quebrasse.
       '@app': fileURLToPath(new URL('../src', import.meta.url)),
+      // Só o que está aqui pode ser importado como VALOR pelos dois lados.
+      // `@app/*` serve para tipo, que o compilador apaga — e por isso nunca
+      // exigiu que o Vite compilasse um arquivo do app.
+      '@shared': fileURLToPath(new URL('../shared', import.meta.url)),
     },
   },
   server: {

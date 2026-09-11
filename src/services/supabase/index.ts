@@ -29,7 +29,7 @@ import { ApiError, type ApiErrorCode } from '../errors';
 import type { ActivityFilters, KidooApi } from '../types';
 import { buildAchievements } from '@/lib/achievements';
 import { linkDeConfirmacao, linkDeNovaSenha } from '@/lib/deep-link';
-import { erroDeEnvio } from '@/lib/erro-de-envio';
+import { erroDeEnvio } from '@shared/erro-de-envio';
 import { MAX_LEVEL, bonusForLevel, levelFromXp } from '@/lib/levels';
 import { rankForChild } from '@/lib/recommendation';
 import { ehArquivoLocal, lerArquivoLocal, tipoDaImagem } from '@/lib/upload';
