@@ -37,6 +37,14 @@ type AuthState = {
   updatePassword: (password: string) => Promise<void>;
   /** Entra com a sessão que veio no link do e-mail de confirmação. */
   confirmByLink: (tokens: { accessToken: string; refreshToken: string }) => Promise<void>;
+  /**
+   * Troca a foto do responsável e guarda o resultado na sessão.
+   *
+   * Mora aqui, e não numa mutation do React Query, porque quem exibe o rosto é
+   * o cabeçalho do Perfil e ele lê da sessão. Uma cópia em cache separado
+   * deixaria as duas fontes discordando até o próximo `restore`.
+   */
+  trocarFoto: (photoUri: string | null) => Promise<void>;
   signOut: () => Promise<void>;
 
   /**
@@ -89,7 +97,7 @@ async function registrarAparelho(): Promise<PushStatus> {
  */
 let tokenAtual: string | null = null;
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   status: 'idle',
   session: null,
   push: 'checando',
@@ -166,6 +174,16 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   async updatePassword(password) {
     await api.auth.updatePassword(password);
+  },
+
+  async trocarFoto(photoUri) {
+    const guardian = await api.profile.updatePhoto(photoUri);
+    // A sessão é relida depois do envio, e não capturada antes: subir a foto
+    // demora, e nesse meio-tempo a pessoa pode ter saído da conta. Escrever
+    // sobre a sessão antiga ressuscitaria um login já encerrado.
+    const depois = get().session;
+    if (!depois || depois.guardian.id !== guardian.id) return;
+    set({ session: { ...depois, guardian } });
   },
 
   async signOut() {

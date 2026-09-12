@@ -23,6 +23,13 @@ export type Guardian = {
   email: string;
   city: string;
   createdAt: IsoDateTime;
+  /**
+   * Foto do responsável, pronta para exibir.
+   *
+   * Vem assinada e com validade curta — o bucket é privado. É `null` para
+   * quem nunca colocou nenhuma, e o avatar volta a ser as iniciais.
+   */
+  photoUri: string | null;
 };
 
 export type Child = {
