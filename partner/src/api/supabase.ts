@@ -167,11 +167,18 @@ async function meusParceiros(): Promise<Partner[]> {
   const linhas = ok(
     await supabase()
       .from('partner_members')
-      .select('role, partner:partners(id, name, neighborhood, city)')
+      .select('role, partner:partners(id, name, neighborhood, city, address, phone)')
       .returns<
         {
           role: string;
-          partner: { id: string; name: string; neighborhood: string; city: string } | null;
+          partner: {
+            id: string;
+            name: string;
+            neighborhood: string;
+            city: string;
+            address: string | null;
+            phone: string | null;
+          } | null;
         }[]
       >(),
     'Não foi possível identificar seu estabelecimento.',
@@ -183,6 +190,36 @@ async function meusParceiros(): Promise<Partner[]> {
     .filter((l): l is typeof l & { partner: NonNullable<typeof l.partner> } => l.partner !== null)
     .map((l) => ({ ...l.partner, role: l.role }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+}
+
+/**
+ * Grava endereço e telefone.
+ *
+ * `update` direto na tabela, e não RPC: não há regra de concorrência aqui —
+ * dois funcionários salvando ao mesmo tempo, o último ganha, e para um campo de
+ * texto esse é o comportamento certo. A RLS (`partner_reads_own`) garante que a
+ * linha é dele, e o `grant` por coluna garante que `verified` e a coordenada
+ * não entram na mesma requisição, nem que alguém tente.
+ *
+ * Em branco vira `null`: as duas formas significam "não tem", e deixar as duas
+ * chegarem ao app obrigaria toda tela de lá a testar os dois casos para sempre.
+ */
+async function salvarLocal(
+  partnerId: string,
+  dados: { address: string; phone: string },
+): Promise<{ address: string | null; phone: string | null }> {
+  return ok(
+    await supabase()
+      .from('partners')
+      .update({ address: dados.address.trim() || null, phone: dados.phone.trim() || null })
+      .eq('id', partnerId)
+      // Só os dois campos, e não o `Partner` inteiro: o papel de quem está
+      // logado vive em `partner_members`, não nesta linha, e devolvê-lo
+      // chutado seria pior do que não devolvê-lo. Quem chamou já tem o resto.
+      .select('address, phone')
+      .single<{ address: string | null; phone: string | null }>(),
+    'Não foi possível salvar os dados do local.',
+  );
 }
 
 // ------------------------------------------------------------------ agenda --
@@ -656,6 +693,7 @@ export const supabaseApi: PainelApi = {
   definirNovaSenha,
   sair,
   meusParceiros,
+  salvarLocal,
   agenda,
   listaDaTurma,
   confirmarPresenca,

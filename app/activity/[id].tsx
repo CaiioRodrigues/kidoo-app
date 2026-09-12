@@ -32,7 +32,15 @@ import {
 } from '@/hooks/queries';
 import { PreferenceKeys } from '@/lib/preferences';
 import { bookedSessionIds, type ClassSession } from '@/types/domain';
-import { categoryTone, radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import {
+  categoryTone,
+  hitSlop,
+  radius,
+  spacing,
+  useStyles,
+  useTheme,
+  type ThemeColors,
+} from '@/theme';
 
 const BLURHASH = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
@@ -68,9 +76,7 @@ export default function ActivityDetailScreen() {
   const { data: waitlist = [] } = useWaitlist();
   const waiting = useMemo(
     () =>
-      new Set(
-        waitlist.filter((item) => item.childId === child?.id).map((item) => item.sessionId),
-      ),
+      new Set(waitlist.filter((item) => item.childId === child?.id).map((item) => item.sessionId)),
     [waitlist, child?.id],
   );
   const joinWaitlist = useJoinWaitlist();
@@ -182,12 +188,22 @@ export default function ActivityDetailScreen() {
           </Text>
         </View>
 
-        <View style={styles.metaRow}>
-          <Ionicons name="business-outline" size={15} color={colors.textFaint} />
-          <Text variant="label" color={colors.textMuted} style={styles.flex}>
+        {/* O nome do local abre o local: endereço, telefone, mapa e o que mais
+            ele oferece. Quem está escolhendo entre duas escolinhas decide muito
+            por onde fica uma e onde fica a outra. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Ver ${activity.partner.name}: endereço, telefone e mapa`}
+          onPress={() => router.push(`/partner/${activity.partner.id}`)}
+          hitSlop={hitSlop}
+          style={styles.metaRow}
+        >
+          <Ionicons name="business-outline" size={15} color={colors.primary} />
+          <Text variant="label" color={colors.primary} style={styles.flex}>
             {activity.partner.name}
           </Text>
-        </View>
+          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+        </Pressable>
 
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={15} color={colors.textFaint} />
@@ -237,8 +253,7 @@ export default function ActivityDetailScreen() {
               </Text>
             ) : sessions.length === 0 ? (
               <Text variant="caption" color={colors.textMuted}>
-                Nenhuma turma publicada por enquanto. O parceiro libera novos horários toda
-                semana.
+                Nenhuma turma publicada por enquanto. O parceiro libera novos horários toda semana.
               </Text>
             ) : (
               <>

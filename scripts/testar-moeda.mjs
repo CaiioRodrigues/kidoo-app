@@ -24,8 +24,9 @@
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { inflateSync } from 'node:zlib';
 import { chromium } from 'playwright';
+
+import { pixels } from './lib/png.mjs';
 
 const BASE = process.env.KIDOO_URL ?? 'http://localhost:8095/';
 const executablePath = process.env.CHROMIUM_PATH || undefined;
@@ -74,95 +75,6 @@ for (const c of comEmoji) console.error(`FALHA  ${c} usa o emoji da moeda`);
 ok(comEmoji.length === 0, 'nenhuma tela usa o emoji da moeda — só comentário explicando');
 
 // ------------------------------------------------- metade 2: o que é pintado --
-
-/**
- * PNG → pixels.
- *
- * Escrito à mão porque não há decodificador de imagem entre as dependências, e
- * carregar um pacote inteiro para contar pixels amarelos seria desproporcional.
- *
- * Cobre 8 bits em RGB e em RGBA: o Playwright entrega um ou outro conforme o
- * recorte tenha transparência, e a primeira versão disto assumia RGBA e
- * desistia num PNG perfeitamente válido. Os cinco filtros estão implementados
- * pelo mesmo motivo — o codificador escolhe um por linha, e não cabe a este
- * script opinar sobre a escolha.
- */
-function pixels(buffer) {
-  let pos = 8; // assinatura
-  let largura = 0;
-  let altura = 0;
-  let canais = 0;
-  const partes = [];
-
-  while (pos < buffer.length) {
-    const tamanho = buffer.readUInt32BE(pos);
-    const tipo = buffer.toString('ascii', pos + 4, pos + 8);
-    const dados = buffer.subarray(pos + 8, pos + 8 + tamanho);
-    if (tipo === 'IHDR') {
-      largura = dados.readUInt32BE(0);
-      altura = dados.readUInt32BE(4);
-      const profundidade = dados[8];
-      const cor = dados[9];
-      if (profundidade !== 8 || (cor !== 2 && cor !== 6)) {
-        throw new Error(`PNG inesperado: profundidade ${profundidade}, cor ${cor}`);
-      }
-      canais = cor === 2 ? 3 : 4;
-    } else if (tipo === 'IDAT') {
-      partes.push(dados);
-    } else if (tipo === 'IEND') {
-      break;
-    }
-    pos += 12 + tamanho;
-  }
-
-  const cru = inflateSync(Buffer.concat(partes));
-  const porLinha = largura * canais;
-  const saida = Buffer.alloc(altura * porLinha);
-
-  for (let y = 0; y < altura; y += 1) {
-    const filtro = cru[y * (porLinha + 1)];
-    const entrada = cru.subarray(y * (porLinha + 1) + 1, (y + 1) * (porLinha + 1));
-    const inicio = y * porLinha;
-
-    for (let x = 0; x < porLinha; x += 1) {
-      const esquerda = x >= canais ? saida[inicio + x - canais] : 0;
-      const acima = y > 0 ? saida[inicio - porLinha + x] : 0;
-      const diagonal = y > 0 && x >= canais ? saida[inicio - porLinha + x - canais] : 0;
-      let soma;
-      switch (filtro) {
-        case 0:
-          soma = 0;
-          break;
-        case 1:
-          soma = esquerda;
-          break;
-        case 2:
-          soma = acima;
-          break;
-        case 3:
-          soma = (esquerda + acima) >> 1;
-          break;
-        case 4:
-          soma = paeth(esquerda, acima, diagonal);
-          break;
-        default:
-          throw new Error(`filtro PNG desconhecido: ${filtro}`);
-      }
-      saida[inicio + x] = (entrada[x] + soma) & 0xff;
-    }
-  }
-  return { largura, altura, canais, dados: saida };
-}
-
-/** O preditor Paeth da especificação do PNG: escolhe o vizinho mais próximo. */
-function paeth(a, b, c) {
-  const p = a + b - c;
-  const pa = Math.abs(p - a);
-  const pb = Math.abs(p - b);
-  const pc = Math.abs(p - c);
-  if (pa <= pb && pa <= pc) return a;
-  return pb <= pc ? b : c;
-}
 
 /** Quanto da imagem está perto do amarelo da face, de 0 a 1. */
 function fracaoAmarela({ largura, altura, canais, dados }) {

@@ -53,6 +53,8 @@ export type ActivityRow = {
   partner_verified: boolean;
   partner_latitude: number;
   partner_longitude: number;
+  partner_address: string | null;
+  partner_phone: string | null;
   coin_cost: number | null;
   next_session_at: string | null;
   open_sessions: number;
@@ -101,7 +103,11 @@ export type BookingRow = {
   payment: { fromBonus?: number; fromSubscription?: number; total?: number } | null;
   check_in: { code: string; issuedAt: string; expiresAt: string } | null;
   partner_confirmed_at: string | null;
-  check_in_proof: { locationVerified?: boolean; distanceM?: number | null; mocked?: boolean } | null;
+  check_in_proof: {
+    locationVerified?: boolean;
+    distanceM?: number | null;
+    mocked?: boolean;
+  } | null;
   reward: { xpEarned?: number; levelUp?: BookingReward['levelUp'] } | null;
 };
 
@@ -194,6 +200,8 @@ export function toActivity(row: ActivityRow, origin?: Coords): Activity {
     verified: row.partner_verified,
     latitude: row.partner_latitude,
     longitude: row.partner_longitude,
+    address: row.partner_address,
+    phone: row.partner_phone,
   };
 
   return {

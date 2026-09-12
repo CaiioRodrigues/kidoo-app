@@ -30,7 +30,21 @@ const PARCEIRO: Partner = {
   neighborhood: 'Buritis',
   city: 'Belo Horizonte',
   role: 'owner',
+  // Preenchidos, porque é assim que chegam de verdade: os dois vêm do
+  // formulário de cadastro, que sempre exigiu rua e telefone. A demonstração
+  // com campos vazios daria a impressão errada de que há digitação esperando.
+  address: 'Rua Professor Estêvão Pinto, 480 — Buritis',
+  phone: '(31) 3291-4400',
 };
+
+/**
+ * O que "Meu local" já gravou nesta sessão de demonstração.
+ *
+ * Mutável, e é o ponto: sem isto o formulário salvaria, diria que salvou e
+ * mostraria o valor antigo de volta na próxima visita — que é exatamente o
+ * defeito que a demonstração existe para não ter.
+ */
+let local: Partner = { ...PARCEIRO };
 
 // Uma com imagem própria e duas sem: é como o painel fica de verdade no
 // começo, e é o que deixa a diferença visível na demonstração.
@@ -200,7 +214,16 @@ export const demoApi: PainelApi = {
   },
 
   async meusParceiros() {
-    return espera([PARCEIRO]);
+    return espera([{ ...local }]);
+  },
+
+  async salvarLocal(_partnerId, dados) {
+    const address = dados.address.trim();
+    const phone = dados.phone.trim();
+    // Em branco vira `null`, igual ao adapter de verdade: se a demonstração
+    // guardasse string vazia, a tela pareceria funcionar aqui e divergiria lá.
+    local = { ...local, address: address || null, phone: phone || null };
+    return espera({ address: local.address, phone: local.phone });
   },
 
   async agenda(de, ate) {

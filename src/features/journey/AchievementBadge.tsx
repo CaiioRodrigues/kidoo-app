@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { AchievementIcon } from './AchievementIcon';
 import { Text } from '@/components/ui';
 import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { Achievement } from '@/types/domain';
@@ -13,9 +14,18 @@ export function AchievementBadge({ achievement }: { achievement: Achievement }) 
   return (
     <View
       style={[styles.badge, unlocked ? styles.unlocked : styles.locked]}
-      accessibilityLabel={`${achievement.label}${unlocked ? '' : ', ainda bloqueada'}`}
+      // A dica só entra quando ainda há o que buscar. Na destravada ela seria
+      // ruído: quem já fez cinco aulas não precisa que leiam "complete 5 aulas".
+      accessibilityLabel={
+        unlocked ? achievement.label : `${achievement.label}, bloqueada. ${achievement.hint}`
+      }
     >
-      <Text style={[styles.emoji, !unlocked && styles.dimmed]}>{achievement.emoji}</Text>
+      <AchievementIcon
+        icon={achievement.icon}
+        tone={achievement.tone}
+        size={40}
+        locked={!unlocked}
+      />
       <Text
         variant="caption"
         color={unlocked ? colors.text : colors.textFaint}
@@ -32,7 +42,7 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     badge: {
       flex: 1,
-      minHeight: 92,
+      minHeight: 104,
       alignItems: 'center',
       justifyContent: 'center',
       gap: spacing.xs,
@@ -45,6 +55,4 @@ const makeStyles = (colors: ThemeColors) =>
     },
     unlocked: { backgroundColor: colors.primaryTint, borderColor: colors.primarySoft },
     locked: { backgroundColor: colors.backgroundMuted, borderColor: colors.border },
-    emoji: { fontSize: 26, lineHeight: 32 },
-    dimmed: { opacity: 0.35 },
   });

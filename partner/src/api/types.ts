@@ -17,6 +17,16 @@ export type Partner = {
   neighborhood: string;
   city: string;
   role: string;
+  /**
+   * Endereço da rua e telefone, como a família os vê no app.
+   *
+   * Nulos até alguém preencher, e a maioria está nula: as duas colunas
+   * nasceram depois dos parceiros. Quem preenche é o próprio estabelecimento,
+   * na aba "Meu local" — ninguém do Kidoo sabe o número da porta melhor que
+   * ele, e pedir isso por e-mail é uma planilha que envelhece.
+   */
+  address: string | null;
+  phone: string | null;
 };
 
 export type AgendaRow = {
@@ -218,6 +228,22 @@ export type PainelApi = {
    */
   trocarImagem(activityId: string, arquivo: File): Promise<string>;
   extrato(meses?: number): Promise<StatementRow[]>;
+  /**
+   * Grava o endereço e o telefone que a família vê no app.
+   *
+   * Só estes dois: `verified` é o selo, e a coordenada é a prova de distância
+   * do check-in — quem move a própria coordenada move o portão junto. O banco
+   * concorda, e não por educação: o `grant` de update em `partners` lista as
+   * colunas uma a uma desde a migration 000016.
+   *
+   * Texto em branco vira `null`, e não string vazia: as duas significam "não
+   * tem", e guardar as duas faria a tela do app ter de tratar os dois casos
+   * para sempre.
+   */
+  salvarLocal(
+    partnerId: string,
+    dados: { address: string; phone: string },
+  ): Promise<{ address: string | null; phone: string | null }>;
   /** Há uma sessão ativa agora? */
   sessaoAtiva(): Promise<boolean>;
 

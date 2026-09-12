@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 
 import { HeaderBar } from '@/components/navigation';
@@ -18,7 +18,7 @@ import { confirmAction } from '@/lib/confirm';
 import { useLocationStore } from '@/stores/location-store';
 import { toUserMessage } from '@/services';
 import { useBooking, useCancelBooking, useCheckIn } from '@/hooks/queries';
-import { radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import { hitSlop, radius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 
 const CONFETTI = ['🎉', '⭐', '🎈', '✨', '🎊', '💜'];
 
@@ -185,7 +185,11 @@ export default function CheckInScreen() {
         </Animated.View>
 
         <Text variant="title" center style={styles.title}>
-          {confirmed ? 'Presença confirmada!' : done ? 'Check-in realizado!' : 'Reserva confirmada!'}
+          {confirmed
+            ? 'Presença confirmada!'
+            : done
+              ? 'Check-in realizado!'
+              : 'Reserva confirmada!'}
         </Text>
         <Text variant="body" color={colors.textMuted} center>
           {confirmed
@@ -205,9 +209,24 @@ export default function CheckInScreen() {
             <Text variant="bodyStrong" numberOfLines={1}>
               {booking.activity.title}
             </Text>
-            <Text variant="caption" color={colors.textMuted} numberOfLines={1}>
-              {booking.activity.partner.name}
-            </Text>
+            {/*
+              O nome do local leva ao local. É aqui, na reserva já feita, que a
+              pergunta "como eu chego lá?" acontece de verdade — antes de
+              reservar ainda se está escolhendo, depois de reservar se está
+              indo. Até agora este nome era texto morto.
+            */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Ver ${booking.activity.partner.name}: endereço, telefone e mapa`}
+              onPress={() => router.push(`/partner/${booking.activity.partner.id}`)}
+              hitSlop={hitSlop}
+              style={styles.localLink}
+            >
+              <Text variant="caption" color={colors.primary} numberOfLines={1}>
+                {booking.activity.partner.name}
+              </Text>
+              <Ionicons name="chevron-forward" size={13} color={colors.primary} />
+            </Pressable>
           </View>
         </View>
         <Text variant="label" color={colors.textMuted}>
@@ -304,7 +323,6 @@ export default function CheckInScreen() {
                 onPress={() => void handleShare()}
               />
             ) : null}
-
           </>
         ) : done ? (
           <>
@@ -363,7 +381,6 @@ export default function CheckInScreen() {
           </>
         )}
       </View>
-
 
       {shareData ? (
         // Renderizado fora da área visível: existe só para virar imagem.
@@ -446,4 +463,5 @@ const makeStyles = (colors: ThemeColors) =>
     },
     mascot: { fontSize: 30 },
     flex: { flex: 1 },
+    localLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xxs },
   });

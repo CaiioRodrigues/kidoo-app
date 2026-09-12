@@ -8,6 +8,7 @@ import type {
   CheckInResult,
   Child,
   Journey,
+  Partner,
   Plan,
   PlanId,
   RatingSummary,
@@ -103,6 +104,19 @@ export type KidooApi = {
     activity(id: string, origin?: Coords): Promise<Activity>;
     /** Turmas com vaga aberta, da mais próxima para a mais distante. */
     sessions(activityId: string): Promise<ClassSession[]>;
+    /**
+     * O estabelecimento e o que ele oferece.
+     *
+     * Existe porque o lugar da aula era um nome sem página: a família sabia
+     * onde ia a criança e não tinha como descobrir o endereço, o telefone nem
+     * o que mais aquele lugar oferece sem voltar à busca e procurar de novo.
+     *
+     * Devolve os dois juntos, e não um `partner(id)` mais um
+     * `activities({partnerId})`: a tela mostra os dois ao mesmo tempo, e em
+     * duas chamadas ela teria dois carregamentos e dois erros possíveis para
+     * uma informação só.
+     */
+    partner(id: string, origin?: Coords): Promise<{ partner: Partner; activities: Activity[] }>;
     recommended(childId: string, origin?: Coords): Promise<Activity[]>;
     /** Comentários da atividade, mais recentes primeiro, com o resumo das notas. */
     reviews(activityId: string): Promise<{ summary: RatingSummary; reviews: Review[] }>;
