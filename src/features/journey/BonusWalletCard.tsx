@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { Card, Text } from '@/components/ui';
@@ -22,7 +23,7 @@ export function BonusWalletCard({ wallet }: { wallet: BonusWallet }) {
     <Card bordered elevation="none" style={styles.card}>
       <View style={styles.header}>
         <View style={styles.icon}>
-          <Text style={styles.emoji}>🎁</Text>
+          <Ionicons name="gift" size={22} color={colors.primary} />
         </View>
         <View style={styles.flex}>
           <Text variant="bodyStrong">
@@ -64,7 +65,6 @@ const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
       justifyContent: 'center',
       backgroundColor: palette.pinkSoft,
     },
-    emoji: { fontSize: 22 },
     expiry: {
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,

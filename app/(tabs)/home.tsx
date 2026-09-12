@@ -32,6 +32,7 @@ import { blobRadius, categoryTone, spacing, useStyles, useTheme, type ThemeColor
 import { EstadoDaAssinatura } from '@/features/subscription';
 import { daysUntilReset } from '@/lib/subscription';
 import { formatDaysUntil } from '@/lib/format';
+import { comArtigo } from '@/lib/genero';
 import type { Activity } from '@/types/domain';
 
 const XP_PER_LEVEL = 1000;
@@ -82,9 +83,13 @@ export default function HomeScreen() {
           <Text variant="display" numberOfLines={1} style={styles.hello}>
             {firstName ? `Olá, ${firstName}!` : 'Olá!'}
           </Text>
-          <Text variant="body" color={colors.textMuted} numberOfLines={1}>
-            {childName
-              ? `Como vamos movimentar o ${childName} hoje?`
+          {/* Duas linhas: a frase carrega o nome da criança, e num aparelho de
+              390px ela já era cortada em "movimentar a Alice h…" com uma só.
+              Nome curto continua cabendo numa linha — o limite só entra em
+              ação quando faz falta. */}
+          <Text variant="body" color={colors.textMuted} numberOfLines={2}>
+            {activeChild && childName
+              ? `Como vamos movimentar ${comArtigo(childName, activeChild.gender)} hoje?`
               : 'Vamos encontrar a atividade certa?'}
           </Text>
         </View>
