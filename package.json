@@ -57,6 +57,7 @@
     "test:conquistas": "npx tsx scripts/testar-conquistas.ts",
     "test:erro-de-envio": "npx tsx scripts/testar-erro-de-envio.ts",
     "test:filesystem": "node scripts/testar-filesystem.mjs",
+    "test:foto-do-responsavel": "node scripts/testar-foto-do-responsavel.mjs",
     "test:irmaos": "node scripts/testar-irmaos.mjs",
     "test:link": "npx tsx scripts/testar-link.ts",
     "test:local": "npx tsx scripts/testar-local.ts",

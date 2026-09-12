@@ -174,6 +174,7 @@ function run(result: { error: PostgrestError | null }, fallback: string): void {
 // ------------------------------------------------------------ auxiliares ----
 
 const BUCKET_CRIANCAS = 'criancas';
+const BUCKET_RESPONSAVEIS = 'responsaveis';
 /** Uma hora é bem mais que o tempo de uma tela aberta, e curto para um link vazado. */
 const VALIDADE_URL_S = 3600;
 
@@ -188,19 +189,14 @@ const VALIDADE_URL_S = 3600;
  * deixaria o arquivo anterior no bucket para sempre — e são fotos de criança
  * acumulando sem dono.
  */
-async function subirFotoDaCrianca(
-  guardianId: string,
-  childId: string,
-  localUri: string,
-): Promise<string> {
+async function subirFoto(bucket: string, caminho: string, localUri: string): Promise<string> {
   const bytes = await lerArquivoLocal(localUri);
   if (bytes.byteLength === 0) {
     throw new ApiError('unknown', 'A foto veio vazia do aparelho. Tente escolher de novo.');
   }
 
-  const caminho = `${guardianId}/${childId}`;
   const { error } = await supabase()
-    .storage.from(BUCKET_CRIANCAS)
+    .storage.from(bucket)
     .upload(caminho, bytes, { contentType: tipoDaImagem(localUri), upsert: true });
 
   // A mensagem do servidor vai junto, entre parênteses.
@@ -213,7 +209,7 @@ async function subirFotoDaCrianca(
   if (error) {
     throw new ApiError('unknown', `Não foi possível enviar a foto. (${error.message})`);
   }
-  return `${BUCKET_CRIANCAS}/${caminho}`;
+  return `${bucket}/${caminho}`;
 }
 
 /**
@@ -227,15 +223,19 @@ async function subirFotoDaCrianca(
  * do arquivo dentro de um aparelho específico e nunca vão carregar em lugar
  * nenhum — devolver o avatar com a inicial é melhor que uma imagem quebrada.
  */
-async function urlDaFoto(valor: string | null): Promise<string | null> {
+async function urlDaFoto(
+  valor: string | null,
+  bucket: string = BUCKET_CRIANCAS,
+): Promise<string | null> {
   if (!valor) return null;
   if (valor.startsWith('http')) return valor;
-  if (!valor.startsWith(`${BUCKET_CRIANCAS}/`)) return null;
+  // O prefixo é conferido, e não descartado: o caminho guardado diz de qual
+  // bucket ele é, e assinar no bucket errado devolve `null` silenciosamente —
+  // uma foto que existe e não aparece, sem nada na tela dizendo por quê.
+  if (!valor.startsWith(`${bucket}/`)) return null;
 
-  const caminho = valor.slice(BUCKET_CRIANCAS.length + 1);
-  const { data } = await supabase()
-    .storage.from(BUCKET_CRIANCAS)
-    .createSignedUrl(caminho, VALIDADE_URL_S);
+  const caminho = valor.slice(bucket.length + 1);
+  const { data } = await supabase().storage.from(bucket).createSignedUrl(caminho, VALIDADE_URL_S);
   return data?.signedUrl ?? null;
 }
 
@@ -257,9 +257,16 @@ async function guardianOf(userId: string): Promise<Guardian> {
   const row = unwrap(
     await supabase()
       .from('guardians')
-      .select('id, name, email, city, created_at')
+      .select('id, name, email, city, created_at, photo_url')
       .eq('id', userId)
-      .single<{ id: string; name: string; email: string; city: string; created_at: string }>(),
+      .single<{
+        id: string;
+        name: string;
+        email: string;
+        city: string;
+        created_at: string;
+        photo_url: string | null;
+      }>(),
     'Perfil não encontrado.',
   );
 
@@ -269,6 +276,7 @@ async function guardianOf(userId: string): Promise<Guardian> {
     email: row.email,
     city: row.city,
     createdAt: row.created_at,
+    photoUri: await urlDaFoto(row.photo_url, BUCKET_RESPONSAVEIS),
   };
 }
 
@@ -578,6 +586,37 @@ export const supabaseApi: KidooApi = {
     },
   },
 
+  profile: {
+    async updatePhoto(photoUri) {
+      const guardianId = await currentUserId();
+      // O arquivo tem nome fixo: uma conta tem um rosto. Nomear por timestamp
+      // deixaria uma foto órfã no bucket a cada troca — e são rostos.
+      const caminho = `${guardianId}/perfil`;
+
+      let guardado: string | null = null;
+      if (ehArquivoLocal(photoUri)) {
+        guardado = await subirFoto(BUCKET_RESPONSAVEIS, caminho, photoUri);
+      } else if (photoUri === null) {
+        // Remover apaga o arquivo, não só a referência: deixar a imagem no
+        // bucket depois de a pessoa pedir para tirar é guardar o que ela
+        // acabou de dizer que não quer mais.
+        await supabase().storage.from(BUCKET_RESPONSAVEIS).remove([caminho]);
+      }
+
+      unwrap(
+        await supabase()
+          .from('guardians')
+          .update({ photo_url: guardado })
+          .eq('id', guardianId)
+          .select('id')
+          .single<{ id: string }>(),
+        'Não foi possível atualizar a foto.',
+      );
+
+      return guardianOf(guardianId);
+    },
+  },
+
   children: {
     async list() {
       const rows = unwrap(
@@ -617,7 +656,7 @@ export const supabaseApi: KidooApi = {
       // perder o perfil inteiro por causa de uma imagem seria desproporcional.
       // Quem quiser tenta de novo pelo Perfil.
       try {
-        const caminho = await subirFotoDaCrianca(guardianId, row.id, input.photoUri);
+        const caminho = await subirFoto(BUCKET_CRIANCAS, `${guardianId}/${row.id}`, input.photoUri);
         const atualizada = unwrap(
           await supabase()
             .from('children')
@@ -639,7 +678,7 @@ export const supabaseApi: KidooApi = {
 
       let caminho: string | null = null;
       if (ehArquivoLocal(photoUri)) {
-        caminho = await subirFotoDaCrianca(guardianId, childId, photoUri);
+        caminho = await subirFoto(BUCKET_CRIANCAS, `${guardianId}/${childId}`, photoUri);
       } else if (photoUri === null) {
         // Remover apaga o arquivo, não só a referência. Deixar a foto no
         // bucket depois de a família pedir para tirar seria manter o que ela

@@ -7,6 +7,7 @@ import type {
   BookingDetails,
   CheckInResult,
   Child,
+  Guardian,
   Journey,
   Partner,
   Plan,
@@ -81,6 +82,20 @@ export type KidooApi = {
      * senha de novo logo depois de tê-la escolhido.
      */
     confirmByLink(tokens: { accessToken: string; refreshToken: string }): Promise<Session>;
+  };
+  /** O responsável, e o que ele pode mudar em si mesmo. */
+  profile: {
+    /**
+     * Troca a foto do responsável.
+     *
+     * `photoUri` é o arquivo local que o seletor devolveu; quem sobe para o
+     * Storage é o serviço. `null` remove — e remover é um toque, porque foto
+     * de rosto não deveria exigir apagar a conta para sair do ar.
+     *
+     * Devolve o responsável com a URI pronta para exibir, e é quem chamou que
+     * precisa levá-la para a sessão: o cabeçalho do Perfil lê de lá.
+     */
+    updatePhoto(photoUri: string | null): Promise<Guardian>;
   };
   children: {
     list(): Promise<Child[]>;

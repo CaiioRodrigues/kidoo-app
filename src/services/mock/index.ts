@@ -121,6 +121,7 @@ function issueSession(name: string, email: string): Session {
     email,
     city: 'Belo Horizonte',
     createdAt: new Date().toISOString(),
+    photoUri: null,
   };
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
   const session: Session = { guardian, accessToken: randomId('tok'), expiresAt };
@@ -283,6 +284,18 @@ export const mockApi: KidooApi = {
         return delay(null, 80);
       }
       return delay(state.session, 80);
+    },
+  },
+
+  profile: {
+    async updatePhoto(photoUri) {
+      const session = requireSession();
+      // No mock não há bucket: a URI local do seletor já é exibível neste
+      // aparelho, e é o bastante para a tela. O que ele precisa reproduzir é o
+      // efeito — o rosto muda, e some quando se remove.
+      const guardian = { ...session.guardian, photoUri };
+      state.session = { ...session, guardian };
+      return delay(guardian);
     },
   },
 

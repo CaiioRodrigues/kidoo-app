@@ -8,12 +8,12 @@ import { BlobBackdrop } from '@/components/brand';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { useTutorialStore } from '@/stores/tutorial-store';
 import { confirmAction } from '@/lib/confirm';
+import { escolherImagem } from '@/lib/foto';
 import { formatAge, formatDaysUntil } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
 import { useChildren, useSubscription, useUpdateChildPhoto } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { backendName, toUserMessage } from '@/services';
-import * as ImagePicker from 'expo-image-picker';
 import { spacing, useTheme } from '@/theme';
 
 export default function ProfileScreen() {
@@ -28,31 +28,23 @@ export default function ProfileScreen() {
   const resetRascunho = useOnboardingStore((state) => state.reset);
   const updatePhoto = useUpdateChildPhoto();
   const [trocandoFoto, setTrocandoFoto] = useState<string | null>(null);
+  const [trocandoMinhaFoto, setTrocandoMinhaFoto] = useState(false);
   const [erroFoto, setErroFoto] = useState<string | null>(null);
+  const trocarFoto = useAuthStore((state) => state.trocarFoto);
 
   const escolherFoto = useCallback(
     async (childId: string) => {
       setErroFoto(null);
-      const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissao.granted) {
+      const escolha = await escolherImagem();
+      if (escolha.estado === 'negado') {
         setErroFoto('Precisamos da permissão de fotos para trocar a imagem.');
         return;
       }
-      const escolha = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        // O recorte quadrado e a compressão acontecem aqui, antes de subir: é
-        // o avatar de 40 px, e mandar 8 MB do celular para o bucket seria
-        // gastar dado da família para nada.
-        quality: 0.7,
-      });
-      const uri = escolha.canceled ? null : escolha.assets[0]?.uri;
-      if (!uri) return;
+      if (escolha.estado === 'cancelado') return;
 
       setTrocandoFoto(childId);
       try {
-        await updatePhoto.mutateAsync({ childId, photoUri: uri });
+        await updatePhoto.mutateAsync({ childId, photoUri: escolha.uri });
       } catch (caught) {
         setErroFoto(toUserMessage(caught));
       } finally {
@@ -61,6 +53,53 @@ export default function ProfileScreen() {
     },
     [updatePhoto],
   );
+
+  /*
+    A foto do responsável.
+
+    Usa o mesmo seletor e o mesmo estado de erro da foto da criança, e não um
+    par separado: é a mesma tela, e dois avisos de erro em lugares diferentes
+    para a mesma operação seria ruído. O que muda é só onde o resultado é
+    guardado — a criança vai para o React Query, o responsável para a sessão,
+    que é de onde este cabeçalho lê.
+  */
+  const trocarFotoDoResponsavel = useCallback(async () => {
+    setErroFoto(null);
+    const escolha = await escolherImagem();
+    if (escolha.estado === 'negado') {
+      setErroFoto('Precisamos da permissão de fotos para trocar a imagem.');
+      return;
+    }
+    if (escolha.estado === 'cancelado') return;
+
+    setTrocandoMinhaFoto(true);
+    try {
+      await trocarFoto(escolha.uri);
+    } catch (caught) {
+      setErroFoto(toUserMessage(caught));
+    } finally {
+      setTrocandoMinhaFoto(false);
+    }
+  }, [trocarFoto]);
+
+  const removerFotoDoResponsavel = useCallback(async () => {
+    const ok = await confirmAction({
+      title: 'Remover a sua foto?',
+      message: 'Ela sai do app e do servidor. Dá para colocar outra depois.',
+      confirmLabel: 'Remover',
+      destructive: true,
+    });
+    if (!ok) return;
+    setErroFoto(null);
+    setTrocandoMinhaFoto(true);
+    try {
+      await trocarFoto(null);
+    } catch (caught) {
+      setErroFoto(toUserMessage(caught));
+    } finally {
+      setTrocandoMinhaFoto(false);
+    }
+  }, [trocarFoto]);
 
   const removerFoto = useCallback(
     async (childId: string, nome: string) => {
@@ -128,7 +167,33 @@ export default function ProfileScreen() {
       <BlobBackdrop height={150} style={styles.backdrop} />
 
       <View style={styles.header}>
-        <Avatar name={session?.guardian.name ?? 'Visitante'} size={64} ring />
+        {/*
+          O avatar do responsável também é botão — mas só para quem tem conta.
+          Visitante não tem onde guardar foto nenhuma, e oferecer o toque a ele
+          seria abrir um seletor de imagens que termina num erro de sessão.
+        */}
+        {session ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              session.guardian.photoUri ? 'Trocar a sua foto' : 'Adicionar a sua foto'
+            }
+            disabled={trocandoMinhaFoto}
+            onPress={() => void trocarFotoDoResponsavel()}
+            style={styles.avatarBotao}
+          >
+            <Avatar name={session.guardian.name} uri={session.guardian.photoUri} size={64} ring />
+            <View style={styles.lapis}>
+              <Ionicons
+                name={trocandoMinhaFoto ? 'hourglass-outline' : 'camera'}
+                size={12}
+                color={colors.textOnPrimary}
+              />
+            </View>
+          </Pressable>
+        ) : (
+          <Avatar name="Visitante" size={64} ring />
+        )}
         <View style={styles.headerInfo}>
           <Text variant="heading" numberOfLines={1}>
             {session?.guardian.name ?? 'Visitante'}
@@ -136,6 +201,19 @@ export default function ProfileScreen() {
           <Text variant="caption" color={colors.textMuted} numberOfLines={1}>
             {session?.guardian.email ?? 'Entre para salvar suas preferências'}
           </Text>
+          {session?.guardian.photoUri ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Remover a sua foto"
+              onPress={() => void removerFotoDoResponsavel()}
+              hitSlop={8}
+              style={styles.removerMinhaFoto}
+            >
+              <Text variant="caption" color={colors.textFaint}>
+                Remover foto
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -216,11 +294,7 @@ export default function ProfileScreen() {
             não tinha por onde cadastrar o segundo — o banco sempre aceitou
             vários, era a tela que fechava a porta. */}
         {children.length > 0 ? <Divider /> : null}
-        <Pressable
-          accessibilityRole="button"
-          onPress={adicionarCrianca}
-          style={styles.row}
-        >
+        <Pressable accessibilityRole="button" onPress={adicionarCrianca} style={styles.row}>
           <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
           <Text variant="body" color={colors.primary} style={styles.flex}>
             {children.length === 0 ? 'Cadastrar criança' : 'Adicionar outra criança'}
@@ -420,6 +494,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.base,
   },
   headerInfo: { flex: 1, gap: spacing.xxs },
+  removerMinhaFoto: { alignSelf: 'flex-start', marginTop: spacing.xxs },
   sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md },
   card: { gap: spacing.xs, marginTop: spacing.xl },
   capitalize: { textTransform: 'capitalize' },
