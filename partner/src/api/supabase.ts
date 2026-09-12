@@ -3,6 +3,7 @@ import { mensagemDeAuth } from '@/mensagens-de-auth';
 import { supabase } from '@/supabase';
 import { PainelError } from './types';
 import type {
+  ParceiroAdmin,
   PainelApi,
   ActivityRow,
   AgendaRow,
@@ -630,6 +631,48 @@ async function souDoKidoo(): Promise<boolean> {
   return data === true;
 }
 
+async function parceirosAdmin(): Promise<ParceiroAdmin[]> {
+  type Linha = {
+    id: string;
+    name: string;
+    neighborhood: string;
+    city: string;
+    verified: boolean;
+    active: boolean;
+    activities: number;
+    future_bookings: number;
+  };
+  const { data, error } = await supabase().rpc('admin_partners');
+  if (error) throw new PainelError('Não foi possível carregar os estabelecimentos.');
+  return ((data ?? []) as Linha[]).map((l) => ({
+    id: l.id,
+    name: l.name,
+    neighborhood: l.neighborhood,
+    city: l.city,
+    verified: l.verified,
+    active: l.active,
+    activities: l.activities,
+    futureBookings: l.future_bookings,
+  }));
+}
+
+async function ligarParceiro(id: string, ativo: boolean): Promise<{ futureBookings: number }> {
+  const { data, error } = await supabase().rpc('set_partner_active', {
+    p_id: id,
+    p_active: ativo,
+  });
+  if (error) {
+    throw new PainelError(
+      error.message === 'not_admin'
+        ? 'Sua conta não liga nem desliga estabelecimento.'
+        : 'Não foi possível mudar o estado do estabelecimento.',
+    );
+  }
+  // `returns table` devolve lista, mesmo com uma linha só.
+  const linha = ((data ?? []) as { future_bookings: number }[])[0];
+  return { futureBookings: linha?.future_bookings ?? 0 };
+}
+
 async function pedidosPendentes(): Promise<PedidoNaFila[]> {
   type FilaSql = {
     id: string;
@@ -709,6 +752,8 @@ export const supabaseApi: PainelApi = {
   enviarPedido,
   subirFotoDoPedido,
   souDoKidoo,
+  parceirosAdmin,
+  ligarParceiro,
   pedidosPendentes,
   aprovarPedido,
   recusarPedido,

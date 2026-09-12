@@ -112,6 +112,16 @@ const RPC_MESSAGES: Record<string, { code: ApiErrorCode; message: string }> = {
   not_this_partner: { code: 'not_found', message: 'Esta reserva não é deste parceiro.' },
   plan_not_found: { code: 'not_found', message: 'Plano indisponível.' },
   already_reviewed: { code: 'not_found', message: 'Esta aula já foi avaliada.' },
+  // As duas recusas são separadas porque levam a lugares diferentes: turma
+  // fora do ar tem outra ao lado, estabelecimento fora do Kidoo não tem.
+  activity_inactive: {
+    code: 'not_found',
+    message: 'Esta atividade saiu do ar. Veja as outras turmas deste local.',
+  },
+  partner_inactive: {
+    code: 'not_found',
+    message: 'Este estabelecimento não faz mais parte do Kidoo.',
+  },
   review_before_check_in: {
     code: 'not_found',
     message: 'Só é possível avaliar depois do check-in.',
@@ -693,7 +703,9 @@ export const supabaseApi: KidooApi = {
       const linha = unwrap(
         await supabase()
           .from('partners')
-          .select('id, name, neighborhood, city, verified, latitude, longitude, address, phone')
+          .select(
+            'id, name, neighborhood, city, verified, latitude, longitude, address, phone, active',
+          )
           .eq('id', id)
           .single<{
             id: string;
@@ -705,6 +717,7 @@ export const supabaseApi: KidooApi = {
             longitude: number;
             address: string | null;
             phone: string | null;
+            active: boolean;
           }>(),
         'Estabelecimento não encontrado.',
       );

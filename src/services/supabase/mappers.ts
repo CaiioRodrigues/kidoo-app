@@ -202,6 +202,9 @@ export function toActivity(row: ActivityRow, origin?: Coords): Activity {
     longitude: row.partner_longitude,
     address: row.partner_address,
     phone: row.partner_phone,
+    // A visão do catálogo só devolve parceiro no ar (`where a.active and
+    // p.active`), então tudo que chega por aqui está ativo por construção.
+    active: true,
   };
 
   return {

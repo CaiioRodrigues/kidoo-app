@@ -18,7 +18,20 @@ comment on column partners.phone is
 
 -- A visão do catálogo carrega os dois: a tela da atividade e a do local saem
 -- da mesma consulta que já existia, sem uma ida a mais ao banco por cartão.
-create or replace view activities_public as
+-- `drop` e `create`, e não `create or replace`.
+--
+-- `create or replace view` só sabe ACRESCENTAR coluna no fim. As duas novas
+-- entram antes de `coin_cost`, para ficarem junto das outras do parceiro, e o
+-- Postgres recusa com "cannot change name of view column". Não é detalhe de
+-- estilo: com `or replace` esta migration falha no banco que já existe — que é
+-- exatamente onde ela precisa rodar.
+--
+-- Derrubar é seguro porque nada no banco depende desta visão: quem a lê são os
+-- clientes, por PostgREST. O `grant` volta logo abaixo, porque ele morre junto
+-- com a visão.
+drop view if exists activities_public;
+
+create view activities_public as
 select
   a.id, a.partner_id, a.category_id, a.title, a.image_url,
   a.min_age, a.max_age, a.description, a.tags, a.rating, a.review_count,

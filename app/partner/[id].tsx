@@ -30,7 +30,7 @@ const SISTEMA: Sistema =
  * realmente acontece.
  */
 export default function PartnerScreen() {
-  const { colors } = useTheme();
+  const { colors, palette } = useTheme();
   const styles = useStyles(makeStyles);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -110,8 +110,30 @@ export default function PartnerScreen() {
 
       <View style={styles.titulo}>
         <Text variant="display">{partner.name}</Text>
-        {partner.verified ? <Badge label="Parceiro verificado" tone="teal" /> : null}
+        {/*
+          O selo só vale para quem está no ar. "Parceiro verificado" num lugar
+          que saiu é a frase mais enganosa que esta tela poderia ter: ela diz
+          exatamente o contrário do que o cartão logo abaixo está avisando.
+        */}
+        {partner.verified && partner.active ? (
+          <Badge label="Parceiro verificado" tone="teal" />
+        ) : null}
       </View>
+
+      {/*
+        Quem chega aqui por uma reserva antiga tem de saber antes de sair de
+        casa. A tela não some — o histórico é dela — mas para de parecer um
+        lugar onde dá para marcar aula.
+      */}
+      {partner.active ? null : (
+        <Card background={palette.yellowSoft} elevation="none" style={styles.fora}>
+          <Ionicons name="information-circle-outline" size={20} color={colors.warning} />
+          <Text variant="caption" color={colors.text} style={styles.foraTexto}>
+            Este estabelecimento não faz mais parte do Kidoo. As aulas que você já marcou aqui
+            continuam valendo — confirme com o local antes de ir.
+          </Text>
+        </Card>
+      )}
 
       <Card bordered elevation="none" style={styles.cartao}>
         <View style={styles.linha}>
@@ -195,26 +217,33 @@ export default function PartnerScreen() {
         </>
       ) : null}
 
-      <Text variant="subheading" style={styles.secao}>
-        {data.activities.length === 1 ? 'Atividade neste local' : 'Atividades neste local'}
-      </Text>
-      {data.activities.length === 0 ? (
-        <Card bordered elevation="none">
-          <Text variant="caption" color={colors.textMuted}>
-            Este local não tem atividade publicada no momento.
+      {/* Para quem saiu, a lista de atividades não aparece: seria um catálogo
+          de aulas que não dá para reservar, e cada toque terminaria numa
+          recusa. O cartão de aviso acima já é a resposta. */}
+      {partner.active ? (
+        <>
+          <Text variant="subheading" style={styles.secao}>
+            {data.activities.length === 1 ? 'Atividade neste local' : 'Atividades neste local'}
           </Text>
-        </Card>
-      ) : (
-        <View style={styles.atividades}>
-          {data.activities.map((activity) => (
-            <ActivityListItem
-              key={activity.id}
-              activity={activity}
-              onPress={() => router.push(`/activity/${activity.id}`)}
-            />
-          ))}
-        </View>
-      )}
+          {data.activities.length === 0 ? (
+            <Card bordered elevation="none">
+              <Text variant="caption" color={colors.textMuted}>
+                Este local não tem atividade publicada no momento.
+              </Text>
+            </Card>
+          ) : (
+            <View style={styles.atividades}>
+              {data.activities.map((activity) => (
+                <ActivityListItem
+                  key={activity.id}
+                  activity={activity}
+                  onPress={() => router.push(`/activity/${activity.id}`)}
+                />
+              ))}
+            </View>
+          )}
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -246,6 +275,8 @@ function ReservaDaqui({ booking, onPress }: { booking: BookingDetails; onPress: 
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
+    fora: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+    foraTexto: { flex: 1 },
     scroll: { paddingBottom: spacing.xxl, gap: spacing.md },
     titulo: { gap: spacing.sm, alignItems: 'flex-start', marginTop: spacing.sm },
     cartao: { gap: spacing.md },

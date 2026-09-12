@@ -4,6 +4,7 @@ import { api, emDemonstracao, type Partner } from '@/api';
 import { Erro, Marca } from '@/components/ui';
 import {
   IconeHoje,
+  IconeEstabelecimentos,
   IconeLocal,
   IconePedidos,
   IconeRepasse,
@@ -14,6 +15,7 @@ import { Agenda } from '@/screens/Agenda';
 import { Cadastro } from '@/screens/Cadastro';
 import { Login } from '@/screens/Login';
 import { NovaSenha } from '@/screens/NovaSenha';
+import { Parceiros } from '@/screens/Parceiros';
 import { Pedidos } from '@/screens/Pedidos';
 import { Repasse } from '@/screens/Repasse';
 import { MeuLocal } from '@/screens/MeuLocal';
@@ -22,12 +24,22 @@ import { Rodape } from '@/components/Rodape';
 import { Vitrine } from '@/screens/Vitrine';
 import { ehLinkDeRecuperacao, erroDoLink } from '@/recuperacao';
 
-type Aba = 'agenda' | 'turmas' | 'local' | 'repasse' | 'pedidos';
+type Aba = 'agenda' | 'turmas' | 'local' | 'repasse' | 'pedidos' | 'parceiros';
 
 type ItemDeMenu = { id: Aba; rotulo: string; Icone: () => React.ReactElement };
 
 /** Só entra no menu de quem analisa pedidos, e por isso fica fora da lista. */
-const PEDIDOS_ABA: ItemDeMenu = { id: 'pedidos', rotulo: 'Pedidos', Icone: IconePedidos };
+/**
+ * As duas abas de quem analisa. Só aparecem para quem está em `kidoo_admins`.
+ *
+ * A checagem aqui é para não mostrar porta que não abre — quem manda de verdade
+ * é `is_kidoo_admin()` dentro de cada função do banco, e é lá que uma conta
+ * qualquer chamando a RPC na mão é recusada.
+ */
+const ABAS_DO_KIDOO: ItemDeMenu[] = [
+  { id: 'pedidos', rotulo: 'Pedidos', Icone: IconePedidos },
+  { id: 'parceiros', rotulo: 'Estabelecimentos', Icone: IconeEstabelecimentos },
+];
 
 const ABAS: ItemDeMenu[] = [
   { id: 'agenda', rotulo: 'Hoje', Icone: IconeHoje },
@@ -193,7 +205,7 @@ export function App() {
       <nav className="sidebar" aria-label="Seções do painel">
         <Marca />
 
-        {[...ABAS, ...(doKidoo ? [PEDIDOS_ABA] : [])].map((item) => (
+        {[...ABAS, ...(doKidoo ? ABAS_DO_KIDOO : [])].map((item) => (
           <button
             key={item.id}
             className="nav-item"
@@ -247,6 +259,7 @@ export function App() {
         {aba === 'local' && <MeuLocal parceiros={parceiros} />}
         {aba === 'repasse' && <Repasse />}
         {aba === 'pedidos' && <Pedidos />}
+        {aba === 'parceiros' && <Parceiros />}
 
         {/* Sem ação: quem está aqui já entrou e já tem espaço cadastrado.
             Repetir "Cadastrar meu espaço" para essa pessoa seria oferecer a

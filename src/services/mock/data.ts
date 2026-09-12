@@ -88,7 +88,15 @@ export const PLANS: Plan[] = [
   },
 ];
 
-const PARTNERS = {
+/**
+ * Exportado porque o adapter precisa achar parceiro que não tem atividade
+ * visível. Derivar o parceiro da lista de atividades — que era como o mock
+ * fazia — funciona enquanto todo parceiro está no ar, e falha exatamente em
+ * quem saiu: o Supabase lê a tabela `partners` e acha, o mock não achava, e as
+ * duas implementações discordavam no único caso que esta tela existe para
+ * tratar.
+ */
+export const PARTNERS = {
   arena: {
     id: 'p-arena',
     name: 'Academia Arena Kids',
@@ -97,6 +105,7 @@ const PARTNERS = {
     latitude: -19.9702,
     longitude: -43.9803,
     verified: true,
+    active: true,
     address: 'Rua Professor Estêvão Pinto, 480 — Buritis',
     phone: '(31) 3291-4400',
   },
@@ -108,6 +117,7 @@ const PARTNERS = {
     latitude: -19.8551,
     longitude: -43.9797,
     verified: true,
+    active: true,
     address: 'Av. Otacílio Negrão de Lima, 3900 — Pampulha',
     phone: '(31) 3427-8120',
   },
@@ -119,6 +129,7 @@ const PARTNERS = {
     latitude: -19.9381,
     longitude: -43.9331,
     verified: true,
+    active: true,
     address: 'Rua Antônio de Albuquerque, 271, 2º andar — Savassi',
     phone: '(31) 3261-7755',
   },
@@ -130,6 +141,7 @@ const PARTNERS = {
     latitude: -19.9334,
     longitude: -43.9282,
     verified: false,
+    active: true,
     // De propósito sem nenhum dos dois: é o estado de quem se cadastrou antes
     // de existirem os campos, e é a maioria hoje. A tela tem de servir para ele.
     address: null,
@@ -143,6 +155,7 @@ const PARTNERS = {
     latitude: -19.9424,
     longitude: -43.9518,
     verified: true,
+    active: true,
     address: 'Rua Dores do Indaiá, 165 — Cidade Jardim',
     phone: '(31) 3344-2190',
   },
@@ -154,6 +167,7 @@ const PARTNERS = {
     latitude: -19.9479,
     longitude: -43.9447,
     verified: true,
+    active: true,
     // Telefone sem endereço: ateliê que atende em sala emprestada e não quis
     // publicar a rua. Os quatro cruzamentos de preenchido/vazio existem no mock
     // porque a tela precisa aguentar os quatro.
@@ -168,6 +182,7 @@ const PARTNERS = {
     latitude: -19.8903,
     longitude: -44.0104,
     verified: true,
+    active: true,
     // Endereço sem telefone: o outro cruzamento.
     address: 'Rua Flor de Maio, 90 — Castelo',
     phone: null,
@@ -180,8 +195,28 @@ const PARTNERS = {
     latitude: -19.9432,
     longitude: -43.9203,
     verified: false,
+    active: true,
     address: null,
     phone: null,
+  },
+  /**
+   * O que saiu.
+   *
+   * Existe no mock porque o estado "não faz mais parte" não é alcançável por
+   * navegação — o catálogo esconde quem está desligado, que é o ponto. Só se
+   * chega nele pela reserva antiga, e é ali que a tela precisa avisar.
+   */
+  bomTempo: {
+    id: 'p-bom-tempo',
+    name: 'Escolinha Bom Tempo',
+    neighborhood: 'Gutierrez',
+    city: 'Belo Horizonte',
+    latitude: -19.9401,
+    longitude: -43.9662,
+    verified: true,
+    address: 'Rua Engenheiro Amaro Lanari, 55 — Gutierrez',
+    phone: '(31) 3334-5566',
+    active: false,
   },
 } satisfies Record<string, Partner>;
 
@@ -225,6 +260,30 @@ type Seed = {
 };
 
 const SEEDS: Seed[] = [
+  /*
+    A atividade do estabelecimento que saiu.
+
+    Existe porque o filtro do catálogo precisa ter o que filtrar: sem ela, "o
+    Bom Tempo não aparece na busca" seria verdade por não haver nada para
+    aparecer, e o teste passaria com o filtro apagado. Parceiro que sai também
+    não perde as linhas de `activities` no banco de verdade — elas só param de
+    ser vistas.
+  */
+  {
+    id: 'a-bom-tempo-danca',
+    title: 'Dança Criativa Bom Tempo',
+    category: 'danca',
+    partner: 'bomTempo',
+    tier: 'padrao',
+    rating: 4.6,
+    reviewCount: 41,
+    minAge: 5,
+    maxAge: 10,
+    hour: 16,
+    dayOffset: 1,
+    description: 'Aulas de dança criativa para crianças, com foco em expressão corporal e ritmo.',
+    tags: ['Turma mista'],
+  },
   {
     id: 'a-futebol-kids',
     title: 'Futebol Kids',

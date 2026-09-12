@@ -5,6 +5,7 @@
 \set ana    '11111111-1111-1111-1111-111111111111'
 \set bruno  '22222222-2222-2222-2222-222222222222'
 \set arena  '33333333-3333-3333-3333-333333333333'
+\set admin  '99999999-9999-9999-9999-999999999999'
 
 -- ---- responsável só enxerga o que é dele -----------------------------------
 set role authenticated;
@@ -623,6 +624,168 @@ do $$ begin
            where session_id='eeeeeeee-0000-0000-0000-000000000001') is null,
          'encheu de novo: o aviso tem de rearmar para a próxima abertura';
   assert (select count(*) from push_outbox) = 2, 'encher a turma não avisa ninguém';
+end $$;
+
+-- ---- o estabelecimento que saiu ---------------------------------------------
+--
+-- Sumir do catálogo não basta. A reserva não passa pela visão, passa por um id
+-- de turma — e id continua valendo depois de a tela ter sumido: uma aba aberta
+-- desde ontem, um link guardado, um cliente feito à mão. Quem barra é a função.
+
+-- Devolve a turma ao estado do seed: os testes acima encheram a vaga, e
+-- `session_full` é checado ANTES das checagens novas — com a turma cheia, este
+-- bloco passaria sem nunca exercitar o que veio testar.
+reset role;
+delete from bookings where session_id = 'eeeeeeee-0000-0000-0000-000000000001';
+update class_sessions set slots_taken = 0 where id = 'eeeeeeee-0000-0000-0000-000000000001';
+update partners set active = false where id = 'cccccccc-0000-0000-0000-00000000000a';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$
+declare v_antes integer;
+begin
+  -- O saldo é lido antes, e não comparado com o do seed: os testes acima já
+  -- gastaram coin da Ana. O que importa aqui é que a recusa não mude o número,
+  -- qualquer que ele seja.
+  select coins_remaining into v_antes from subscriptions
+   where guardian_id = '11111111-1111-1111-1111-111111111111';
+
+  begin
+    perform book_session('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
+    assert false, 'parceiro desligado não pode receber reserva nova';
+  exception when others then
+    assert sqlerrm = 'partner_inactive', 'esperado partner_inactive, veio: ' || sqlerrm;
+  end;
+
+  -- E some do catálogo, que é a outra metade.
+  assert (select count(*) from activities_public
+           where partner_id = 'cccccccc-0000-0000-0000-00000000000a') = 0,
+         'parceiro desligado não pode aparecer no catálogo';
+
+  -- A porta fechada não pode ter cobrado nada de ninguém.
+  assert (select coins_remaining from subscriptions
+           where guardian_id = '11111111-1111-1111-1111-111111111111') = v_antes,
+         'recusa não pode consumir coin';
+  assert (select slots_taken from class_sessions
+           where id = 'eeeeeeee-0000-0000-0000-000000000001') = 0,
+         'recusa não pode consumir vaga';
+end $$;
+
+/*
+  A atividade despublicada era a mesma porta, aberta desde que "despublicar"
+  existe: `activities_public` filtra `a.active`, mas `book_session` nunca
+  olhou. Dava para reservar numa atividade que ninguém mais via.
+*/
+reset role;
+update partners   set active = true  where id = 'cccccccc-0000-0000-0000-00000000000a';
+update activities set active = false where id = 'dddddddd-0000-0000-0000-00000000000a';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$ begin
+  begin
+    perform book_session('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
+    assert false, 'atividade despublicada não pode receber reserva nova';
+  exception when others then
+    assert sqlerrm = 'activity_inactive', 'esperado activity_inactive, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- Religar tem de devolver tudo: desligar não é apagar, e a reserva precisa
+-- voltar a funcionar. Sem esta metade, uma checagem nova que fechasse a porta
+-- certa junto com a errada passaria despercebida.
+reset role;
+update activities set active = true where id = 'dddddddd-0000-0000-0000-00000000000a';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$
+declare v_booking bookings%rowtype;
+begin
+  assert (select count(*) from activities_public
+           where partner_id = 'cccccccc-0000-0000-0000-00000000000a') > 0,
+         'religar tem de devolver o parceiro ao catálogo';
+  v_booking := book_session('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
+  assert v_booking.id is not null, 'com tudo no ar, reservar continua funcionando';
+  perform cancel_booking(v_booking.id);
+end $$;
+
+-- ---- desligar não apaga, e não cancela --------------------------------------
+--
+-- `bookings.activity_id` é `on delete restrict`: o banco recusa apagar um
+-- parceiro que já recebeu criança, e recusa com razão — o histórico da família
+-- não some porque a escolinha fechou. Desligar é o caminho, e ele preserva o
+-- que já foi marcado de propósito: cancelar em massa devolve coin e não tem
+-- volta, e nem sempre é o certo.
+
+reset role;
+insert into auth.users (id, email) values (:'admin', 'admin@kidoo.app')
+  on conflict do nothing;
+insert into kidoo_admins (user_id) values (:'admin') on conflict do nothing;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$
+declare v_booking bookings%rowtype;
+begin
+  v_booking := book_session('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001');
+  assert v_booking.status = 'confirmed', 'a reserva de teste tem de nascer confirmada';
+end $$;
+
+select set_config('request.jwt.claim.sub', :'admin', false);
+do $$
+declare v_futuras integer;
+begin
+  select future_bookings into v_futuras
+    from set_partner_active('cccccccc-0000-0000-0000-00000000000a', false);
+
+  -- Este número é a prova de que a reserva sobreviveu, e é a única prova que
+  -- cabe aqui: quem analisa NÃO enxerga `bookings` de família alheia — a RLS
+  -- vale para ele como para qualquer um, e a contagem só chega porque a função
+  -- é `security definer`. Conferir a reserva em si é papel da mãe, logo abaixo.
+  assert v_futuras = 1,
+         'desligar tem de contar as aulas futuras que ficaram de pé, veio ' || v_futuras;
+  assert not (select active from partners where id = 'cccccccc-0000-0000-0000-00000000000a'),
+         'o parceiro ficou desligado';
+
+  -- Religar é o mesmo caminho de volta. Desligar não pode ser de mão única:
+  -- parceiro que sai e volta é comum, e recriá-lo perderia o histórico inteiro.
+  perform set_partner_active('cccccccc-0000-0000-0000-00000000000a', true);
+  assert (select active from partners where id = 'cccccccc-0000-0000-0000-00000000000a'),
+         'religar tem de funcionar';
+
+  assert (select count(*) from admin_partners()) >= 2,
+         'quem analisa enxerga todos os estabelecimentos';
+end $$;
+
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$
+declare v_id uuid;
+begin
+  select id into v_id from bookings
+   where activity_id = 'dddddddd-0000-0000-0000-00000000000a' and status = 'confirmed';
+  assert v_id is not null,
+         'a aula marcada continua de pé depois de o estabelecimento sair — desligar não cancela';
+  perform cancel_booking(v_id);
+end $$;
+
+-- Só quem analisa liga e desliga. Sem isto o parceiro se reativaria sozinho —
+-- ou desligaria o concorrente.
+select set_config('request.jwt.claim.sub', :'arena', false);
+do $$ begin
+  begin
+    perform set_partner_active('cccccccc-0000-0000-0000-00000000000a', false);
+    assert false, 'parceiro não pode ligar nem desligar estabelecimento';
+  exception when others then
+    assert sqlerrm = 'not_admin', 'esperado not_admin, veio: ' || sqlerrm;
+  end;
+  begin
+    perform admin_partners();
+    assert false, 'parceiro não pode listar todos os estabelecimentos';
+  exception when others then
+    assert sqlerrm = 'not_admin', 'esperado not_admin, veio: ' || sqlerrm;
+  end;
 end $$;
 
 reset role;

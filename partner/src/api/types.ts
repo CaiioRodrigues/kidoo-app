@@ -75,6 +75,24 @@ export type RosterRow = {
   locationVerified: boolean | null;
 };
 
+/**
+ * Um estabelecimento, na lista de quem analisa.
+ *
+ * Só existe para a tela de ligar e desligar, e por isso traz as contagens
+ * junto: desligar sem saber quantas aulas futuras ficam de pé é desligar no
+ * escuro, e é o número que decide se alguém precisa avisar as famílias.
+ */
+export type ParceiroAdmin = {
+  id: string;
+  name: string;
+  neighborhood: string;
+  city: string;
+  verified: boolean;
+  active: boolean;
+  activities: number;
+  futureBookings: number;
+};
+
 export type StatementRow = {
   month: string;
   kind: SlotKind;
@@ -244,6 +262,19 @@ export type PainelApi = {
     partnerId: string,
     dados: { address: string; phone: string },
   ): Promise<{ address: string | null; phone: string | null }>;
+  /** Todos os estabelecimentos, para quem analisa pedidos. */
+  parceirosAdmin(): Promise<ParceiroAdmin[]>;
+  /**
+   * Liga ou desliga um estabelecimento, e diz quantas aulas futuras ficaram
+   * de pé.
+   *
+   * Desligar **não cancela nada**, e o número devolvido é o aviso disso. É
+   * deliberado: cancelar em massa devolve coin, mexe em cota de assinatura e
+   * não tem volta — e nem sempre é o certo, porque um parceiro tirado do ar
+   * por acerto comercial costuma honrar o que já está marcado. Quem sabe qual
+   * caso é são as pessoas.
+   */
+  ligarParceiro(id: string, ativo: boolean): Promise<{ futureBookings: number }>;
   /** Há uma sessão ativa agora? */
   sessaoAtiva(): Promise<boolean>;
 

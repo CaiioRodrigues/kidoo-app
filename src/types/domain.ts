@@ -86,6 +86,14 @@ export type Partner = {
   address: string | null;
   /** Telefone do estabelecimento. Do lugar, não de quem administra a conta. */
   phone: string | null;
+  /**
+   * Se o estabelecimento ainda faz parte do Kidoo.
+   *
+   * Falso some do catálogo e não recebe reserva nova — mas continua alcançável
+   * pela reserva antiga, e é por isso que a tela precisa saber: quem tem aula
+   * marcada num lugar que saiu merece ler isso, e não descobrir na porta.
+   */
+  active: boolean;
 };
 
 /**

@@ -52,6 +52,18 @@ export function IconeTurmas() {
   );
 }
 
+/** Prédio com portas: os estabelecimentos, vistos de fora. */
+export function IconeEstabelecimentos() {
+  return (
+    <svg {...base}>
+      <path d="M4 20.5V9.2l8-4.7 8 4.7v11.3" />
+      <path d="M2.5 20.5h19" />
+      <path d="M9.6 20.5v-5.2h4.8v5.2" />
+      <path d="M9.4 10.8h5.2" />
+    </svg>
+  );
+}
+
 /** Alfinete de mapa: o lugar onde a aula acontece. */
 export function IconeLocal() {
   return (

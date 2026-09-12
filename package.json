@@ -67,6 +67,7 @@
     "test:recuperacao": "npx tsx scripts/testar-recuperacao.ts",
     "test:senha": "node scripts/testar-senha.mjs",
     "test:senha-painel": "node scripts/testar-senha-painel.mjs",
+    "test:sql": "bash supabase/tests/run.sh",
     "android": "expo run:android",
     "doctor": "npx expo-doctor",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
