@@ -23,13 +23,16 @@ import {
   useCategories,
   useChildren,
   useRecommended,
+  useSimularPagamento,
   useSubscription,
 } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { blobRadius, categoryTone, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import { EstadoDaAssinatura } from '@/features/subscription';
 import { daysUntilReset } from '@/lib/subscription';
 import { formatDaysUntil } from '@/lib/format';
+import { comArtigo } from '@/lib/genero';
 import type { Activity } from '@/types/domain';
 
 const XP_PER_LEVEL = 1000;
@@ -45,6 +48,7 @@ export default function HomeScreen() {
   const { data: children = [] } = useChildren();
   const { data: categories = [] } = useCategories();
   const { data: subscription } = useSubscription();
+  const simular = useSimularPagamento();
 
   const activeChild = useMemo(
     () => children.find((child) => child.id === activeChildId) ?? children[0] ?? null,
@@ -79,9 +83,13 @@ export default function HomeScreen() {
           <Text variant="display" numberOfLines={1} style={styles.hello}>
             {firstName ? `Olá, ${firstName}!` : 'Olá!'}
           </Text>
-          <Text variant="body" color={colors.textMuted} numberOfLines={1}>
-            {childName
-              ? `Como vamos movimentar o ${childName} hoje?`
+          {/* Duas linhas: a frase carrega o nome da criança, e num aparelho de
+              390px ela já era cortada em "movimentar a Alice h…" com uma só.
+              Nome curto continua cabendo numa linha — o limite só entra em
+              ação quando faz falta. */}
+          <Text variant="body" color={colors.textMuted} numberOfLines={2}>
+            {activeChild && childName
+              ? `Como vamos movimentar ${comArtigo(childName, activeChild.gender)} hoje?`
               : 'Vamos encontrar a atividade certa?'}
           </Text>
         </View>
@@ -119,6 +127,24 @@ export default function HomeScreen() {
           value=""
         />
       </View>
+
+      {/*
+        No alto, acima das recomendações, e não junto do cartão de coins lá
+        embaixo — que foi onde ficou na primeira versão, abaixo da dobra.
+
+        Quem não pode reservar precisa saber ANTES de escolher a turma. Ao pé da
+        página, a família rola pelos cartões, escolhe um horário, tenta, e leva
+        a recusa como defeito — que é exatamente a experiência que este aviso
+        existe para não acontecer.
+      */}
+      {subscription ? (
+        <EstadoDaAssinatura
+          subscription={subscription}
+          style={styles.assinatura}
+          aoSimular={() => simular.mutate()}
+          simulando={simular.isPending}
+        />
+      ) : null}
 
       {activeChild ? null : (
         <Card style={styles.setupCard} background={palette.purpleTint} elevation="none">
@@ -229,7 +255,7 @@ export default function HomeScreen() {
         </>
       ) : null}
 
-      {subscription ? (
+      {subscription && subscription.status === 'ativa' ? (
         <Card style={styles.coinsCard} background={palette.yellowSoft} elevation="none">
           <CoinIcon size={22} />
           <View style={styles.flex}>
@@ -325,6 +351,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     categoryEmoji: { fontSize: 24, lineHeight: 30 },
     pressed: { opacity: 0.7 },
+    assinatura: { marginHorizontal: spacing.xl, marginTop: spacing.base },
     setupCard: {
       ...blobRadius.cardAlt,
       gap: spacing.md,
