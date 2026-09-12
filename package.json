@@ -65,6 +65,7 @@
     "test:local-do-parceiro": "node scripts/testar-local-do-parceiro.mjs",
     "test:medalhas": "node scripts/testar-medalhas.mjs",
     "test:moeda": "node scripts/testar-moeda.mjs",
+    "test:portao": "node scripts/testar-portao.mjs",
     "test:prazo": "npx tsx scripts/testar-prazo.ts",
     "test:recorrencia": "TZ=America/Sao_Paulo npx tsx scripts/testar-recorrencia.ts",
     "test:recuperacao": "npx tsx scripts/testar-recuperacao.ts",

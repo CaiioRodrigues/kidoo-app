@@ -45,9 +45,12 @@ insert into class_sessions (id, activity_id, starts_at, capacity, enrolled, slot
 
 -- Assinatura e bônus: sem eles a reserva falha por falta de coin, e o teste
 -- não chegaria a exercitar capacidade nem RLS.
-insert into subscriptions (guardian_id, plan_id, coins_per_week, coins_remaining, renews_at) values
-  ('11111111-1111-1111-1111-111111111111','plus',12,12, now() + interval '7 days'),
-  ('22222222-2222-2222-2222-222222222222','plus',12,12, now() + interval '7 days');
+-- `ativa` explícito: a coluna nasce `aguardando`, que é o certo para quem
+-- assina de verdade. Aqui as duas famílias existem para exercitar reserva,
+-- check-in e RLS — o portão em si tem testes próprios, no fim do rls.sql.
+insert into subscriptions (guardian_id, plan_id, coins_per_week, coins_remaining, renews_at, status) values
+  ('11111111-1111-1111-1111-111111111111','plus',12,12, now() + interval '7 days', 'ativa'),
+  ('22222222-2222-2222-2222-222222222222','plus',12,12, now() + interval '7 days', 'ativa');
 
 insert into payout_rates (partner_id, kind, amount_cents) values
   ('cccccccc-0000-0000-0000-00000000000a','ociosa',800),

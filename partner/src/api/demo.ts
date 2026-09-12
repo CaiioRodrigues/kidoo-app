@@ -2,6 +2,7 @@ import { PainelError } from './types';
 import type {
   ActivityRow,
   AgendaRow,
+  AssinaturaAdmin,
   Categoria,
   PainelApi,
   Partner,
@@ -449,6 +450,14 @@ export const demoApi: PainelApi = {
 
   async ligarParceiro() {
     throw new PainelError('Sua conta não liga nem desliga estabelecimento.');
+  },
+
+  async assinaturasAdmin() {
+    return espera<AssinaturaAdmin[]>([]);
+  },
+
+  async mudarAssinatura() {
+    throw new PainelError('Sua conta não mexe em assinatura.');
   },
 
   async aprovarPedido() {

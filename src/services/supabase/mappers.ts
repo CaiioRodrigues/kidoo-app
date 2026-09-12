@@ -21,6 +21,7 @@ import type {
   Review,
   SlotKind,
   SubscriptionState,
+  SubscriptionStatus,
 } from '@/types/domain';
 import { haversineKm, type Coords } from '@/lib/geo';
 
@@ -137,6 +138,7 @@ export type SubscriptionRow = {
   coins_remaining: number;
   cycle_started_at: string;
   renews_at: string;
+  status: SubscriptionStatus;
 };
 
 export type PlanRow = {
@@ -367,6 +369,7 @@ export function toSubscription(row: SubscriptionRow): SubscriptionState {
     cycleStartsAt: row.cycle_started_at,
     cycleResetsAt: addWeeks(new Date(row.cycle_started_at), 1).toISOString(),
     renewsAt: row.renews_at,
+    status: row.status,
   };
 }
 

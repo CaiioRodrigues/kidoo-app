@@ -467,6 +467,9 @@ export type Session = {
   expiresAt: IsoDateTime;
 };
 
+/** Em que ponto a assinatura está. Só `ativa` reserva. */
+export type SubscriptionStatus = 'aguardando' | 'ativa' | 'vencida';
+
 export type SubscriptionState = {
   planId: PlanId;
   /** Cota cheia da semana. */
@@ -482,4 +485,12 @@ export type SubscriptionState = {
   cycleResetsAt: IsoDateTime;
   /** Próxima cobrança mensal. */
   renewsAt: IsoDateTime;
+  /**
+   * Se a assinatura está valendo.
+   *
+   * `aguardando` é quem escolheu o plano e ainda não teve o pagamento
+   * confirmado — escolher deixou de ser ter. `vencida` é quem passou de
+   * `renewsAt` sem renovar. Só `ativa` reserva.
+   */
+  status: SubscriptionStatus;
 };

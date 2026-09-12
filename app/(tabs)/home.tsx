@@ -23,11 +23,13 @@ import {
   useCategories,
   useChildren,
   useRecommended,
+  useSimularPagamento,
   useSubscription,
 } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { blobRadius, categoryTone, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
+import { EstadoDaAssinatura } from '@/features/subscription';
 import { daysUntilReset } from '@/lib/subscription';
 import { formatDaysUntil } from '@/lib/format';
 import type { Activity } from '@/types/domain';
@@ -45,6 +47,7 @@ export default function HomeScreen() {
   const { data: children = [] } = useChildren();
   const { data: categories = [] } = useCategories();
   const { data: subscription } = useSubscription();
+  const simular = useSimularPagamento();
 
   const activeChild = useMemo(
     () => children.find((child) => child.id === activeChildId) ?? children[0] ?? null,
@@ -119,6 +122,24 @@ export default function HomeScreen() {
           value=""
         />
       </View>
+
+      {/*
+        No alto, acima das recomendações, e não junto do cartão de coins lá
+        embaixo — que foi onde ficou na primeira versão, abaixo da dobra.
+
+        Quem não pode reservar precisa saber ANTES de escolher a turma. Ao pé da
+        página, a família rola pelos cartões, escolhe um horário, tenta, e leva
+        a recusa como defeito — que é exatamente a experiência que este aviso
+        existe para não acontecer.
+      */}
+      {subscription ? (
+        <EstadoDaAssinatura
+          subscription={subscription}
+          style={styles.assinatura}
+          aoSimular={() => simular.mutate()}
+          simulando={simular.isPending}
+        />
+      ) : null}
 
       {activeChild ? null : (
         <Card style={styles.setupCard} background={palette.purpleTint} elevation="none">
@@ -229,7 +250,7 @@ export default function HomeScreen() {
         </>
       ) : null}
 
-      {subscription ? (
+      {subscription && subscription.status === 'ativa' ? (
         <Card style={styles.coinsCard} background={palette.yellowSoft} elevation="none">
           <CoinIcon size={22} />
           <View style={styles.flex}>
@@ -325,6 +346,7 @@ const makeStyles = (colors: ThemeColors) =>
     },
     categoryEmoji: { fontSize: 24, lineHeight: 30 },
     pressed: { opacity: 0.7 },
+    assinatura: { marginHorizontal: spacing.xl, marginTop: spacing.base },
     setupCard: {
       ...blobRadius.cardAlt,
       gap: spacing.md,

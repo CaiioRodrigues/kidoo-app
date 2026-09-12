@@ -3,6 +3,7 @@ import { mensagemDeAuth } from '@/mensagens-de-auth';
 import { supabase } from '@/supabase';
 import { PainelError } from './types';
 import type {
+  AssinaturaAdmin,
   ParceiroAdmin,
   PainelApi,
   ActivityRow,
@@ -675,6 +676,48 @@ async function ligarParceiro(id: string, ativo: boolean): Promise<{ futureBookin
   return { futureBookings: linha?.future_bookings ?? 0 };
 }
 
+async function assinaturasAdmin(): Promise<AssinaturaAdmin[]> {
+  type Linha = {
+    guardian_id: string;
+    name: string;
+    email: string;
+    plan_id: string;
+    status: 'aguardando' | 'ativa' | 'vencida';
+    coins_remaining: number;
+    coins_per_week: number;
+    renews_at: string;
+  };
+  const { data, error } = await supabase().rpc('admin_subscriptions');
+  if (error) throw new PainelError('Não foi possível carregar as assinaturas.');
+  return ((data ?? []) as Linha[]).map((l) => ({
+    guardianId: l.guardian_id,
+    name: l.name,
+    email: l.email,
+    planId: l.plan_id,
+    status: l.status,
+    coinsRemaining: l.coins_remaining,
+    coinsPerWeek: l.coins_per_week,
+    renewsAt: l.renews_at,
+  }));
+}
+
+async function mudarAssinatura(
+  guardianId: string,
+  status: 'aguardando' | 'ativa' | 'vencida',
+): Promise<void> {
+  const { error } = await supabase().rpc('set_subscription_status', {
+    p_guardian: guardianId,
+    p_status: status,
+  });
+  if (error) {
+    throw new PainelError(
+      error.message === 'not_admin'
+        ? 'Sua conta não mexe em assinatura.'
+        : 'Não foi possível mudar a assinatura.',
+    );
+  }
+}
+
 async function pedidosPendentes(): Promise<PedidoNaFila[]> {
   type FilaSql = {
     id: string;
@@ -756,6 +799,8 @@ export const supabaseApi: PainelApi = {
   souDoKidoo,
   parceirosAdmin,
   ligarParceiro,
+  assinaturasAdmin,
+  mudarAssinatura,
   pedidosPendentes,
   aprovarPedido,
   recusarPedido,

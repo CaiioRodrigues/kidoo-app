@@ -68,6 +68,19 @@ await pular.waitFor({ state: 'visible', timeout: 20000 });
 await pular.click();
 await p.waitForTimeout(1200);
 
+/*
+  Abre o portão da assinatura.
+
+  Escolher o plano deixou de liberar: a assinatura nasce `aguardando` e alguém
+  do Kidoo confirma o pagamento. Na demonstração não há painel de administração,
+  então o próprio aviso traz o botão de simular — e é por ele que este teste
+  passa, pela mesma porta que a pessoa passaria.
+*/
+const simular = p.getByText('Simular confirmação do pagamento').filter({ visible: true });
+await simular.waitFor({ state: 'visible', timeout: 15000 });
+await simular.click();
+await p.waitForTimeout(2000);
+
 await p.getByLabel('Judô Kids, Dojo Savassi').filter({ visible: true }).first().click();
 await p.waitForTimeout(2500);
 

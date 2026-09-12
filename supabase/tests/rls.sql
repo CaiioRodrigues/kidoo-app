@@ -6,6 +6,11 @@
 \set bruno  '22222222-2222-2222-2222-222222222222'
 \set arena  '33333333-3333-3333-3333-333333333333'
 \set admin  '99999999-9999-9999-9999-999999999999'
+-- `cc...` e não `5555...`: aquele id já é o dono do `applications.sql`, e os
+-- arquivos dividem o mesmo banco. O `on conflict do nothing` do insert daqui
+-- ficava com o e-mail errado na linha dele, e o teste de lá falhava a dez
+-- arquivos de distância do que o causou.
+\set carla  'cccccccc-9999-0000-0000-000000000001'
 
 -- ---- responsável só enxerga o que é dele -----------------------------------
 set role authenticated;
@@ -904,6 +909,111 @@ begin
          'cancel_booking precisa chamar cancellation_cutoff(), não repetir o número';
   assert v_corpo not like '%interval ''%hour%',
          'cancel_booking tem intervalo literal dentro: o prazo voltou a existir em dois lugares';
+end $$;
+
+-- ---- o portão da assinatura --------------------------------------------------
+--
+-- Chamar `subscribe_plan` ERA ter o plano: qualquer conta criada saía com a
+-- cota cheia, para sempre, sem ninguém ter pago nada. Depois da 000019 isso
+-- deixou de ser furo de acesso e virou furo de caixa — reserva não cumprida
+-- agora gera repasse, e o Kidoo pagaria por uma assinatura que não existe.
+
+-- Uma família nova, que assina agora: é a única forma de ver o estado inicial.
+-- As do seed nascem `ativa` de propósito, para exercitarem reserva.
+reset role;
+insert into auth.users (id, email) values (:'carla', 'carla@exemplo.com') on conflict do nothing;
+insert into guardians (id, name, email, city) values
+  (:'carla', 'Carla', 'carla@exemplo.com', 'BH') on conflict do nothing;
+insert into children (id, guardian_id, name, birth_date) values
+  ('aaaaaaaa-0000-0000-0000-0000000000c1', :'carla', 'Nina', '2018-03-10') on conflict do nothing;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'carla', false);
+do $$
+declare v_sub subscriptions%rowtype;
+begin
+  v_sub := subscribe_plan('plus');
+  assert v_sub.status = 'aguardando',
+         'escolher o plano não é ter o plano, veio ' || v_sub.status;
+
+  begin
+    perform book_session('eeeeeeee-0000-0000-0000-0000000000f2','aaaaaaaa-0000-0000-0000-0000000000c1');
+    assert false, 'assinatura aguardando pagamento não reserva';
+  exception when others then
+    assert sqlerrm = 'subscription_inactive', 'esperado subscription_inactive, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- Quem administra abre o portão. Ninguém mais.
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$ begin
+  begin
+    perform set_subscription_status('33333333-3333-3333-3333-333333333333', 'ativa');
+    assert false, 'família não ativa a própria assinatura';
+  exception when others then
+    assert sqlerrm = 'not_admin', 'esperado not_admin, veio: ' || sqlerrm;
+  end;
+  begin
+    perform admin_subscriptions();
+    assert false, 'família não lista as assinaturas de todo mundo';
+  exception when others then
+    assert sqlerrm = 'not_admin', 'esperado not_admin, veio: ' || sqlerrm;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', :'admin', false);
+do $$
+declare v_sub subscriptions%rowtype;
+begin
+  v_sub := set_subscription_status('cccccccc-9999-0000-0000-000000000001', 'ativa');
+  assert v_sub.status = 'ativa', 'quem administra ativa';
+
+  -- Ativar empurra o vencimento para a frente. Sem isso, ativar uma assinatura
+  -- vencida a deixaria vencida no instante seguinte — e o sintoma seria
+  -- "ativei e não funcionou".
+  assert v_sub.renews_at > now() + interval '25 days',
+         'ativar renova o mês, senão vence de novo na hora';
+  assert v_sub.coins_remaining = v_sub.coins_per_week,
+         'e devolve a cota da semana: quem acabou de pagar não começa zerado';
+
+  assert (select count(*) from admin_subscriptions()) >= 1,
+         'quem administra enxerga a fila de assinaturas';
+end $$;
+
+-- E com o portão aberto a reserva passa: o portão não pode ter fechado a
+-- porta certa junto com a errada.
+select set_config('request.jwt.claim.sub', :'carla', false);
+do $$
+declare v_booking bookings%rowtype;
+begin
+  v_booking := book_session('eeeeeeee-0000-0000-0000-0000000000f2','aaaaaaaa-0000-0000-0000-0000000000c1');
+  assert v_booking.id is not null, 'assinatura ativa reserva normalmente';
+  perform cancel_booking(v_booking.id);
+end $$;
+
+-- ---- o mês que vence --------------------------------------------------------
+--
+-- `renews_at` era escrito desde o primeiro dia e nunca lido: quem renovava a
+-- cota era a virada da semana, e ela voltava ao cheio para sempre, mesmo com o
+-- mês vencido há um ano.
+
+reset role;
+update subscriptions
+   set renews_at = now() - interval '1 day',
+       cycle_started_at = now() - interval '30 days',
+       coins_remaining = 0
+ where guardian_id = 'cccccccc-9999-0000-0000-000000000001';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'carla', false);
+do $$
+declare v_sub subscriptions%rowtype;
+begin
+  v_sub := current_subscription();
+  assert v_sub.status = 'vencida',
+         'mês vencido derruba a assinatura, veio ' || v_sub.status;
+  assert v_sub.coins_remaining = 0,
+         'e NÃO devolve a cota: era esta a torneira aberta';
 end $$;
 
 reset role;

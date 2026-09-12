@@ -4,6 +4,7 @@ import { api, emDemonstracao, type Partner } from '@/api';
 import { Erro, Marca } from '@/components/ui';
 import {
   IconeHoje,
+  IconeAssinaturas,
   IconeEstabelecimentos,
   IconeLocal,
   IconePedidos,
@@ -15,6 +16,7 @@ import { Agenda } from '@/screens/Agenda';
 import { Cadastro } from '@/screens/Cadastro';
 import { Login } from '@/screens/Login';
 import { NovaSenha } from '@/screens/NovaSenha';
+import { Assinaturas } from '@/screens/Assinaturas';
 import { Parceiros } from '@/screens/Parceiros';
 import { Pedidos } from '@/screens/Pedidos';
 import { Repasse } from '@/screens/Repasse';
@@ -24,7 +26,7 @@ import { Rodape } from '@/components/Rodape';
 import { Vitrine } from '@/screens/Vitrine';
 import { ehLinkDeRecuperacao, erroDoLink } from '@/recuperacao';
 
-type Aba = 'agenda' | 'turmas' | 'local' | 'repasse' | 'pedidos' | 'parceiros';
+type Aba = 'agenda' | 'turmas' | 'local' | 'repasse' | 'pedidos' | 'parceiros' | 'assinaturas';
 
 type ItemDeMenu = { id: Aba; rotulo: string; Icone: () => React.ReactElement };
 
@@ -39,6 +41,7 @@ type ItemDeMenu = { id: Aba; rotulo: string; Icone: () => React.ReactElement };
 const ABAS_DO_KIDOO: ItemDeMenu[] = [
   { id: 'pedidos', rotulo: 'Pedidos', Icone: IconePedidos },
   { id: 'parceiros', rotulo: 'Estabelecimentos', Icone: IconeEstabelecimentos },
+  { id: 'assinaturas', rotulo: 'Assinaturas', Icone: IconeAssinaturas },
 ];
 
 const ABAS: ItemDeMenu[] = [
@@ -260,6 +263,7 @@ export function App() {
         {aba === 'repasse' && <Repasse />}
         {aba === 'pedidos' && <Pedidos />}
         {aba === 'parceiros' && <Parceiros />}
+        {aba === 'assinaturas' && <Assinaturas />}
 
         {/* Sem ação: quem está aqui já entrou e já tem espaço cadastrado.
             Repetir "Cadastrar meu espaço" para essa pessoa seria oferecer a

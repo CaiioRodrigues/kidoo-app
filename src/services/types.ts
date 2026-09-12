@@ -18,6 +18,7 @@ import type {
   WaitlistEntry,
   SignUpResult,
   SubscriptionState,
+  SubscriptionStatus,
 } from '@/types/domain';
 import type { ChildProfileInput, SignInInput, SignUpInput } from '@/lib/validation';
 import type { Coords } from '@/lib/geo';
@@ -142,6 +143,19 @@ export type KidooApi = {
     list(): Promise<Plan[]>;
     subscribe(planId: PlanId): Promise<SubscriptionState>;
     current(): Promise<SubscriptionState | null>;
+    /**
+     * Abre ou fecha o portão de uma assinatura. **Operação de quem administra
+     * o Kidoo**, não da família.
+     *
+     * Mora aqui pelo mesmo motivo que `bookings.confirmByPartner`: é o outro
+     * lado do balcão, e o mock precisa saber simulá-lo para o app inteiro ser
+     * clicável sem backend. Quem decide é o servidor — `set_subscription_status`
+     * exige `is_kidoo_admin()`, então uma família que chamar isto recebe
+     * `not_admin` e nada acontece.
+     *
+     * É também o lugar do webhook do gateway quando ele existir.
+     */
+    setStatus(guardianId: string, status: SubscriptionStatus): Promise<SubscriptionState>;
   };
   bookings: {
     list(): Promise<BookingDetails[]>;

@@ -504,6 +504,32 @@ export const mockApi: KidooApi = {
       state.subscription = withCurrentCycle(state.subscription);
       return delay(state.subscription, 100);
     },
+
+    async setStatus(_guardianId, status) {
+      // O mock simula quem administra, como já faz com `confirmByPartner`. No
+      // Supabase quem decide é `is_kidoo_admin()`, e uma família que chamar
+      // isto recebe `not_admin`.
+      requireSession();
+      if (!state.subscription) {
+        throw new ApiError('not_found', 'Você ainda não tem um plano ativo.');
+      }
+      const renova = new Date();
+      renova.setMonth(renova.getMonth() + 1);
+      state.subscription = {
+        ...state.subscription,
+        status,
+        // Ativar renova o mês e devolve a cota, igual ao banco: sem isso,
+        // ativar uma assinatura vencida a deixaria vencida no instante
+        // seguinte.
+        ...(status === 'ativa'
+          ? {
+              renewsAt: renova.toISOString(),
+              coinsRemaining: state.subscription.coinsPerWeek,
+            }
+          : {}),
+      };
+      return delay(state.subscription, 100);
+    },
   },
 
   bookings: {
@@ -734,6 +760,29 @@ export const mockApi: KidooApi = {
       // recusa — e a divergência só apareceria em produção.
       if (!activity.partner.active) {
         throw new ApiError('not_found', 'Este estabelecimento não faz mais parte do Kidoo.');
+      }
+
+      /*
+        O portão da assinatura, antes de olhar saldo.
+
+        Antes da divisão do pagamento de propósito: uma aula paga inteira com
+        Kidoo Bônus não toca a cota, e deixá-la passar por fora seria uma porta
+        dos fundos com estoque próprio — quem subiu de nível antes de vencer
+        continuaria reservando de graça.
+      */
+      const assinatura = state.subscription
+        ? (state.subscription = withCurrentCycle(state.subscription))
+        : null;
+      if (!assinatura) {
+        throw new ApiError('not_found', 'Você ainda não tem um plano ativo.');
+      }
+      if (assinatura.status !== 'ativa') {
+        throw new ApiError(
+          'not_found',
+          assinatura.status === 'aguardando'
+            ? 'Sua assinatura está aguardando a confirmação do pagamento.'
+            : 'Sua assinatura venceu. Renove para voltar a reservar.',
+        );
       }
 
       // Antes de olhar lotação: quem já está na turma não está diante de um
