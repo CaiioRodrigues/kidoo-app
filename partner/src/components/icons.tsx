@@ -52,6 +52,16 @@ export function IconeTurmas() {
   );
 }
 
+/** Alfinete de mapa: o lugar onde a aula acontece. */
+export function IconeLocal() {
+  return (
+    <svg {...base}>
+      <path d="M12 21.5c4.2-4.6 6.3-7.9 6.3-10.4a6.3 6.3 0 1 0-12.6 0c0 2.5 2.1 5.8 6.3 10.4Z" />
+      <circle cx="12" cy="10.8" r="2.4" />
+    </svg>
+  );
+}
+
 /** Cédula com seta saindo: o dinheiro que vai daqui para o parceiro. */
 export function IconeRepasse() {
   return (

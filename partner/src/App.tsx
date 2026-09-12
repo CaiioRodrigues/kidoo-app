@@ -2,19 +2,27 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { api, emDemonstracao, type Partner } from '@/api';
 import { Erro, Marca } from '@/components/ui';
-import { IconeHoje, IconePedidos, IconeRepasse, IconeSair, IconeTurmas } from '@/components/icons';
+import {
+  IconeHoje,
+  IconeLocal,
+  IconePedidos,
+  IconeRepasse,
+  IconeSair,
+  IconeTurmas,
+} from '@/components/icons';
 import { Agenda } from '@/screens/Agenda';
 import { Cadastro } from '@/screens/Cadastro';
 import { Login } from '@/screens/Login';
 import { NovaSenha } from '@/screens/NovaSenha';
 import { Pedidos } from '@/screens/Pedidos';
 import { Repasse } from '@/screens/Repasse';
+import { MeuLocal } from '@/screens/MeuLocal';
 import { Turmas } from '@/screens/Turmas';
 import { Rodape } from '@/components/Rodape';
 import { Vitrine } from '@/screens/Vitrine';
 import { ehLinkDeRecuperacao, erroDoLink } from '@/recuperacao';
 
-type Aba = 'agenda' | 'turmas' | 'repasse' | 'pedidos';
+type Aba = 'agenda' | 'turmas' | 'local' | 'repasse' | 'pedidos';
 
 type ItemDeMenu = { id: Aba; rotulo: string; Icone: () => React.ReactElement };
 
@@ -24,6 +32,7 @@ const PEDIDOS_ABA: ItemDeMenu = { id: 'pedidos', rotulo: 'Pedidos', Icone: Icone
 const ABAS: ItemDeMenu[] = [
   { id: 'agenda', rotulo: 'Hoje', Icone: IconeHoje },
   { id: 'turmas', rotulo: 'Turmas e vagas', Icone: IconeTurmas },
+  { id: 'local', rotulo: 'Meu local', Icone: IconeLocal },
   { id: 'repasse', rotulo: 'Repasse', Icone: IconeRepasse },
 ];
 
@@ -52,9 +61,7 @@ export function App() {
   const [gatilho, setGatilho] = useState(0);
   // Quem chega sem sessão vê a vitrine primeiro. Só depois de escolher um
   // caminho é que aparece o formulário — e ele já abre na aba certa.
-  const [porta, setPorta] = useState<null | 'entrar' | 'criar'>(
-    ERRO_DA_CHEGADA ? 'entrar' : null,
-  );
+  const [porta, setPorta] = useState<null | 'entrar' | 'criar'>(ERRO_DA_CHEGADA ? 'entrar' : null);
   // Some depois que a senha é salva; até lá, esta tela vem antes de tudo.
   const [trocandoSenha, setTrocandoSenha] = useState(CHEGOU_PARA_TROCAR_SENHA);
 
@@ -108,9 +115,7 @@ export function App() {
 
   if (estado === 'fora') {
     if (!porta) {
-      return (
-        <Vitrine aoCadastrar={() => setPorta('criar')} aoEntrar={() => setPorta('entrar')} />
-      );
+      return <Vitrine aoCadastrar={() => setPorta('criar')} aoEntrar={() => setPorta('entrar')} />;
     }
     return (
       <Login
@@ -239,6 +244,7 @@ export function App() {
       <main className="main">
         {aba === 'agenda' && <Agenda varios={varios} />}
         {aba === 'turmas' && <Turmas parceiros={parceiros} varios={varios} />}
+        {aba === 'local' && <MeuLocal parceiros={parceiros} />}
         {aba === 'repasse' && <Repasse />}
         {aba === 'pedidos' && <Pedidos />}
 

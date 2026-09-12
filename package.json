@@ -59,6 +59,8 @@
     "test:filesystem": "node scripts/testar-filesystem.mjs",
     "test:irmaos": "node scripts/testar-irmaos.mjs",
     "test:link": "npx tsx scripts/testar-link.ts",
+    "test:local": "npx tsx scripts/testar-local.ts",
+    "test:local-do-parceiro": "node scripts/testar-local-do-parceiro.mjs",
     "test:medalhas": "node scripts/testar-medalhas.mjs",
     "test:moeda": "node scripts/testar-moeda.mjs",
     "test:recorrencia": "TZ=America/Sao_Paulo npx tsx scripts/testar-recorrencia.ts",

@@ -202,7 +202,6 @@ function attendanceOf(childId: string): {
   return { total, byCategory };
 }
 
-
 export const mockApi: KidooApi = {
   auth: {
     async signIn({ email, password }) {
@@ -295,9 +294,7 @@ export const mockApi: KidooApi = {
       if (!atual) throw new ApiError('not_found', 'Criança não encontrada.');
 
       const atualizada: Child = { ...atual, photoUri };
-      state.children = state.children.map((child) =>
-        child.id === childId ? atualizada : child,
-      );
+      state.children = state.children.map((child) => (child.id === childId ? atualizada : child));
       return delay(atualizada);
     },
 
@@ -339,7 +336,9 @@ export const mockApi: KidooApi = {
       // Raio e ordenação por distância só fazem sentido com origem conhecida.
       if (origin && filters?.radiusKm !== undefined) {
         const limit = filters.radiusKm;
-        list = list.filter((activity) => activity.distanceKm !== null && activity.distanceKm <= limit);
+        list = list.filter(
+          (activity) => activity.distanceKm !== null && activity.distanceKm <= limit,
+        );
       }
       if (origin && filters?.sort === 'distance') {
         list = [...list].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
@@ -351,6 +350,20 @@ export const mockApi: KidooApi = {
       const found = ACTIVITIES.find((activity) => activity.id === id);
       if (!found) throw new ApiError('not_found', 'Atividade não encontrada.');
       return delay(withDistance(found, origin));
+    },
+    async partner(id, origin) {
+      // O parceiro sai das atividades porque é onde ele vive no mock — no
+      // Supabase é uma tabela, e é por isso que o adapter de lá busca a linha
+      // por conta própria em vez de tirá-la da primeira atividade: um
+      // estabelecimento sem atividade ativa continua existindo, e continua
+      // tendo endereço e telefone que a reserva antiga precisa mostrar.
+      const doParceiro = ACTIVITIES.filter((activity) => activity.partner.id === id);
+      const found = doParceiro[0]?.partner;
+      if (!found) throw new ApiError('not_found', 'Estabelecimento não encontrado.');
+      return delay({
+        partner: found,
+        activities: doParceiro.map((activity) => withDistance(activity, origin)),
+      });
     },
     async sessions(activityId) {
       // Turma cheia também entra: é justamente nela que a família pede aviso.
@@ -419,7 +432,8 @@ export const mockApi: KidooApi = {
         };
         const total = atual.reviewCount + 1;
         state.ratings.set(activity.id, {
-          rating: Math.round(((atual.rating * atual.reviewCount + review.rating) / total) * 10) / 10,
+          rating:
+            Math.round(((atual.rating * atual.reviewCount + review.rating) / total) * 10) / 10,
           reviewCount: total,
         });
       }

@@ -86,7 +86,10 @@ const RPC_MESSAGES: Record<string, { code: ApiErrorCode; message: string }> = {
     code: 'insufficient_coins',
     message: 'Seus Kidoo Coins desta semana acabaram. A cota volta ao cheio na segunda.',
   },
-  insufficient_bonus: { code: 'insufficient_coins', message: 'Seu Kidoo Bônus não cobre esta aula.' },
+  insufficient_bonus: {
+    code: 'insufficient_coins',
+    message: 'Seu Kidoo Bônus não cobre esta aula.',
+  },
   booking_not_found: { code: 'not_found', message: 'Reserva não encontrada.' },
   booking_not_cancellable: {
     code: 'not_found',
@@ -99,7 +102,10 @@ const RPC_MESSAGES: Record<string, { code: ApiErrorCode; message: string }> = {
   },
   check_in_too_early: { code: 'not_found', message: 'O check-in abre 45 minutos antes da aula.' },
   check_in_too_late: { code: 'not_found', message: 'A janela de check-in desta aula já fechou.' },
-  too_far_from_venue: { code: 'not_found', message: 'Você ainda não chegou no local da atividade.' },
+  too_far_from_venue: {
+    code: 'not_found',
+    message: 'Você ainda não chegou no local da atividade.',
+  },
   no_check_in: { code: 'not_found', message: 'Esta reserva ainda não teve check-in.' },
   wrong_code: { code: 'not_found', message: 'Código inválido para esta reserva.' },
   code_expired: { code: 'not_found', message: 'O código expirou. Peça um novo ao responsável.' },
@@ -131,10 +137,7 @@ function fail(error: PostgrestError, fallback: string): never {
 }
 
 /** Desembrulha uma resposta do PostgREST, traduzindo o erro se houver. */
-function unwrap<T>(
-  result: { data: T | null; error: PostgrestError | null },
-  fallback: string,
-): T {
+function unwrap<T>(result: { data: T | null; error: PostgrestError | null }, fallback: string): T {
   if (result.error) fail(result.error, fallback);
   if (result.data === null) throw new ApiError('not_found', fallback);
   return result.data;
@@ -291,9 +294,11 @@ async function attendanceByChild(): Promise<Map<string, Attendance>> {
 
 function achievementsOf(attendance: Attendance | undefined): number {
   if (!attendance) return 0;
-  return buildAchievements(attendance.total, attendance.byCategory, new Date().toISOString()).filter(
-    (achievement) => achievement.unlockedAt !== null,
-  ).length;
+  return buildAchievements(
+    attendance.total,
+    attendance.byCategory,
+    new Date().toISOString(),
+  ).filter((achievement) => achievement.unlockedAt !== null).length;
 }
 
 const ACTIVITY_COLUMNS = '*';
@@ -318,9 +323,7 @@ async function childrenByIds(ids: string[]): Promise<Map<string, Child>> {
     'Criança não encontrada.',
   );
   const attendance = await attendanceByChild();
-  return new Map(
-    rows.map((row) => [row.id, toChild(row, achievementsOf(attendance.get(row.id)))]),
-  );
+  return new Map(rows.map((row) => [row.id, toChild(row, achievementsOf(attendance.get(row.id)))]));
 }
 
 /** Resolve as reservas com atividade, criança e avaliação já enviada. */
@@ -333,7 +336,10 @@ async function toDetails(rows: BookingRow[]): Promise<BookingDetails[]> {
     supabase()
       .from('reviews')
       .select('id, booking_id')
-      .in('booking_id', rows.map((row) => row.id))
+      .in(
+        'booking_id',
+        rows.map((row) => row.id),
+      )
       .returns<{ id: string; booking_id: string }[]>(),
   ]);
 
@@ -356,10 +362,17 @@ async function toDetails(rows: BookingRow[]): Promise<BookingDetails[]> {
 
 /** Remove o que quebraria a sintaxe de filtro do PostgREST numa busca livre. */
 function sanitizeSearch(term: string): string {
-  return term.trim().replace(/[,()*\\:"]/g, ' ').trim();
+  return term
+    .trim()
+    .replace(/[,()*\\:"]/g, ' ')
+    .trim();
 }
 
-function sessionFrom(accessToken: string, expiresAt: number | undefined, guardian: Guardian): Session {
+function sessionFrom(
+  accessToken: string,
+  expiresAt: number | undefined,
+  guardian: Guardian,
+): Session {
   return {
     guardian,
     accessToken,
@@ -558,11 +571,7 @@ export const supabaseApi: KidooApi = {
   children: {
     async list() {
       const rows = unwrap(
-        await supabase()
-          .from('children')
-          .select('*')
-          .order('created_at')
-          .returns<ChildRow[]>(),
+        await supabase().from('children').select('*').order('created_at').returns<ChildRow[]>(),
         'Não foi possível carregar as crianças.',
       );
 
@@ -625,7 +634,9 @@ export const supabaseApi: KidooApi = {
         // Remover apaga o arquivo, não só a referência. Deixar a foto no
         // bucket depois de a família pedir para tirar seria manter o que ela
         // acabou de dizer que não quer mais.
-        await supabase().storage.from(BUCKET_CRIANCAS).remove([`${guardianId}/${childId}`]);
+        await supabase()
+          .storage.from(BUCKET_CRIANCAS)
+          .remove([`${guardianId}/${childId}`]);
       }
 
       const row = unwrap(
@@ -669,6 +680,45 @@ export const supabaseApi: KidooApi = {
         'Atividade não encontrada.',
       );
       return toActivity(row, origin);
+    },
+
+    async partner(id, origin) {
+      /*
+        Duas consultas, e a do parceiro vem da tabela, não da primeira
+        atividade: `activities_public` filtra por `a.active`, então um
+        estabelecimento cujas atividades foram todas despublicadas
+        desapareceria — e é exatamente ele que a reserva de semana passada
+        precisa mostrar, com endereço e telefone, para a família que já foi lá.
+      */
+      const linha = unwrap(
+        await supabase()
+          .from('partners')
+          .select('id, name, neighborhood, city, verified, latitude, longitude, address, phone')
+          .eq('id', id)
+          .single<{
+            id: string;
+            name: string;
+            neighborhood: string;
+            city: string;
+            verified: boolean;
+            latitude: number;
+            longitude: number;
+            address: string | null;
+            phone: string | null;
+          }>(),
+        'Estabelecimento não encontrado.',
+      );
+
+      const rows = unwrap(
+        await supabase()
+          .from('activities_public')
+          .select(ACTIVITY_COLUMNS)
+          .eq('partner_id', id)
+          .returns<ActivityRow[]>(),
+        'Não foi possível carregar as atividades do estabelecimento.',
+      );
+
+      return { partner: linha, activities: rows.map((row) => toActivity(row, origin)) };
     },
 
     async sessions(activityId) {
@@ -908,7 +958,11 @@ export const supabaseApi: KidooApi = {
           .eq('child_id', childId)
           .in('status', ['checked_in', 'completed'])
           .returns<
-            { checked_in_at: string | null; scheduled_at: string; activity: { category_id: string } | null }[]
+            {
+              checked_in_at: string | null;
+              scheduled_at: string;
+              activity: { category_id: string } | null;
+            }[]
           >(),
       ]);
 

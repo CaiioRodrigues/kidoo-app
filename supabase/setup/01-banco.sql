@@ -1833,8 +1833,11 @@ create index if not exists push_outbox_pendentes on push_outbox (created_at)
   where sent_at is null;
 
 alter table push_outbox enable row level security;
--- Ninguém lê pelo PostgREST: quem entrega usa a chave de serviço, que ignora
--- RLS. Sem policy nenhuma, a tabela fica fechada para app e painel.
+-- Sem policy nenhuma, a tabela fica fechada para app e painel. Quem entrega usa
+-- a chave de serviço — e precisa de DUAS coisas, não uma: ignorar a RLS (que o
+-- `service_role` já faz) e ter privilégio na tabela, que vem antes e não é
+-- automático. Os `grant` estão na migration 000014; sem eles, a entrega falha
+-- com "permission denied" antes de qualquer policy ser avaliada.
 
 -- ------------------------------------------------------------- aparelhos ---
 create table if not exists push_tokens (
@@ -2231,6 +2234,670 @@ begin
 
   raise notice 'buckets atividades (público) e criancas (privado) prontos';
 end $$;
+
+-- =====================================================================
+-- 20260101000012_recurring.sql
+-- =====================================================================
+
+-- Publicar a mesma turma várias semanas de uma vez.
+--
+-- O parceiro real não tem "uma turma": ele tem terça e quinta às 18h, o ano
+-- inteiro. Com `publish_session` uma a uma, abrir dois meses de agenda são
+-- dezesseis idas ao formulário — e é por isso que a agenda de um parceiro de
+-- verdade ficaria vazia depois da primeira semana.
+--
+-- **A recorrência não vira um conceito no banco.** Não há tabela de regra nem
+-- `series_id`: o que se grava são turmas comuns, iguais às publicadas uma a
+-- uma. É uma decisão, não uma economia: uma regra de recorrência só ganha da
+-- lista de datas quando alguém quiser editar "todas as terças de uma vez", e
+-- até lá ela cobraria o preço de manter turma gerada e turma real em dois
+-- estados diferentes (o que acontece com a turma de terça que a família já
+-- reservou quando a regra muda?). O dia em que "editar a série" for pedido,
+-- este caminho continua válido — as turmas já existem.
+--
+-- **As datas vêm prontas do navegador**, e isso também é decisão. "Toda terça
+-- às 18h" é 18h no relógio de quem está em Belo Horizonte; calcular aqui
+-- exigiria carregar o fuso do parceiro e reproduzir o horário de verão de
+-- cada país. O navegador dele já sabe disso. O banco recebe instantes.
+create or replace function publish_sessions(
+  p_activity_id uuid,
+  p_starts_at   timestamptz[],
+  p_capacity    int,
+  p_enrolled    int,
+  p_slots_open  int,
+  p_coin_cost   int
+)
+returns table (
+  quando     timestamptz,
+  session_id uuid,
+  -- null = publicada agora. Senão, o motivo de ter sido pulada.
+  pulada     text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_quando timestamptz;
+  v_id     uuid;
+begin
+  if not is_partner_member((select partner_id from activities where id = p_activity_id)) then
+    raise exception 'not_this_partner' using errcode = '42501';
+  end if;
+  if p_enrolled + p_slots_open > p_capacity then
+    raise exception 'over_capacity' using errcode = 'P0001';
+  end if;
+  if coalesce(array_length(p_starts_at, 1), 0) = 0 then
+    raise exception 'no_dates' using errcode = 'P0001';
+  end if;
+  -- Teto: isto é conveniência de balcão, não importação em massa. Sem ele, um
+  -- laço na tela pediria dez mil turmas e o parceiro descobriria depois.
+  if array_length(p_starts_at, 1) > 60 then
+    raise exception 'too_many_dates' using errcode = 'P0001';
+  end if;
+
+  foreach v_quando in array p_starts_at loop
+    -- Uma data no passado não derruba as outras. Quem publica "as próximas 8
+    -- semanas" numa quinta à noite tem a quinta de hoje na lista, e perder as
+    -- outras sete por causa dela seria pior do que pular.
+    if v_quando <= now() then
+      quando := v_quando; session_id := null; pulada := 'no_passado';
+      return next;
+      continue;
+    end if;
+
+    -- Republicar as mesmas semanas é o engano mais fácil de cometer aqui, e
+    -- ele dobraria a agenda em silêncio: duas turmas idênticas, cada uma com
+    -- metade das reservas. Não há unique em (activity_id, starts_at) porque
+    -- turmas diferentes podem começar juntas de propósito — mas *da mesma
+    -- atividade*, no mesmo instante, é sempre engano.
+    select cs.id into v_id from class_sessions cs
+     where cs.activity_id = p_activity_id and cs.starts_at = v_quando
+     limit 1;
+    if found then
+      quando := v_quando; session_id := v_id; pulada := 'ja_existia';
+      return next;
+      continue;
+    end if;
+
+    insert into class_sessions (activity_id, starts_at, capacity, enrolled, slots_open, coin_cost)
+    values (p_activity_id, v_quando, p_capacity, p_enrolled, p_slots_open, p_coin_cost)
+    returning id into v_id;
+
+    quando := v_quando; session_id := v_id; pulada := null;
+    return next;
+  end loop;
+end;
+$$;
+
+-- Uma chamada, uma transação: ou as oito semanas entram, ou nenhuma entra. Com
+-- oito chamadas do navegador, uma queda de rede na quinta deixaria meia série
+-- publicada e ninguém saberia quais.
+grant execute on function publish_sessions(uuid, timestamptz[], int, int, int, int) to authenticated;
+
+-- =====================================================================
+-- 20260101000013_agenda_partner.sql
+-- =====================================================================
+
+-- De qual estabelecimento é cada turma.
+--
+-- O painel se apresenta como UM estabelecimento — "Hoje no seu espaço", o nome
+-- no rodapé —, mas `partner_agenda` sempre devolveu as turmas de todos os
+-- parceiros que a conta administra, porque é isso que `is_partner_member`
+-- responde. Enquanto cada conta cuidava de um lugar só, a diferença não
+-- aparecia.
+--
+-- Ela apareceu no teste de GPS: cinco parceiros de teste na mesma conta, três
+-- turmas cada, todos com nomes quase iguais. A tela virou quinze linhas
+-- indistinguíveis, e abrir vaga na turma errada não dá erro nenhum — a família
+-- fica esperando um aviso que nunca sai, e o silêncio parece defeito do push.
+--
+-- A correção não é filtrar por um parceiro só: a conta administra os cinco de
+-- verdade, e esconder quatro seria mentir na direção contrária. É **dizer de
+-- quem é cada turma**, e deixar a tela mostrar isso quando houver mais de um.
+--
+-- `drop` antes de `create` porque mudar as colunas de retorno de uma função
+-- `returns table` não é substituição, é outra assinatura.
+drop function if exists partner_agenda(timestamptz, timestamptz);
+
+create or replace function partner_agenda(p_from timestamptz, p_to timestamptz)
+returns table (
+  session_id     uuid,
+  activity_id    uuid,
+  activity_title text,
+  category_id    text,
+  partner_id     uuid,
+  partner_name   text,
+  starts_at      timestamptz,
+  capacity       smallint,
+  enrolled       smallint,
+  slots_open     smallint,
+  slots_taken    smallint,
+  kind           slot_kind,
+  coin_cost      smallint,
+  checked_in     bigint,
+  confirmed      bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select s.id, a.id, a.title, a.category_id, p.id, p.name, s.starts_at,
+         s.capacity, s.enrolled, s.slots_open, s.slots_taken, s.kind, s.coin_cost,
+         count(*) filter (where b.status in ('checked_in','completed')),
+         count(*) filter (where b.partner_confirmed_at is not null)
+    from class_sessions s
+    join activities a on a.id = s.activity_id
+    join partners   p on p.id = a.partner_id
+    left join bookings b on b.session_id = s.id and b.status <> 'cancelled'
+   where is_partner_member(a.partner_id)
+     and s.starts_at >= p_from and s.starts_at < p_to
+   group by s.id, a.id, a.title, a.category_id, p.id, p.name, s.starts_at,
+            s.capacity, s.enrolled, s.slots_open, s.slots_taken, s.kind, s.coin_cost
+   order by s.starts_at;
+$$;
+
+grant execute on function partner_agenda(timestamptz, timestamptz) to authenticated;
+
+-- =====================================================================
+-- 20260101000014_service_role_grants.sql
+-- =====================================================================
+
+-- O entregador precisa de permissão na tabela, não só de ignorar a RLS.
+--
+-- A migration da fila fechou `push_outbox` e `push_tokens` sem policy nenhuma,
+-- com este comentário: "quem entrega usa a chave de serviço, que ignora RLS".
+-- A frase é verdadeira e a conclusão era falsa. Ignorar RLS é uma coisa; ter
+-- privilégio na tabela é outra, e vem antes. Sem `grant`, o `service_role`
+-- nem chega a ser avaliado por política alguma — o Postgres barra no
+-- privilégio, e a Edge Function recebe:
+--
+--   42501: permission denied for table push_outbox
+--
+-- O efeito é o pior possível: a fila enche, o gatilho funciona, a função é
+-- chamada a cada cinco minutos e falha na primeira consulta. Nada chega, e
+-- nada no banco parece errado.
+--
+-- Os privilégios são exatamente os que a função usa, e nada além:
+--   push_outbox  select (ler os pendentes) + update (marcar sent_at/error)
+--   push_tokens  select (achar o aparelho) + delete (tirar token morto,
+--                 quando o Expo responde DeviceNotRegistered)
+--
+-- `insert` em `push_outbox` fica de fora de propósito: quem escreve aviso é o
+-- gatilho, dentro do banco. E `insert`/`update` em `push_tokens` também: quem
+-- registra aparelho é a família, pela função `register_push_token`.
+do $$
+begin
+  -- O papel só existe no Supabase; no Postgres local do teste ele é criado
+  -- pelo `run.sh` para que estas permissões sejam verificáveis.
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    raise notice 'sem papel service_role: pulando os grants do entregador';
+    return;
+  end if;
+
+  grant select, update on push_outbox to service_role;
+  grant select, delete on push_tokens to service_role;
+end $$;
+
+-- =====================================================================
+-- 20260101000015_partner_applications.sql
+-- =====================================================================
+
+-- O estabelecimento pede para entrar, e alguém do Kidoo decide.
+--
+-- Até aqui todo parceiro nascia rodando SQL à mão. Isso não escala além de uma
+-- pessoa cadastrando um por um — e é o gargalo que impede o modelo inteiro de
+-- crescer, porque sem parceiro não há vaga e sem vaga não há produto.
+--
+-- **Por que pedido, e não cadastro direto.** "Parceiro verificado" é o que a
+-- família lê antes de deixar uma criança num lugar que ela não conhece. Se
+-- qualquer um se cadastra e já publica turma, o selo deixa de significar
+-- alguma coisa no mesmo dia. E há o outro lado: o repasse. Um cadastro livre
+-- seria um cadastro de gente pedindo dinheiro, com verificação nenhuma.
+--
+-- Então o pedido é um pedido: ele NÃO cria parceiro, não aparece no app, não
+-- publica turma. Vira parceiro quando alguém do Kidoo aprova.
+
+-- ---------------------------------------------------------- quem decide ---
+
+-- Quem é do Kidoo. Uma tabela, e não uma coluna em `guardians`, porque isto
+-- não é atributo de família: é papel de operação, e mistura de papéis num
+-- campo só é como se ganha privilégio por engano.
+create table if not exists kidoo_admins (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+alter table kidoo_admins enable row level security;
+-- Sem policy: ninguém lê nem escreve pelo PostgREST. Quem entra aqui entra
+-- pelo SQL Editor, de propósito — é a lista de quem pode aprovar repasse.
+
+create or replace function is_kidoo_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from kidoo_admins where user_id = auth.uid());
+$$;
+
+grant execute on function is_kidoo_admin() to authenticated;
+
+-- ------------------------------------------------------------- o pedido ---
+
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'application_status') then
+    create type application_status as enum ('pendente', 'aprovado', 'recusado');
+  end if;
+end $$;
+
+create table if not exists partner_applications (
+  id            uuid primary key default gen_random_uuid(),
+  -- Quem pediu. O e-mail vem da conta, não de um campo digitado: assim o
+  -- contato do pedido é o mesmo que vai administrar o painel depois.
+  user_id       uuid not null references auth.users (id) on delete cascade,
+
+  -- o estabelecimento
+  name          text not null,
+  neighborhood  text not null,
+  city          text not null,
+  address       text not null,
+  latitude      double precision not null,
+  longitude     double precision not null,
+  phone         text not null,
+
+  -- o que ele oferece. `categories` referencia a lista fechada de modalidades;
+  -- a checagem vai na função de aprovar, porque um `references` por elemento de
+  -- array o Postgres não faz.
+  categories    text[] not null check (cardinality(categories) between 1 and 8),
+  min_age       smallint not null check (min_age >= 0),
+  max_age       smallint not null check (max_age >= min_age),
+  photo_path    text,
+
+  -- para o repasse existir um dia. Hoje não há pagamento nenhum: isto é
+  -- cadastro guardado, e pedir cedo evita ter que voltar em todo mundo depois.
+  legal_name    text,
+  cnpj          text,
+  pix_key       text,
+
+  status        application_status not null default 'pendente',
+  reason        text,
+  decided_at    timestamptz,
+  decided_by    uuid references auth.users (id),
+  -- O parceiro criado a partir deste pedido. Guardar o vínculo é o que impede
+  -- aprovar duas vezes e criar dois estabelecimentos iguais.
+  partner_id    uuid references partners (id) on delete set null,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create index if not exists applications_pending_idx
+  on partner_applications (created_at) where status = 'pendente';
+
+-- Um pedido em aberto por conta. Sem isto, clicar duas vezes em "enviar"
+-- criaria dois pedidos idênticos na fila de quem analisa — e recusar um
+-- deixaria o outro vivo.
+create unique index if not exists applications_one_open_per_user
+  on partner_applications (user_id) where status = 'pendente';
+
+alter table partner_applications enable row level security;
+
+-- A pessoa vê e mexe no próprio pedido, e só enquanto ele está pendente:
+-- editar um pedido já aprovado mudaria o cadastro do parceiro pelas costas.
+drop policy if exists applications_own on partner_applications;
+create policy applications_own on partner_applications
+  for select to authenticated
+  using (user_id = auth.uid() or is_kidoo_admin());
+
+drop policy if exists applications_insert on partner_applications;
+create policy applications_insert on partner_applications
+  for insert to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists applications_edit on partner_applications;
+create policy applications_edit on partner_applications
+  for update to authenticated
+  using (user_id = auth.uid() and status <> 'aprovado')
+  -- `with check` sobre o status impede o truque óbvio: o dono do pedido
+  -- marcando o próprio pedido como aprovado.
+  with check (user_id = auth.uid() and status = 'pendente');
+
+-- A policy diz QUEM pode; o grant diz SE a tabela é alcançável. São duas
+-- coisas, e vem antes a segunda: sem `grant`, o Postgres barra no privilégio e
+-- a policy nem chega a ser avaliada. Já custou caro uma vez neste projeto, com
+-- a caixa de saída dos avisos.
+grant select, insert, update on partner_applications to authenticated;
+
+-- ---------------------------------------------------------- a aprovação ---
+
+/**
+ * Aprovar cria o parceiro de verdade — e é a única porta para isso.
+ *
+ * `security definer` porque cria linha em `partners`, `partner_members`,
+ * `activities` e `payout_rates`, e nenhuma dessas escritas pode ficar aberta
+ * para o parceiro: quem define repasse é o Kidoo, não quem recebe.
+ *
+ * O valor do repasse entra aqui, no padrão da casa, e não vem do pedido de
+ * propósito. Deixar o candidato sugerir o próprio repasse seria deixá-lo
+ * emitir a própria nota.
+ */
+create or replace function approve_application(p_id uuid)
+returns partners
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ped     partner_applications%rowtype;
+  v_partner partners%rowtype;
+  v_cat     text;
+begin
+  if not is_kidoo_admin() then
+    raise exception 'not_admin' using errcode = '42501';
+  end if;
+
+  select * into v_ped from partner_applications where id = p_id for update;
+  if not found then
+    raise exception 'application_not_found' using errcode = 'P0002';
+  end if;
+  if v_ped.status = 'aprovado' then
+    raise exception 'already_approved' using errcode = 'P0001';
+  end if;
+
+  -- A modalidade é lista fechada. Um pedido com categoria inventada viraria
+  -- atividade que o app não sabe desenhar — sem ícone, sem cor, sem filtro.
+  foreach v_cat in array v_ped.categories loop
+    if not exists (select 1 from activity_categories where id = v_cat) then
+      raise exception 'unknown_category' using errcode = 'P0001';
+    end if;
+  end loop;
+
+  insert into partners (name, neighborhood, city, verified, latitude, longitude)
+  values (v_ped.name, v_ped.neighborhood, v_ped.city, true, v_ped.latitude, v_ped.longitude)
+  returning * into v_partner;
+
+  insert into partner_members (partner_id, user_id, role)
+  values (v_partner.id, v_ped.user_id, 'owner');
+
+  -- O repasse padrão da casa. Vaga ociosa vale menos porque a turma acontece
+  -- de qualquer jeito; vaga cheia é turma que só existe por causa do Kidoo.
+  insert into payout_rates (partner_id, kind, amount_cents) values
+    (v_partner.id, 'ociosa',  800),
+    (v_partner.id, 'cheia',  1800);
+
+  -- Uma atividade por modalidade, com a faixa etária que ele declarou. É o
+  -- esqueleto: título e descrição ele ajusta depois, no painel.
+  insert into activities (partner_id, category_id, title, min_age, max_age, description)
+  select v_partner.id, c.id, c.label || ' — ' || v_ped.name,
+         v_ped.min_age, v_ped.max_age, ''
+    from activity_categories c
+   where c.id = any (v_ped.categories);
+
+  update partner_applications
+     set status = 'aprovado', decided_at = now(), decided_by = auth.uid(),
+         partner_id = v_partner.id, reason = null, updated_at = now()
+   where id = p_id;
+
+  return v_partner;
+end;
+$$;
+
+/**
+ * Recusar, com motivo.
+ *
+ * O motivo não é gentileza: sem ele o candidato reenvia o mesmo pedido, e
+ * quem analisa recusa o mesmo pedido de novo, para sempre.
+ */
+create or replace function reject_application(p_id uuid, p_reason text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_kidoo_admin() then
+    raise exception 'not_admin' using errcode = '42501';
+  end if;
+  if coalesce(btrim(p_reason), '') = '' then
+    raise exception 'reason_required' using errcode = 'P0001';
+  end if;
+
+  update partner_applications
+     set status = 'recusado', reason = p_reason, decided_at = now(),
+         decided_by = auth.uid(), updated_at = now()
+   where id = p_id and status <> 'aprovado';
+
+  if not found then
+    raise exception 'application_not_found' using errcode = 'P0002';
+  end if;
+end;
+$$;
+
+-- A fila de quem analisa. Vai por função para trazer o e-mail da conta junto,
+-- que está em `auth.users` e não sai por PostgREST.
+create or replace function pending_applications()
+returns table (
+  id           uuid,
+  name         text,
+  neighborhood text,
+  city         text,
+  address      text,
+  phone        text,
+  email        text,
+  categories   text[],
+  min_age      smallint,
+  max_age      smallint,
+  cnpj         text,
+  created_at   timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select a.id, a.name, a.neighborhood, a.city, a.address, a.phone,
+         u.email, a.categories, a.min_age, a.max_age, a.cnpj, a.created_at
+    from partner_applications a
+    join auth.users u on u.id = a.user_id
+   where a.status = 'pendente' and is_kidoo_admin()
+   order by a.created_at;
+$$;
+
+-- ------------------------------------------------------ a foto do espaço ---
+
+-- A foto do pedido vai para uma pasta por candidato dentro do bucket que já
+-- existe. Precisa ser assim porque, no momento do envio, o parceiro AINDA NÃO
+-- EXISTE: não há `partner_id` para pôr no caminho, que é o que a policy das
+-- capas compara.
+--
+-- Ela não vira capa de atividade automaticamente, e isso é decisão: esta foto
+-- serve para quem analisa julgar o espaço. A capa que a família vê o parceiro
+-- escolhe depois, no painel, por atividade — e ali ele já sabe qual imagem
+-- vende cada turma.
+do $$
+begin
+  if to_regclass('storage.objects') is null then
+    raise notice 'sem schema storage (Postgres local): pulando a policy da foto';
+    return;
+  end if;
+
+  drop policy if exists pedidos_propria_pasta on storage.objects;
+  create policy pedidos_propria_pasta on storage.objects
+    for all to authenticated
+    using (
+      bucket_id = 'atividades'
+      and (storage.foldername(name))[1] = 'pedidos'
+      and (storage.foldername(name))[2] = auth.uid()::text
+    )
+    with check (
+      bucket_id = 'atividades'
+      and (storage.foldername(name))[1] = 'pedidos'
+      and (storage.foldername(name))[2] = auth.uid()::text
+    );
+end $$;
+
+grant execute on function approve_application(uuid)      to authenticated;
+grant execute on function reject_application(uuid, text) to authenticated;
+grant execute on function pending_applications()         to authenticated;
+
+-- =====================================================================
+-- 20260101000016_local.sql
+-- =====================================================================
+
+-- Onde a aula acontece, e para quem ligar.
+--
+-- Até aqui `partners` tinha bairro e cidade — bom para "perto de mim", inútil
+-- para chegar lá. A família que reservou sabia o nome do lugar e o bairro, e
+-- tinha de descobrir o endereço por fora do app.
+--
+-- Os dois são nulos, e permanecem nulos: os parceiros já cadastrados não têm
+-- nenhum dos dois, e exigir preenchimento agora quebraria o catálogo inteiro
+-- até o último deles responder. A tela do app trata a ausência.
+
+alter table partners add column if not exists address text;
+alter table partners add column if not exists phone   text;
+
+comment on column partners.address is
+  'Endereço da rua, como a família o leria. O mapa é aberto pela coordenada, não por este texto.';
+comment on column partners.phone is
+  'Telefone de contato do estabelecimento, para a família ligar. Não é o do responsável pela conta.';
+
+-- A visão do catálogo carrega os dois: a tela da atividade e a do local saem
+-- da mesma consulta que já existia, sem uma ida a mais ao banco por cartão.
+create or replace view activities_public as
+select
+  a.id, a.partner_id, a.category_id, a.title, a.image_url,
+  a.min_age, a.max_age, a.description, a.tags, a.rating, a.review_count,
+  p.name          as partner_name,
+  p.neighborhood  as partner_neighborhood,
+  p.city          as partner_city,
+  p.verified      as partner_verified,
+  p.latitude      as partner_latitude,
+  p.longitude     as partner_longitude,
+  p.address       as partner_address,
+  p.phone         as partner_phone,
+  o.coin_cost     as coin_cost,
+  o.next_starts_at as next_session_at,
+  coalesce(o.open_sessions, 0) as open_sessions
+from activities a
+join partners p on p.id = a.partner_id
+left join lateral (
+  select min(s.coin_cost)  as coin_cost,
+         min(s.starts_at)  as next_starts_at,
+         count(*)          as open_sessions
+    from class_sessions_open s
+   where s.activity_id = a.id
+) o on true
+where a.active;
+
+alter view activities_public set (security_invoker = true);
+grant select on activities_public to anon, authenticated;
+
+-- --------------------------------------- o que o parceiro já tinha escrito ---
+
+/*
+  O endereço e o telefone já eram pedidos — e jogados fora.
+
+  `partner_applications` exige os dois (`not null`) desde que o cadastro
+  existe: todo parceiro aprovado digitou a rua e o telefone para entrar. Mas
+  `approve_application` copiava para `partners` só nome, bairro, cidade e
+  coordenada, e os dois campos ficavam parados na linha do pedido, onde
+  nenhuma tela olha.
+
+  Então não há o que coletar: o dado existe, está correto e foi escrito pelo
+  próprio estabelecimento. Só precisa atravessar.
+*/
+
+update partners p
+   set address = a.address,
+       phone   = a.phone
+  from partner_applications a
+ where a.partner_id = p.id
+   and a.status = 'aprovado'
+   and p.address is null
+   and p.phone is null;
+
+-- E a aprovação para de perder os dois daqui em diante. É a mesma função da
+-- 000015, com duas colunas a mais no insert — o resto é idêntico de propósito:
+-- `create or replace` substitui o corpo inteiro, então o que não for repetido
+-- some.
+create or replace function approve_application(p_id uuid)
+returns partners
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ped     partner_applications%rowtype;
+  v_partner partners%rowtype;
+  v_cat     text;
+begin
+  if not is_kidoo_admin() then
+    raise exception 'not_admin' using errcode = '42501';
+  end if;
+
+  select * into v_ped from partner_applications where id = p_id for update;
+  if not found then
+    raise exception 'application_not_found' using errcode = 'P0002';
+  end if;
+  if v_ped.status = 'aprovado' then
+    raise exception 'already_approved' using errcode = 'P0001';
+  end if;
+
+  foreach v_cat in array v_ped.categories loop
+    if not exists (select 1 from activity_categories where id = v_cat) then
+      raise exception 'unknown_category' using errcode = 'P0001';
+    end if;
+  end loop;
+
+  insert into partners (name, neighborhood, city, verified, latitude, longitude, address, phone)
+  values (v_ped.name, v_ped.neighborhood, v_ped.city, true, v_ped.latitude, v_ped.longitude,
+          v_ped.address, v_ped.phone)
+  returning * into v_partner;
+
+  insert into partner_members (partner_id, user_id, role)
+  values (v_partner.id, v_ped.user_id, 'owner');
+
+  insert into payout_rates (partner_id, kind, amount_cents) values
+    (v_partner.id, 'ociosa',  800),
+    (v_partner.id, 'cheia',  1800);
+
+  insert into activities (partner_id, category_id, title, min_age, max_age, description)
+  select v_partner.id, c.id, c.label || ' — ' || v_ped.name,
+         v_ped.min_age, v_ped.max_age, ''
+    from activity_categories c
+   where c.id = any (v_ped.categories);
+
+  update partner_applications
+     set status = 'aprovado', decided_at = now(), decided_by = auth.uid(),
+         partner_id = v_partner.id, reason = null, updated_at = now()
+   where id = p_id;
+
+  return v_partner;
+end;
+$$;
+
+-- ------------------------------------------------ o selo não se autoconcede ---
+
+-- `grant update on partners to authenticated` era a tabela inteira, e a política
+-- `partner_reads_own` deixa o parceiro escrever na própria linha. Juntos, os
+-- dois permitiam que um parceiro mandasse `{"verified": true}` pela API REST e
+-- saísse verificado sozinho — o selo que a família usa para decidir em quem
+-- confiar. Nunca houve tela para isso, e é justamente por isso que passou:
+-- ninguém precisa de tela para chamar o PostgREST.
+--
+-- Até hoje nenhum dos dois clientes escrevia em `partners` — a linha nasce na
+-- função `security definer` da aprovação —, então restringir não tira nada de
+-- ninguém. A partir daqui o painel edita endereço e telefone, e é essa a lista.
+--
+-- Fora dela de propósito: `verified` (é o selo), e `latitude`/`longitude` (são
+-- a prova de distância do check-in — quem move a própria coordenada move o
+-- portão junto). Mudança de endereço com mudança de coordenada passa por quem
+-- aprova, como na entrada.
+revoke update on partners from authenticated;
+grant update (name, neighborhood, city, address, phone) on partners to authenticated;
 
 commit;
 

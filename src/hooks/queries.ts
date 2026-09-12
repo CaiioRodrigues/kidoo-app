@@ -19,6 +19,7 @@ export const queryKeys = {
   waitlist: ['waitlist'] as const,
   activities: (filters?: ActivityFilters) => ['activities', filters ?? {}] as const,
   activity: (id: string, origin?: Coords) => ['activity', id, origin ?? null] as const,
+  partner: (id: string, origin?: Coords) => ['partner', id, origin ?? null] as const,
   reviews: (activityId: string) => ['reviews', activityId] as const,
   sessions: (activityId: string) => ['sessions', activityId] as const,
   recommended: (childId: string, origin?: Coords) =>
@@ -120,6 +121,16 @@ export function useActivity(id: string) {
   return useQuery({
     queryKey: queryKeys.activity(id, origin),
     queryFn: () => api.catalog.activity(id, origin),
+    enabled: id.length > 0,
+  });
+}
+
+/** O estabelecimento e as atividades dele. */
+export function usePartner(id: string) {
+  const origin = useOrigin();
+  return useQuery({
+    queryKey: queryKeys.partner(id, origin),
+    queryFn: () => api.catalog.partner(id, origin),
     enabled: id.length > 0,
   });
 }

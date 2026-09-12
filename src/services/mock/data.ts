@@ -97,6 +97,8 @@ const PARTNERS = {
     latitude: -19.9702,
     longitude: -43.9803,
     verified: true,
+    address: 'Rua Professor Estêvão Pinto, 480 — Buritis',
+    phone: '(31) 3291-4400',
   },
   pampulha: {
     id: 'p-pampulha',
@@ -106,6 +108,8 @@ const PARTNERS = {
     latitude: -19.8551,
     longitude: -43.9797,
     verified: true,
+    address: 'Av. Otacílio Negrão de Lima, 3900 — Pampulha',
+    phone: '(31) 3427-8120',
   },
   savassi: {
     id: 'p-savassi',
@@ -115,6 +119,8 @@ const PARTNERS = {
     latitude: -19.9381,
     longitude: -43.9331,
     verified: true,
+    address: 'Rua Antônio de Albuquerque, 271, 2º andar — Savassi',
+    phone: '(31) 3261-7755',
   },
   bailar: {
     id: 'p-bailar',
@@ -124,6 +130,10 @@ const PARTNERS = {
     latitude: -19.9334,
     longitude: -43.9282,
     verified: false,
+    // De propósito sem nenhum dos dois: é o estado de quem se cadastrou antes
+    // de existirem os campos, e é a maioria hoje. A tela tem de servir para ele.
+    address: null,
+    phone: null,
   },
   cidadeJardim: {
     id: 'p-cidade-jardim',
@@ -133,6 +143,8 @@ const PARTNERS = {
     latitude: -19.9424,
     longitude: -43.9518,
     verified: true,
+    address: 'Rua Dores do Indaiá, 165 — Cidade Jardim',
+    phone: '(31) 3344-2190',
   },
   ateliê: {
     id: 'p-atelie',
@@ -142,6 +154,11 @@ const PARTNERS = {
     latitude: -19.9479,
     longitude: -43.9447,
     verified: true,
+    // Telefone sem endereço: ateliê que atende em sala emprestada e não quis
+    // publicar a rua. Os quatro cruzamentos de preenchido/vazio existem no mock
+    // porque a tela precisa aguentar os quatro.
+    address: null,
+    phone: '(31) 99712-3388',
   },
   castelo: {
     id: 'p-castelo',
@@ -151,6 +168,9 @@ const PARTNERS = {
     latitude: -19.8903,
     longitude: -44.0104,
     verified: true,
+    // Endereço sem telefone: o outro cruzamento.
+    address: 'Rua Flor de Maio, 90 — Castelo',
+    phone: null,
   },
   serra: {
     id: 'p-serra',
@@ -160,6 +180,8 @@ const PARTNERS = {
     latitude: -19.9432,
     longitude: -43.9203,
     verified: false,
+    address: null,
+    phone: null,
   },
 } satisfies Record<string, Partner>;
 
@@ -584,7 +606,9 @@ function sessionsFor(seed: Seed, activityId: string, firstStart: string): ClassS
 
 const SESSION_SEEDS = SEEDS.map((seed) => {
   const firstStart =
-    seed.startsInMin === undefined ? sessionAt(seed.hour, seed.dayOffset) : sessionIn(seed.startsInMin);
+    seed.startsInMin === undefined
+      ? sessionAt(seed.hour, seed.dayOffset)
+      : sessionIn(seed.startsInMin);
   return { seed, sessions: sessionsFor(seed, seed.id, firstStart) };
 });
 

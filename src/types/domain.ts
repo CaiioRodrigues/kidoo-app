@@ -75,6 +75,17 @@ export type Partner = {
   /** Onde o parceiro fica. É daqui que sai a distância mostrada na tela. */
   latitude: number;
   longitude: number;
+  /**
+   * Endereço da rua, para a família chegar lá.
+   *
+   * Nulo, e vai continuar nulo por um tempo: os parceiros cadastrados antes
+   * disto não têm nenhum, e quem preenche é cada um no próprio painel. A tela
+   * mostra o bairro enquanto não houver endereço — o mapa abre de qualquer
+   * jeito, porque quem manda nele é a coordenada, não este texto.
+   */
+  address: string | null;
+  /** Telefone do estabelecimento. Do lugar, não de quem administra a conta. */
+  phone: string | null;
 };
 
 /**
