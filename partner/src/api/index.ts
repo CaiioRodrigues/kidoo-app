@@ -21,6 +21,7 @@ export type {
   Categoria,
   NovoPedido,
   PainelApi,
+  ParceiroAdmin,
   Partner,
   Pedido,
   PedidoNaFila,

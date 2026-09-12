@@ -1,4 +1,4 @@
-import { ACTIVITIES, CATEGORIES, CLASS_SESSIONS, PLANS } from './data';
+import { ACTIVITIES, CATEGORIES, CLASS_SESSIONS, PARTNERS, PLANS } from './data';
 import { REVIEWS, summarize } from './reviews';
 import { slotsAvailable } from '@/types/domain';
 import {
@@ -202,6 +202,17 @@ function attendanceOf(childId: string): {
   return { total, byCategory };
 }
 
+/**
+ * A atividade está no ar?
+ *
+ * Espelha o `where a.active and p.active` de `activities_public`. O mock não
+ * tem coluna `active` na atividade — nunca precisou —, então aqui a pergunta é
+ * só sobre o estabelecimento: quem saiu não aparece no catálogo.
+ */
+function noAr(activity: Activity): boolean {
+  return activity.partner.active;
+}
+
 export const mockApi: KidooApi = {
   auth: {
     async signIn({ email, password }) {
@@ -329,9 +340,12 @@ export const mockApi: KidooApi = {
     },
     async activities(filters) {
       const origin = filters?.origin;
-      let list = ACTIVITIES.filter((activity) => matchesFilters(activity, filters)).map(
-        (activity) => withDistance(activity, origin),
-      );
+      let list = ACTIVITIES.filter(
+        // `noAr` espelha o `where a.active and p.active` da visão do catálogo.
+        // Sem ele o mock mostraria quem saiu e o Supabase não — e a divergência
+        // apareceria só em produção, que é onde ela custa caro.
+        (activity) => noAr(activity) && matchesFilters(activity, filters),
+      ).map((activity) => withDistance(activity, origin));
 
       // Raio e ordenação por distância só fazem sentido com origem conhecida.
       if (origin && filters?.radiusKm !== undefined) {
@@ -347,19 +361,24 @@ export const mockApi: KidooApi = {
       return delay(list);
     },
     async activity(id, origin) {
-      const found = ACTIVITIES.find((activity) => activity.id === id);
+      const found = ACTIVITIES.find((activity) => activity.id === id && noAr(activity));
       if (!found) throw new ApiError('not_found', 'Atividade não encontrada.');
       return delay(withDistance(found, origin));
     },
     async partner(id, origin) {
-      // O parceiro sai das atividades porque é onde ele vive no mock — no
-      // Supabase é uma tabela, e é por isso que o adapter de lá busca a linha
-      // por conta própria em vez de tirá-la da primeira atividade: um
-      // estabelecimento sem atividade ativa continua existindo, e continua
-      // tendo endereço e telefone que a reserva antiga precisa mostrar.
-      const doParceiro = ACTIVITIES.filter((activity) => activity.partner.id === id);
-      const found = doParceiro[0]?.partner;
+      // Da tabela de parceiros, e não da primeira atividade: o estabelecimento
+      // que saiu não tem atividade no catálogo, e é justamente ele que a
+      // reserva antiga precisa alcançar. É também o que o adapter do Supabase
+      // faz — lá `activities_public` filtra `p.active`, então tirar o parceiro
+      // de uma atividade nunca devolveria quem está fora do ar.
+      const found = Object.values(PARTNERS).find((partner) => partner.id === id);
       if (!found) throw new ApiError('not_found', 'Estabelecimento não encontrado.');
+
+      // As atividades passam pelo mesmo `noAr` do catálogo: quem saiu não tem
+      // aula para oferecer, mesmo tendo linhas guardadas.
+      const doParceiro = ACTIVITIES.filter(
+        (activity) => activity.partner.id === id && noAr(activity),
+      );
       return delay({
         partner: found,
         activities: doParceiro.map((activity) => withDistance(activity, origin)),
@@ -442,7 +461,9 @@ export const mockApi: KidooApi = {
     },
 
     async recommended(childId, origin) {
-      const measured = ACTIVITIES.map((activity) => withDistance(activity, origin));
+      // `noAr` aqui também: recomendar o estabelecimento que saiu é a pior
+      // forma de mostrá-lo — ele apareceria em destaque, na primeira tela.
+      const measured = ACTIVITIES.filter(noAr).map((activity) => withDistance(activity, origin));
       const child = state.children.find((item) => item.id === childId);
       if (!child) return delay(measured.slice(0, 3));
 
@@ -674,6 +695,14 @@ export const mockApi: KidooApi = {
 
       if (Date.parse(session.startsAt) <= Date.now()) {
         throw new ApiError('not_found', 'Esta turma já começou.');
+      }
+
+      // Espelha as duas recusas novas de `book_session`. Sumir do catálogo não
+      // basta: a reserva chega por um id de turma, e id continua valendo depois
+      // de a tela ter sumido. Sem isto aqui, o mock aceitaria o que o Supabase
+      // recusa — e a divergência só apareceria em produção.
+      if (!activity.partner.active) {
+        throw new ApiError('not_found', 'Este estabelecimento não faz mais parte do Kidoo.');
       }
 
       // Antes de olhar lotação: quem já está na turma não está diante de um

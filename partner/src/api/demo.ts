@@ -6,6 +6,7 @@ import type {
   PainelApi,
   Partner,
   Pedido,
+  ParceiroAdmin,
   PedidoNaFila,
   ResultadoDaSerie,
   RosterRow,
@@ -433,6 +434,16 @@ export const demoApi: PainelApi = {
 
   async pedidosPendentes() {
     return espera<PedidoNaFila[]>([]);
+  },
+
+  async parceirosAdmin() {
+    // A conta da demonstração não analisa pedidos, e a tela nem aparece para
+    // ela. Lista vazia em vez de erro: o `souDoKidoo` é quem decide quem vê.
+    return espera<ParceiroAdmin[]>([]);
+  },
+
+  async ligarParceiro() {
+    throw new PainelError('Sua conta não liga nem desliga estabelecimento.');
   },
 
   async aprovarPedido() {

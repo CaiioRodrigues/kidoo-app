@@ -198,6 +198,69 @@ ok(
   'e não há botão de ligar para um telefone que não existe',
 );
 
+// ---------------------------------- o estabelecimento que não faz mais parte --
+
+/*
+  Alcançável só por reserva antiga, que é o ponto: o catálogo esconde quem
+  saiu. Se esta tela se comportasse como as outras, a família marcaria aula num
+  lugar que não existe mais — e descobriria na porta.
+*/
+console.log('\nO estabelecimento que saiu\n');
+
+const fora = await b.newPage({ viewport: { width: 390, height: 844 } });
+await fora.goto(`${BASE}partner/p-bom-tempo`, { waitUntil: 'networkidle' });
+await fora.waitForTimeout(5000);
+const foraTexto = await fora.evaluate(() => document.body.innerText);
+
+ok(foraTexto.includes('Escolinha Bom Tempo'), 'a página ainda abre — o histórico é da família');
+ok(
+  foraTexto.includes('não faz mais parte do Kidoo'),
+  'e diz que o lugar saiu, antes de a pessoa sair de casa',
+);
+ok(
+  !foraTexto.includes('Parceiro verificado'),
+  'o selo NÃO aparece: "verificado" num lugar que saiu diz o contrário do aviso logo abaixo',
+);
+ok(
+  foraTexto.includes('(31) 3334-5566'),
+  'o telefone continua, e é de propósito — é por ele que se confirma a aula já marcada',
+);
+ok(
+  !/Atividades? neste local/.test(foraTexto),
+  'a lista de atividades some: seria um catálogo de aulas que não dá para reservar',
+);
+
+// E some do catálogo, que é a outra metade da mesma regra.
+const busca = await b.newPage({ viewport: { width: 390, height: 844 } });
+await busca.goto(BASE, { waitUntil: 'networkidle' });
+await busca.waitForTimeout(4500);
+await busca.getByText('Continuar como visitante').click();
+await busca.waitForTimeout(3000);
+const pularBusca = busca.getByLabel('Pular tutorial');
+if (await pularBusca.count()) {
+  await pularBusca.click();
+  await busca.waitForTimeout(1000);
+}
+await busca.locator('a[href="/explore"]').last().click();
+await busca.waitForTimeout(2500);
+
+/*
+  A URL vem antes do conteúdo, e vem porque já me enganei assim: uma asserção
+  de ausência passa de graça na tela errada. "Bom Tempo" não está na Home
+  tampouco — se o clique falhasse, o teste passaria sem nunca abrir a busca.
+*/
+ok(busca.url().endsWith('/explore'), `abriu o Explorar (${busca.url()})`);
+const naBusca = await busca.evaluate(() => document.body.innerText);
+ok(naBusca.includes('Futebol Kids'), 'e o catálogo carregou de verdade (há atividade na tela)');
+
+/*
+  O Bom Tempo TEM atividade no mock, e é isso que torna esta asserção não
+  vazia: sem a atividade, "não aparece" seria verdade por não haver nada para
+  aparecer, e o teste passaria com o filtro apagado.
+*/
+ok(!naBusca.includes('Bom Tempo'), 'e a atividade de quem saiu não aparece nele');
+ok(!naBusca.includes('Gutierrez'), 'nem o bairro dele, que é o que o cartão mostra');
+
 await b.close();
 console.log(falhas === 0 ? '\nTudo certo.' : `\n${falhas} falha(s).`);
 process.exit(falhas === 0 ? 0 : 1);
