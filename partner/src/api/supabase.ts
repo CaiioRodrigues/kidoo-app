@@ -468,6 +468,7 @@ async function extrato(meses = 6): Promise<StatementRow[]> {
   type ExtratoSql = {
     month: string;
     slot_kind: SlotKind;
+    natureza: 'presenca' | 'falta';
     check_ins: number;
     rate_cents: number;
     total_cents: number;
@@ -481,6 +482,7 @@ async function extrato(meses = 6): Promise<StatementRow[]> {
   return linhas.map((l) => ({
     month: l.month,
     kind: l.slot_kind,
+    natureza: l.natureza,
     checkIns: Number(l.check_ins),
     rateCents: l.rate_cents,
     totalCents: Number(l.total_cents),

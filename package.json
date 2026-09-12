@@ -53,6 +53,7 @@
   "scripts": {
     "test:agenda": "TZ=America/Sao_Paulo npx tsx scripts/testar-agenda.ts",
     "test:auth": "npx tsx scripts/testar-auth.ts",
+    "test:cancelamento": "node scripts/testar-cancelamento.mjs",
     "test:compartilhado": "node scripts/testar-compartilhado.mjs",
     "test:conquistas": "npx tsx scripts/testar-conquistas.ts",
     "test:erro-de-envio": "npx tsx scripts/testar-erro-de-envio.ts",
@@ -64,6 +65,7 @@
     "test:local-do-parceiro": "node scripts/testar-local-do-parceiro.mjs",
     "test:medalhas": "node scripts/testar-medalhas.mjs",
     "test:moeda": "node scripts/testar-moeda.mjs",
+    "test:prazo": "npx tsx scripts/testar-prazo.ts",
     "test:recorrencia": "TZ=America/Sao_Paulo npx tsx scripts/testar-recorrencia.ts",
     "test:recuperacao": "npx tsx scripts/testar-recuperacao.ts",
     "test:senha": "node scripts/testar-senha.mjs",

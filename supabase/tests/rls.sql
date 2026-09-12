@@ -788,5 +788,123 @@ do $$ begin
   end;
 end $$;
 
+-- ---- o prazo de cancelamento, e a falta que paga -----------------------------
+--
+-- O prazo nunca existiu no servidor: a regra morava em `src/lib/cancellation.ts`,
+-- do lado que não decide nada. Quem chamasse a API direto cancelava um minuto
+-- antes da aula e recebia o coin de volta.
+--
+-- A turma 3 começa em 10 minutos — dentro das cinco horas. É nela que o
+-- caminho da cobrança é exercitado.
+
+-- Turmas próprias, e não as do seed: os arquivos de teste dividem o mesmo
+-- banco, e limpar reserva de turma emprestada quebra o arquivo seguinte — que
+-- foi exatamente o que aconteceu na primeira versão disto.
+reset role;
+insert into class_sessions (id, activity_id, starts_at, capacity, enrolled, slots_open, slots_taken, kind, coin_cost) values
+  -- Dentro do prazo: começa em 30 minutos.
+  ('eeeeeeee-0000-0000-0000-0000000000f1','dddddddd-0000-0000-0000-00000000000a', now() + interval '30 minutes', 20, 7, 2, 0, 'ociosa', 2),
+  -- Com folga: começa em oito horas.
+  ('eeeeeeee-0000-0000-0000-0000000000f2','dddddddd-0000-0000-0000-00000000000a', now() + interval '8 hours',    20, 7, 2, 0, 'ociosa', 2)
+on conflict (id) do nothing;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$
+declare
+  v_booking bookings%rowtype;
+  v_antes   integer;
+  v_vagas   integer;
+begin
+  select coins_remaining into v_antes from subscriptions
+   where guardian_id = '11111111-1111-1111-1111-111111111111';
+
+  v_booking := book_session('eeeeeeee-0000-0000-0000-0000000000f1','aaaaaaaa-0000-0000-0000-000000000001');
+  select slots_taken into v_vagas from class_sessions
+   where id = 'eeeeeeee-0000-0000-0000-0000000000f1';
+
+  v_booking := cancel_booking(v_booking.id);
+
+  assert v_booking.status = 'no_show',
+         'cancelar dentro do prazo não é cancelamento: é falta paga, veio ' || v_booking.status;
+  assert (select coins_remaining from subscriptions
+           where guardian_id = '11111111-1111-1111-1111-111111111111') = v_antes - v_booking.coin_cost,
+         'o coin NÃO volta quando se desmarca em cima da hora';
+
+  /*
+    A vaga também não volta, e não é esquecimento: o lugar foi comprado. Soltá-la
+    deixaria outra família ocupar o mesmo assento físico, e o Kidoo pagaria duas
+    vezes por ele.
+  */
+  assert (select slots_taken from class_sessions
+           where id = 'eeeeeeee-0000-0000-0000-0000000000f1') = v_vagas,
+         'a vaga fica ocupada: quem desmarca tarde abre mão da aula, não do lugar';
+end $$;
+
+-- E o parceiro recebe por ela.
+reset role;
+do $$
+declare v_faltas bigint;
+begin
+  select coalesce(sum(check_ins), 0) into v_faltas
+    from partner_payouts
+   where partner_id = 'cccccccc-0000-0000-0000-00000000000a' and natureza = 'falta';
+  assert v_faltas >= 1,
+         'o lugar segurado entra no repasse como falta, veio ' || v_faltas;
+
+  -- Separada da presença, e não somada: o parceiro precisa saber quantas
+  -- crianças de fato apareceram para dimensionar turma, e continuar tendo
+  -- motivo para ler o código de check-in.
+  assert (select count(distinct natureza) from partner_payouts
+           where partner_id = 'cccccccc-0000-0000-0000-00000000000a') >= 1,
+         'o extrato distingue presença de falta';
+end $$;
+
+-- Antes do prazo, tudo volta: coin e vaga.
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$
+declare
+  v_booking bookings%rowtype;
+  v_antes   integer;
+begin
+  select coins_remaining into v_antes from subscriptions
+   where guardian_id = '11111111-1111-1111-1111-111111111111';
+
+  v_booking := book_session('eeeeeeee-0000-0000-0000-0000000000f2','aaaaaaaa-0000-0000-0000-000000000001');
+  v_booking := cancel_booking(v_booking.id);
+
+  assert v_booking.status = 'cancelled',
+         'com folga de prazo o cancelamento é cancelamento, veio ' || v_booking.status;
+  assert (select coins_remaining from subscriptions
+           where guardian_id = '11111111-1111-1111-1111-111111111111') = v_antes,
+         'o coin volta inteiro';
+  assert (select slots_taken from class_sessions
+           where id = 'eeeeeeee-0000-0000-0000-0000000000f2') = 0,
+         'e a vaga volta para a turma, a tempo de alguém pegá-la';
+end $$;
+
+-- O prazo do banco é o prazo do TypeScript. Se um mudar sem o outro, a tela
+-- promete devolver o coin e o servidor não devolve.
+do $$
+declare v_corpo text;
+begin
+  assert (select cancellation_cutoff()) = interval '5 hours',
+         'o prazo do banco mudou sem `shared/cancelamento.ts` saber — `npm run test:prazo` fixa 5h do outro lado';
+
+  /*
+    E `cancel_booking` tem de CHAMAR a função, não repetir o número.
+
+    Um `interval '5 hours'` escrito à mão lá dentro passaria na asserção acima
+    — o valor bateria — e sobreviveria calado à próxima mudança do prazo,
+    decidindo diferente do resto do sistema.
+  */
+  select prosrc into v_corpo from pg_proc where proname = 'cancel_booking';
+  assert v_corpo like '%cancellation_cutoff()%',
+         'cancel_booking precisa chamar cancellation_cutoff(), não repetir o número';
+  assert v_corpo not like '%interval ''%hour%',
+         'cancel_booking tem intervalo literal dentro: o prazo voltou a existir em dois lugares';
+end $$;
+
 reset role;
 \echo 'todos os testes passaram'

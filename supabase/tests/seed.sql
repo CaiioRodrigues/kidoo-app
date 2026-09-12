@@ -35,8 +35,11 @@ insert into activities (id, partner_id, category_id, title, min_age, max_age) va
   ('dddddddd-0000-0000-0000-00000000000b','cccccccc-0000-0000-0000-00000000000b','natacao','Natação Infantil',5,10);
 
 insert into class_sessions (id, activity_id, starts_at, capacity, enrolled, slots_open, slots_taken, kind, coin_cost) values
-  ('eeeeeeee-0000-0000-0000-000000000001','dddddddd-0000-0000-0000-00000000000a', now() + interval '2 hours', 20, 7, 1, 0, 'ociosa', 2),
-  ('eeeeeeee-0000-0000-0000-000000000002','dddddddd-0000-0000-0000-00000000000b', now() + interval '3 hours', 8, 5, 2, 0, 'cheia', 3),
+  -- Oito e nove horas, e não duas e três: o prazo de cancelamento é de cinco
+  -- horas, e uma turma dentro dele faria todo teste de cancelar cair no
+  -- caminho da cobrança sem querer.
+  ('eeeeeeee-0000-0000-0000-000000000001','dddddddd-0000-0000-0000-00000000000a', now() + interval '8 hours', 20, 7, 1, 0, 'ociosa', 2),
+  ('eeeeeeee-0000-0000-0000-000000000002','dddddddd-0000-0000-0000-00000000000b', now() + interval '9 hours', 8, 5, 2, 0, 'cheia', 3),
   -- turma começando já: é a única em que o check-in cabe na janela
   ('eeeeeeee-0000-0000-0000-000000000003','dddddddd-0000-0000-0000-00000000000a', now() + interval '10 minutes', 20, 7, 3, 0, 'ociosa', 2);
 

@@ -126,10 +126,15 @@ const reservas: Reserva[] = [
 
 /** Meses anteriores já fechados, para o extrato não abrir vazio. */
 const HISTORICO: StatementRow[] = [
-  { month: mesAtras(1), kind: 'ociosa', checkIns: 96, rateCents: 800, totalCents: 76800 },
-  { month: mesAtras(1), kind: 'cheia',  checkIns: 21, rateCents: 1800, totalCents: 37800 },
-  { month: mesAtras(2), kind: 'ociosa', checkIns: 71, rateCents: 800, totalCents: 56800 },
-  { month: mesAtras(2), kind: 'cheia',  checkIns: 18, rateCents: 1800, totalCents: 32400 },
+  { month: mesAtras(1), kind: 'ociosa', natureza: 'presenca', checkIns: 96, rateCents: 800, totalCents: 76800 },
+  { month: mesAtras(1), kind: 'cheia',  natureza: 'presenca', checkIns: 21, rateCents: 1800, totalCents: 37800 },
+  // As faltas pagas aparecem no histórico porque aparecem no extrato de
+  // verdade, e em proporção parecida: o lugar segurado é uma parcela pequena
+  // mas constante do repasse.
+  { month: mesAtras(1), kind: 'ociosa', natureza: 'falta',    checkIns: 9,  rateCents: 800, totalCents: 7200 },
+  { month: mesAtras(2), kind: 'ociosa', natureza: 'presenca', checkIns: 71, rateCents: 800, totalCents: 56800 },
+  { month: mesAtras(2), kind: 'cheia',  natureza: 'presenca', checkIns: 18, rateCents: 1800, totalCents: 32400 },
+  { month: mesAtras(2), kind: 'cheia',  natureza: 'falta',    checkIns: 2,  rateCents: 1800, totalCents: 3600 },
 ];
 
 function mesAtras(n: number): string {
@@ -463,7 +468,16 @@ export const demoApi: PainelApi = {
       const total = confirmadasNoMes.filter(
         (r) => tipoDaVaga(turmas.find((t) => t.sessionId === r.sessionId)?.enrolled ?? 0) === kind,
       ).length;
-      return total === 0 ? null : { month: mesAtras(0), kind, checkIns: total, rateCents: rate, totalCents: total * rate };
+      return total === 0
+        ? null
+        : {
+            month: mesAtras(0),
+            kind,
+            natureza: 'presenca',
+            checkIns: total,
+            rateCents: rate,
+            totalCents: total * rate,
+          };
     };
 
     const doMes = [porTipo('ociosa', 800), porTipo('cheia', 1800)].filter(

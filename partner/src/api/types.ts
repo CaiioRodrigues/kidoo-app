@@ -96,6 +96,16 @@ export type ParceiroAdmin = {
 export type StatementRow = {
   month: string;
   kind: SlotKind;
+  /**
+   * De onde veio o repasse desta linha.
+   *
+   * `presenca` é criança que apareceu e teve o código lido. `falta` é lugar
+   * segurado sem presença — desmarcado a menos de cinco horas da aula, ou
+   * ninguém veio. Os dois pagam o mesmo, e ficam separados de propósito:
+   * somados, o extrato não diria quantas crianças de fato foram, que é o
+   * número usado para dimensionar turma.
+   */
+  natureza: 'presenca' | 'falta';
   checkIns: number;
   rateCents: number;
   totalCents: number;
