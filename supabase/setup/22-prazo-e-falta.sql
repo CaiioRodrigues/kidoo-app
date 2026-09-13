@@ -213,7 +213,20 @@ where
   (b.partner_confirmed_at is not null and b.status <> 'cancelled')
   -- Ou o lugar segurado sem presença: cancelamento tardio, ou ninguém apareceu
   -- e a aula já passou.
-  or b.status = 'no_show'
+  --
+  -- `::text` e não o literal do enum, e a diferença não é estilo. O `alter
+  -- type ... add value` acima acontece nesta mesma transação, e o Postgres
+  -- recusa ler um valor de enum que ainda não foi comitado. O SQL Editor do
+  -- Supabase manda o arquivo inteiro como uma transação só — onde o psql abre
+  -- uma por instrução —, então isto passava na suíte e morria na mão de quem
+  -- cola o arquivo, com `55P04 unsafe use of new value "no_show"`. Comparar
+  -- como texto não pede o valor no momento em que a visão é criada.
+  --
+  -- O que se perde é o erro de digitação na hora: `'no_shwo'` como texto não
+  -- reclama, só deixa de casar — e aqui isso significa parceiro sem receber
+  -- pela falta, em silêncio. Quem cobre esse buraco é `rls.sql`, que desmarca
+  -- em cima da hora e exige a linha `natureza = 'falta'` aparecer no extrato.
+  or b.status::text = 'no_show'
   or (b.status = 'confirmed' and b.scheduled_at < now())
 group by a.partner_id, date_trunc('month', b.scheduled_at), b.slot_kind,
          case when b.partner_confirmed_at is not null then 'presenca' else 'falta' end,

@@ -51,6 +51,12 @@ psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/rls.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/partner.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/applications.sql"
 
+# E os arquivos de `setup/` do jeito que uma pessoa os roda: colagem inteira no
+# SQL Editor, ou seja, uma transação por arquivo. Aqui em cima o psql abre uma
+# transação por instrução — o que passa de um jeito pode morrer do outro, e foi
+# assim que a 22 chegou quebrada na mão de quem cola.
+bash "$HERE/colagem.sh"
+
 # Os dois testes em TypeScript rodam contra o mesmo banco recém-aplicado:
 # paridade das regras que existem nos dois lados, e o contrato de nomes entre o
 # adapter e o esquema — nada disso o `tsc` enxerga.
