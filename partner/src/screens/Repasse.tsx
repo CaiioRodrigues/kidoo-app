@@ -26,7 +26,8 @@ export function Repasse() {
         <div>
           <h1>Repasse</h1>
           <p className="page-sub">
-            Últimos 6 meses. Conta só a presença que você confirmou pelo código.
+            Últimos 6 meses. Conta a presença que você confirmou pelo código e também o lugar que
+            ficou segurado — desmarcado em cima da hora ou sem ninguém aparecer.
           </p>
         </div>
       </div>
@@ -73,15 +74,25 @@ export function Repasse() {
                     <thead>
                       <tr>
                         <th>Tipo de vaga</th>
-                        <th>Presenças</th>
-                        <th>Valor por presença</th>
+                        <th>Origem</th>
+                        <th>Lugares</th>
+                        <th>Valor por lugar</th>
                         <th>Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {doMes.map((linha) => (
-                        <tr key={linha.kind}>
+                        <tr key={`${linha.kind}-${linha.natureza}`}>
                           <td>{linha.kind === 'ociosa' ? 'Vaga ociosa' : 'Vaga cheia'}</td>
+                          <td>
+                            {linha.natureza === 'presenca' ? (
+                              'Presença confirmada'
+                            ) : (
+                              <span title="Desmarcada a menos de 5 horas da aula, ou ninguém apareceu. O lugar foi segurado, então ele é pago igual.">
+                                Lugar não utilizado
+                              </span>
+                            )}
+                          </td>
                           <td className="mono">{linha.checkIns}</td>
                           <td className="mono">{reais(linha.rateCents)}</td>
                           <td className="mono">
@@ -90,7 +101,7 @@ export function Repasse() {
                         </tr>
                       ))}
                       <tr>
-                        <td colSpan={3} style={{ textAlign: 'right' }} className="muted">
+                        <td colSpan={4} style={{ textAlign: 'right' }} className="muted">
                           Total do mês
                         </td>
                         <td className="mono">
@@ -127,7 +138,11 @@ function Numero({
       </div>
       <div
         className="mono"
-        style={{ fontSize: destaque ? 30 : 24, fontWeight: 700, color: destaque ? 'var(--purple)' : undefined }}
+        style={{
+          fontSize: destaque ? 30 : 24,
+          fontWeight: 700,
+          color: destaque ? 'var(--purple)' : undefined,
+        }}
       >
         {valor}
       </div>

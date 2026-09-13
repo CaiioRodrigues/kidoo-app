@@ -63,6 +63,25 @@ export function useSubscription() {
   });
 }
 
+/**
+ * Confirma o pagamento na demonstração.
+ *
+ * Existe só para a demonstração andar: com o backend em memória não há painel
+ * de administração para abrir o portão, e todo mundo que escolhe um plano
+ * travaria em `aguardando`. No Supabase a mesma chamada passa por
+ * `set_subscription_status`, que exige `is_kidoo_admin()`.
+ */
+export function useSimularPagamento() {
+  const queryClient = useQueryClient();
+  const session = useAuthStore((state) => state.session);
+  return useMutation({
+    mutationFn: () => api.plans.setStatus(session?.guardian.id ?? '', 'ativa'),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subscription });
+    },
+  });
+}
+
 export function useChildren() {
   const authenticated = useAuthStore((state) => state.status === 'authenticated');
   return useQuery({

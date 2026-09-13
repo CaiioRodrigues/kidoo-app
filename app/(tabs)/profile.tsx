@@ -8,10 +8,16 @@ import { BlobBackdrop } from '@/components/brand';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { useTutorialStore } from '@/stores/tutorial-store';
 import { confirmAction } from '@/lib/confirm';
+import { EstadoDaAssinatura } from '@/features/subscription';
 import { escolherImagem } from '@/lib/foto';
 import { formatAge, formatDaysUntil } from '@/lib/format';
 import { daysUntilReset } from '@/lib/subscription';
-import { useChildren, useSubscription, useUpdateChildPhoto } from '@/hooks/queries';
+import {
+  useChildren,
+  useSimularPagamento,
+  useSubscription,
+  useUpdateChildPhoto,
+} from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { backendName, toUserMessage } from '@/services';
 import { spacing, useTheme } from '@/theme';
@@ -23,6 +29,7 @@ export default function ProfileScreen() {
   const signOut = useAuthStore((state) => state.signOut);
   const { data: children = [] } = useChildren();
   const { data: subscription } = useSubscription();
+  const simular = useSimularPagamento();
   const [signingOut, setSigningOut] = useState(false);
   const restartTutorial = useTutorialStore((state) => state.restart);
   const resetRascunho = useOnboardingStore((state) => state.reset);
@@ -218,6 +225,14 @@ export default function ProfileScreen() {
       </View>
 
       {subscription ? (
+        <EstadoDaAssinatura
+          subscription={subscription}
+          aoSimular={() => simular.mutate()}
+          simulando={simular.isPending}
+        />
+      ) : null}
+
+      {subscription ? (
         <Card bordered elevation="none" style={styles.card}>
           <Text variant="label" color={colors.textMuted}>
             Seu plano
@@ -225,10 +240,14 @@ export default function ProfileScreen() {
           <Text variant="subheading" style={styles.capitalize}>
             {subscription.planId}
           </Text>
-          <Text variant="caption" color={colors.textMuted}>
-            {subscription.coinsRemaining} de {subscription.coinsPerWeek} coins nesta semana · volta
-            ao cheio {formatDaysUntil(daysUntilReset(subscription))}
-          </Text>
+          {/* A linha da cota só faz sentido para quem pode gastá-la. Para quem
+              aguarda, ela mostraria 12 coins que não dá para usar. */}
+          {subscription.status === 'ativa' ? (
+            <Text variant="caption" color={colors.textMuted}>
+              {subscription.coinsRemaining} de {subscription.coinsPerWeek} coins nesta semana ·
+              volta ao cheio {formatDaysUntil(daysUntilReset(subscription))}
+            </Text>
+          ) : null}
         </Card>
       ) : null}
 

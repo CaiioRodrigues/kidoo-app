@@ -17,6 +17,7 @@ export const emDemonstracao = !isConfigured;
 export { PainelError } from './types';
 export type {
   ActivityRow,
+  AssinaturaAdmin,
   AgendaRow,
   Categoria,
   NovoPedido,

@@ -114,8 +114,15 @@ export default function PlanScreen() {
           disabled={!activePlanId}
           onPress={() => void handleConfirm()}
         />
+        {/*
+          A frase antiga era "A cobrança só acontece após a confirmação no
+          próximo passo" — e não havia próximo passo nenhum: escolher o plano
+          liberava tudo, de graça, para sempre. Texto sobre cobrança que não
+          corresponde ao que acontece é o pior lugar para uma imprecisão.
+        */}
         <Text variant="caption" color={colors.textFaint} center>
-          A cobrança só acontece após a confirmação no próximo passo.
+          Você escolhe agora e a gente confirma o pagamento com você. Os coins liberam depois disso
+          — nada é cobrado nesta tela.
         </Text>
       </SafeAreaView>
     </View>

@@ -52,6 +52,16 @@ export function IconeTurmas() {
   );
 }
 
+/** Recibo com selo: a assinatura e sua confirmação. */
+export function IconeAssinaturas() {
+  return (
+    <svg {...base}>
+      <path d="M5.5 3.5h13v17l-2.2-1.6-2.2 1.6-2.1-1.6-2.2 1.6-2.3-1.6V3.5Z" />
+      <path d="M9 8.5h6M9 12.5h6" />
+    </svg>
+  );
+}
+
 /** Prédio com portas: os estabelecimentos, vistos de fora. */
 export function IconeEstabelecimentos() {
   return (

@@ -6,6 +6,11 @@
 \set bruno  '22222222-2222-2222-2222-222222222222'
 \set arena  '33333333-3333-3333-3333-333333333333'
 \set admin  '99999999-9999-9999-9999-999999999999'
+-- `cc...` e não `5555...`: aquele id já é o dono do `applications.sql`, e os
+-- arquivos dividem o mesmo banco. O `on conflict do nothing` do insert daqui
+-- ficava com o e-mail errado na linha dele, e o teste de lá falhava a dez
+-- arquivos de distância do que o causou.
+\set carla  'cccccccc-9999-0000-0000-000000000001'
 
 -- ---- responsável só enxerga o que é dele -----------------------------------
 set role authenticated;
@@ -786,6 +791,229 @@ do $$ begin
   exception when others then
     assert sqlerrm = 'not_admin', 'esperado not_admin, veio: ' || sqlerrm;
   end;
+end $$;
+
+-- ---- o prazo de cancelamento, e a falta que paga -----------------------------
+--
+-- O prazo nunca existiu no servidor: a regra morava em `src/lib/cancellation.ts`,
+-- do lado que não decide nada. Quem chamasse a API direto cancelava um minuto
+-- antes da aula e recebia o coin de volta.
+--
+-- A turma 3 começa em 10 minutos — dentro das cinco horas. É nela que o
+-- caminho da cobrança é exercitado.
+
+-- Turmas próprias, e não as do seed: os arquivos de teste dividem o mesmo
+-- banco, e limpar reserva de turma emprestada quebra o arquivo seguinte — que
+-- foi exatamente o que aconteceu na primeira versão disto.
+reset role;
+insert into class_sessions (id, activity_id, starts_at, capacity, enrolled, slots_open, slots_taken, kind, coin_cost) values
+  -- Dentro do prazo: começa em 30 minutos.
+  ('eeeeeeee-0000-0000-0000-0000000000f1','dddddddd-0000-0000-0000-00000000000a', now() + interval '30 minutes', 20, 7, 2, 0, 'ociosa', 2),
+  -- Com folga: começa em oito horas.
+  ('eeeeeeee-0000-0000-0000-0000000000f2','dddddddd-0000-0000-0000-00000000000a', now() + interval '8 hours',    20, 7, 2, 0, 'ociosa', 2)
+on conflict (id) do nothing;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$
+declare
+  v_booking bookings%rowtype;
+  v_antes   integer;
+  v_vagas   integer;
+begin
+  select coins_remaining into v_antes from subscriptions
+   where guardian_id = '11111111-1111-1111-1111-111111111111';
+
+  v_booking := book_session('eeeeeeee-0000-0000-0000-0000000000f1','aaaaaaaa-0000-0000-0000-000000000001');
+  select slots_taken into v_vagas from class_sessions
+   where id = 'eeeeeeee-0000-0000-0000-0000000000f1';
+
+  v_booking := cancel_booking(v_booking.id);
+
+  assert v_booking.status = 'no_show',
+         'cancelar dentro do prazo não é cancelamento: é falta paga, veio ' || v_booking.status;
+  assert (select coins_remaining from subscriptions
+           where guardian_id = '11111111-1111-1111-1111-111111111111') = v_antes - v_booking.coin_cost,
+         'o coin NÃO volta quando se desmarca em cima da hora';
+
+  /*
+    A vaga também não volta, e não é esquecimento: o lugar foi comprado. Soltá-la
+    deixaria outra família ocupar o mesmo assento físico, e o Kidoo pagaria duas
+    vezes por ele.
+  */
+  assert (select slots_taken from class_sessions
+           where id = 'eeeeeeee-0000-0000-0000-0000000000f1') = v_vagas,
+         'a vaga fica ocupada: quem desmarca tarde abre mão da aula, não do lugar';
+end $$;
+
+-- E o parceiro recebe por ela.
+reset role;
+do $$
+declare v_faltas bigint;
+begin
+  select coalesce(sum(check_ins), 0) into v_faltas
+    from partner_payouts
+   where partner_id = 'cccccccc-0000-0000-0000-00000000000a' and natureza = 'falta';
+  assert v_faltas >= 1,
+         'o lugar segurado entra no repasse como falta, veio ' || v_faltas;
+
+  -- Separada da presença, e não somada: o parceiro precisa saber quantas
+  -- crianças de fato apareceram para dimensionar turma, e continuar tendo
+  -- motivo para ler o código de check-in.
+  assert (select count(distinct natureza) from partner_payouts
+           where partner_id = 'cccccccc-0000-0000-0000-00000000000a') >= 1,
+         'o extrato distingue presença de falta';
+end $$;
+
+-- Antes do prazo, tudo volta: coin e vaga.
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$
+declare
+  v_booking bookings%rowtype;
+  v_antes   integer;
+begin
+  select coins_remaining into v_antes from subscriptions
+   where guardian_id = '11111111-1111-1111-1111-111111111111';
+
+  v_booking := book_session('eeeeeeee-0000-0000-0000-0000000000f2','aaaaaaaa-0000-0000-0000-000000000001');
+  v_booking := cancel_booking(v_booking.id);
+
+  assert v_booking.status = 'cancelled',
+         'com folga de prazo o cancelamento é cancelamento, veio ' || v_booking.status;
+  assert (select coins_remaining from subscriptions
+           where guardian_id = '11111111-1111-1111-1111-111111111111') = v_antes,
+         'o coin volta inteiro';
+  assert (select slots_taken from class_sessions
+           where id = 'eeeeeeee-0000-0000-0000-0000000000f2') = 0,
+         'e a vaga volta para a turma, a tempo de alguém pegá-la';
+end $$;
+
+-- O prazo do banco é o prazo do TypeScript. Se um mudar sem o outro, a tela
+-- promete devolver o coin e o servidor não devolve.
+do $$
+declare v_corpo text;
+begin
+  assert (select cancellation_cutoff()) = interval '5 hours',
+         'o prazo do banco mudou sem `shared/cancelamento.ts` saber — `npm run test:prazo` fixa 5h do outro lado';
+
+  /*
+    E `cancel_booking` tem de CHAMAR a função, não repetir o número.
+
+    Um `interval '5 hours'` escrito à mão lá dentro passaria na asserção acima
+    — o valor bateria — e sobreviveria calado à próxima mudança do prazo,
+    decidindo diferente do resto do sistema.
+  */
+  select prosrc into v_corpo from pg_proc where proname = 'cancel_booking';
+  assert v_corpo like '%cancellation_cutoff()%',
+         'cancel_booking precisa chamar cancellation_cutoff(), não repetir o número';
+  assert v_corpo not like '%interval ''%hour%',
+         'cancel_booking tem intervalo literal dentro: o prazo voltou a existir em dois lugares';
+end $$;
+
+-- ---- o portão da assinatura --------------------------------------------------
+--
+-- Chamar `subscribe_plan` ERA ter o plano: qualquer conta criada saía com a
+-- cota cheia, para sempre, sem ninguém ter pago nada. Depois da 000019 isso
+-- deixou de ser furo de acesso e virou furo de caixa — reserva não cumprida
+-- agora gera repasse, e o Kidoo pagaria por uma assinatura que não existe.
+
+-- Uma família nova, que assina agora: é a única forma de ver o estado inicial.
+-- As do seed nascem `ativa` de propósito, para exercitarem reserva.
+reset role;
+insert into auth.users (id, email) values (:'carla', 'carla@exemplo.com') on conflict do nothing;
+insert into guardians (id, name, email, city) values
+  (:'carla', 'Carla', 'carla@exemplo.com', 'BH') on conflict do nothing;
+insert into children (id, guardian_id, name, birth_date) values
+  ('aaaaaaaa-0000-0000-0000-0000000000c1', :'carla', 'Nina', '2018-03-10') on conflict do nothing;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'carla', false);
+do $$
+declare v_sub subscriptions%rowtype;
+begin
+  v_sub := subscribe_plan('plus');
+  assert v_sub.status = 'aguardando',
+         'escolher o plano não é ter o plano, veio ' || v_sub.status;
+
+  begin
+    perform book_session('eeeeeeee-0000-0000-0000-0000000000f2','aaaaaaaa-0000-0000-0000-0000000000c1');
+    assert false, 'assinatura aguardando pagamento não reserva';
+  exception when others then
+    assert sqlerrm = 'subscription_inactive', 'esperado subscription_inactive, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- Quem administra abre o portão. Ninguém mais.
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$ begin
+  begin
+    perform set_subscription_status('33333333-3333-3333-3333-333333333333', 'ativa');
+    assert false, 'família não ativa a própria assinatura';
+  exception when others then
+    assert sqlerrm = 'not_admin', 'esperado not_admin, veio: ' || sqlerrm;
+  end;
+  begin
+    perform admin_subscriptions();
+    assert false, 'família não lista as assinaturas de todo mundo';
+  exception when others then
+    assert sqlerrm = 'not_admin', 'esperado not_admin, veio: ' || sqlerrm;
+  end;
+end $$;
+
+select set_config('request.jwt.claim.sub', :'admin', false);
+do $$
+declare v_sub subscriptions%rowtype;
+begin
+  v_sub := set_subscription_status('cccccccc-9999-0000-0000-000000000001', 'ativa');
+  assert v_sub.status = 'ativa', 'quem administra ativa';
+
+  -- Ativar empurra o vencimento para a frente. Sem isso, ativar uma assinatura
+  -- vencida a deixaria vencida no instante seguinte — e o sintoma seria
+  -- "ativei e não funcionou".
+  assert v_sub.renews_at > now() + interval '25 days',
+         'ativar renova o mês, senão vence de novo na hora';
+  assert v_sub.coins_remaining = v_sub.coins_per_week,
+         'e devolve a cota da semana: quem acabou de pagar não começa zerado';
+
+  assert (select count(*) from admin_subscriptions()) >= 1,
+         'quem administra enxerga a fila de assinaturas';
+end $$;
+
+-- E com o portão aberto a reserva passa: o portão não pode ter fechado a
+-- porta certa junto com a errada.
+select set_config('request.jwt.claim.sub', :'carla', false);
+do $$
+declare v_booking bookings%rowtype;
+begin
+  v_booking := book_session('eeeeeeee-0000-0000-0000-0000000000f2','aaaaaaaa-0000-0000-0000-0000000000c1');
+  assert v_booking.id is not null, 'assinatura ativa reserva normalmente';
+  perform cancel_booking(v_booking.id);
+end $$;
+
+-- ---- o mês que vence --------------------------------------------------------
+--
+-- `renews_at` era escrito desde o primeiro dia e nunca lido: quem renovava a
+-- cota era a virada da semana, e ela voltava ao cheio para sempre, mesmo com o
+-- mês vencido há um ano.
+
+reset role;
+update subscriptions
+   set renews_at = now() - interval '1 day',
+       cycle_started_at = now() - interval '30 days',
+       coins_remaining = 0
+ where guardian_id = 'cccccccc-9999-0000-0000-000000000001';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'carla', false);
+do $$
+declare v_sub subscriptions%rowtype;
+begin
+  v_sub := current_subscription();
+  assert v_sub.status = 'vencida',
+         'mês vencido derruba a assinatura, veio ' || v_sub.status;
+  assert v_sub.coins_remaining = 0,
+         'e NÃO devolve a cota: era esta a torneira aberta';
 end $$;
 
 reset role;

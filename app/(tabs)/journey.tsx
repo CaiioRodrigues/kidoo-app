@@ -3,11 +3,17 @@ import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AchievementBadge, BonusWalletCard, EvolutionChart } from '@/features/journey';
+import {
+  AchievementBadge,
+  BonusWalletCard,
+  EvolutionChart,
+  PrimeiraJornada,
+} from '@/features/journey';
 import { BlobBackdrop } from '@/components/brand';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { Avatar, Badge, Card, ComingSoon, ProgressBar, Screen, Text } from '@/components/ui';
 import { useChildren, useJourney } from '@/hooks/queries';
+import { possessivo } from '@/lib/genero';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import {
   blobRadius,
@@ -59,13 +65,17 @@ export default function JourneyScreen() {
 
   const firstName = child.name.split(' ')[0] ?? child.name;
   const xpToNextLevel = journey.xpForLevel - journey.xpIntoLevel;
+  // Nenhuma aula confirmada ainda. Não é um estado de erro nem de carregamento:
+  // é o primeiro dia de todo mundo, e é a única visita em que a tela não tem
+  // nada de verdade para contar.
+  const primeiraVez = journey.totalActivities === 0;
 
   return (
     <Screen scroll edges={['top']} contentContainerStyle={styles.scroll}>
       <BlobBackdrop height={170} style={styles.backdrop} />
 
       <Text variant="display" style={styles.pageTitle}>
-        Jornada do {firstName}
+        Jornada {possessivo(firstName, child.gender)}
       </Text>
 
       <Card bordered elevation="none" style={styles.headerCard}>
@@ -77,7 +87,7 @@ export default function JourneyScreen() {
           <Badge label={journey.levelName} tone="brand" />
         </View>
         <View style={styles.xpBadge}>
-          <Text style={styles.xpEmoji}>🏆</Text>
+          <Ionicons name="trophy" size={16} color={colors.warning} />
           <Text variant="label" color={colors.warning}>
             {journey.xp} XP
           </Text>
@@ -121,10 +131,20 @@ export default function JourneyScreen() {
         </Card>
       </Pressable>
 
-      <Text variant="subheading" style={styles.sectionTitle}>
-        Moedas bônus
-      </Text>
-      <BonusWalletCard wallet={journey.bonus} />
+      {primeiraVez ? (
+        <PrimeiraJornada
+          nome={firstName}
+          genero={child.gender}
+          aoExplorar={() => router.push('/(tabs)/explore')}
+        />
+      ) : (
+        <>
+          <Text variant="subheading" style={styles.sectionTitle}>
+            Moedas bônus
+          </Text>
+          <BonusWalletCard wallet={journey.bonus} />
+        </>
+      )}
 
       <Text variant="subheading" style={styles.sectionTitle}>
         Minhas conquistas
@@ -137,43 +157,34 @@ export default function JourneyScreen() {
         ))}
       </View>
 
-      <Text variant="subheading" style={styles.sectionTitle}>
-        Minhas atividades
-      </Text>
-      {journey.activityTally.length === 0 ? (
-        <Card bordered elevation="none">
-          <Text variant="caption" color={colors.textMuted}>
-            Ainda não há aulas registradas. A jornada do {firstName} começa na primeira aula que o
-            professor confirmar.
-          </Text>
-        </Card>
-      ) : (
-        <View style={styles.tallyRow}>
-          {journey.activityTally.map((item) => (
-            <View
-              key={item.category}
-              style={[
-                styles.tallyCard,
-                { backgroundColor: categoryTone(item.category, isDark).soft },
-              ]}
-            >
-              <CategoryIcon category={item.category} size={26} />
-              <Text variant="label" numberOfLines={1}>
-                {item.label}
-              </Text>
-              <Text variant="caption" color={colors.textMuted}>
-                {item.count === 1 ? '1 aula' : `${item.count} aulas`}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Um gráfico de nada ocupa meia tela para não informar nada — e seria a
-          terceira mensagem de "ainda não há" seguida. A evolução aparece
-          quando existe evolução para mostrar. */}
-      {journey.totalActivities === 0 ? null : (
+      {/* Uma grade de modalidades vazia e um gráfico de nada ocupam meia tela
+          para não informar nada — e viriam logo depois do cartão que já disse,
+          uma vez e melhor, que a primeira aula não aconteceu. */}
+      {primeiraVez ? null : (
         <>
+          <Text variant="subheading" style={styles.sectionTitle}>
+            Minhas atividades
+          </Text>
+          <View style={styles.tallyRow}>
+            {journey.activityTally.map((item) => (
+              <View
+                key={item.category}
+                style={[
+                  styles.tallyCard,
+                  { backgroundColor: categoryTone(item.category, isDark).soft },
+                ]}
+              >
+                <CategoryIcon category={item.category} size={26} />
+                <Text variant="label" numberOfLines={1}>
+                  {item.label}
+                </Text>
+                <Text variant="caption" color={colors.textMuted}>
+                  {item.count === 1 ? '1 aula' : `${item.count} aulas`}
+                </Text>
+              </View>
+            ))}
+          </View>
+
           <Text variant="subheading" style={styles.sectionTitle}>
             Minha evolução
           </Text>
@@ -219,7 +230,6 @@ const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
       borderRadius: radius.md,
       backgroundColor: palette.yellowSoft,
     },
-    xpEmoji: { fontSize: 16 },
     levelCard: { gap: spacing.sm, marginTop: spacing.md },
     levelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     levelLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xxs },

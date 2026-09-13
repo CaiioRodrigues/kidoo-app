@@ -12,7 +12,12 @@ import { PreferenceKeys } from '@/lib/preferences';
 import { AchievementCard, shareAchievement, type AchievementShare } from '@/features/share';
 import { levelName } from '@/lib/levels';
 import { formatSessionTime } from '@/lib/format';
-import { canCancel, cancellationMessage, formatDeadline } from '@/lib/cancellation';
+import {
+  canCancel,
+  cancellationMessage,
+  cancellationWarning,
+  formatDeadline,
+} from '@/lib/cancellation';
 import { canCheckIn, checkInWindow, isTicketValid, proximityTo } from '@/lib/check-in';
 import { confirmAction } from '@/lib/confirm';
 import { useLocationStore } from '@/stores/location-store';
@@ -105,11 +110,13 @@ export default function CheckInScreen() {
 
   const handleCancel = useCallback(async () => {
     if (!booking || !cancellation?.allowed) return;
+    // O aviso muda com o prazo, e tem de mudar: prometer "os coins voltam" em
+    // cima da hora seria mentir na única tela em que a pessoa ainda pode
+    // desistir de desistir.
     const confirmado = await confirmAction({
-      title: 'Cancelar reserva?',
-      message:
-        'Os Kidoo Coins voltam para a sua conta. As moedas bônus voltam com a validade original.',
-      confirmLabel: 'Cancelar reserva',
+      title: cancellation.refunds ? 'Cancelar reserva?' : 'Desmarcar sem devolução?',
+      message: cancellationWarning(cancellation),
+      confirmLabel: cancellation.refunds ? 'Cancelar reserva' : 'Desmarcar mesmo assim',
       destructive: true,
     });
     if (!confirmado) return;
@@ -373,7 +380,7 @@ export default function CheckInScreen() {
                   {formatDeadline(booking.scheduledAt)}.
                 </Text>
               </>
-            ) : cancellation && cancellation.reason === 'too_late' ? (
+            ) : cancellation && !cancellation.allowed ? (
               <Text variant="caption" color={colors.textFaint} center>
                 {cancellationMessage(cancellation)}
               </Text>

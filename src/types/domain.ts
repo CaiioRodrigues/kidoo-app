@@ -271,7 +271,20 @@ export type RatingSummary = {
   distribution: Record<1 | 2 | 3 | 4 | 5, number>;
 };
 
-export type BookingStatus = 'confirmed' | 'checked_in' | 'cancelled' | 'completed';
+export type BookingStatus =
+  | 'confirmed'
+  | 'checked_in'
+  | 'completed'
+  | 'cancelled'
+  /**
+   * Desmarcada em cima da hora, ou ninguém apareceu.
+   *
+   * Estado próprio, e não `cancelled` com uma marca ao lado, porque a diferença
+   * entre os dois é dinheiro: `cancelled` significa, em todo lugar deste
+   * sistema, "não custou nada a ninguém". Aqui o coin não voltou e o parceiro
+   * recebe pelo lugar que segurou.
+   */
+  | 'no_show';
 
 export type Booking = {
   id: Uuid;
@@ -454,6 +467,9 @@ export type Session = {
   expiresAt: IsoDateTime;
 };
 
+/** Em que ponto a assinatura está. Só `ativa` reserva. */
+export type SubscriptionStatus = 'aguardando' | 'ativa' | 'vencida';
+
 export type SubscriptionState = {
   planId: PlanId;
   /** Cota cheia da semana. */
@@ -469,4 +485,12 @@ export type SubscriptionState = {
   cycleResetsAt: IsoDateTime;
   /** Próxima cobrança mensal. */
   renewsAt: IsoDateTime;
+  /**
+   * Se a assinatura está valendo.
+   *
+   * `aguardando` é quem escolheu o plano e ainda não teve o pagamento
+   * confirmado — escolher deixou de ser ter. `vencida` é quem passou de
+   * `renewsAt` sem renovar. Só `ativa` reserva.
+   */
+  status: SubscriptionStatus;
 };

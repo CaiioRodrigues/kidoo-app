@@ -36,6 +36,9 @@ export function startSubscription(plan: Plan, now: Date = new Date()): Subscript
     cycleStartsAt: cycle.startsAt,
     cycleResetsAt: cycle.resetsAt,
     renewsAt: renewsAt.toISOString(),
+    // Nasce aguardando: escolher o plano deixou de ser ter o plano. Quem
+    // confirma é o pagamento — hoje, alguém do Kidoo olhando o comprovante.
+    status: 'aguardando',
   };
 }
 
@@ -48,6 +51,20 @@ export function withCurrentCycle(
   subscription: SubscriptionState,
   now: Date = new Date(),
 ): SubscriptionState {
+  /*
+    O mês vencido derruba a assinatura, e derruba antes de qualquer cota.
+
+    `renewsAt` era escrito desde o primeiro dia e nunca lido: quem renovava era
+    a virada da semana, e ela voltava ao cheio para sempre — mesmo com o mês
+    vencido há um ano. Espelha `roll_subscription_cycle` do banco.
+  */
+  if (subscription.status === 'ativa' && now.getTime() >= Date.parse(subscription.renewsAt)) {
+    return { ...subscription, status: 'vencida' };
+  }
+
+  // Quem não está ativo não ganha cota nova: `aguardando` nunca chegou a valer,
+  // e `vencida` deixou de valer.
+  if (subscription.status !== 'ativa') return subscription;
   if (now.getTime() < Date.parse(subscription.cycleResetsAt)) return subscription;
 
   const cycle = currentCycle(now);

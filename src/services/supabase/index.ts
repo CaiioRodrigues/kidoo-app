@@ -82,6 +82,18 @@ const RPC_MESSAGES: Record<string, { code: ApiErrorCode; message: string }> = {
     message: 'Esta turma ainda tem vaga — é só reservar.',
   },
   no_subscription: { code: 'not_found', message: 'Você ainda não tem um plano ativo.' },
+  // Separada de `no_subscription`: "você não tem plano" manda escolher um;
+  // "seu plano está esperando confirmação" manda esperar. Mandar quem já
+  // escolheu escolher de novo é o pior dos dois mundos.
+  not_admin: {
+    code: 'invalid_credentials',
+    message: 'Esta operação é de quem administra o Kidoo.',
+  },
+  subscription_inactive: {
+    code: 'not_found',
+    message:
+      'Sua assinatura ainda não está ativa. Assim que o pagamento for confirmado, ela libera.',
+  },
   insufficient_coins: {
     code: 'insufficient_coins',
     message: 'Seus Kidoo Coins desta semana acabaram. A cota volta ao cheio na segunda.',
@@ -849,6 +861,16 @@ export const supabaseApi: KidooApi = {
       const row = unwrap(
         await supabase().rpc('subscribe_plan', { p_plan_id: planId }).single<SubscriptionRow>(),
         'Não foi possível assinar o plano.',
+      );
+      return toSubscription(row);
+    },
+
+    async setStatus(guardianId, status) {
+      const row = unwrap(
+        await supabase()
+          .rpc('set_subscription_status', { p_guardian: guardianId, p_status: status })
+          .single<SubscriptionRow>(),
+        'Não foi possível mudar a assinatura.',
       );
       return toSubscription(row);
     },

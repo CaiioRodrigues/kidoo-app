@@ -18,6 +18,10 @@ const STATUS: Record<BookingStatus, { label: string; tone: 'brand' | 'success' |
   checked_in: { label: 'Check-in feito', tone: 'success' },
   completed: { label: 'Concluída', tone: 'neutral' },
   cancelled: { label: 'Cancelada', tone: 'neutral' },
+  // "Não utilizada", e não "Falta": a etiqueta aparece na lista da família, e
+  // "falta" acusa. O que aconteceu de concreto é que o lugar não foi usado —
+  // e quem desmarcou em cima da hora avisou, não faltou.
+  no_show: { label: 'Não utilizada', tone: 'neutral' },
 };
 
 /** Tela 8 (lista) — Reservas do responsável. */

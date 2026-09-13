@@ -87,3 +87,33 @@ export function paeth(a, b, c) {
   if (pa <= pb && pa <= pc) return a;
   return pb <= pc ? b : c;
 }
+
+/**
+ * Quanto de um pedaço da imagem deixou de ser a cor de fundo, de 0 a 1.
+ *
+ * A cor de fundo é descoberta, e não fixada: é a mais frequente do recorte.
+ * Assim a medida vale nos dois temas e continua valendo se a cor do cartão
+ * mudar — e o que não desenha nada dá zero, porque aí o recorte é de uma cor só.
+ *
+ * `margem` recorta uma fração de cada lado antes de contar.
+ */
+export function fracaoPintada({ largura, altura, canais, dados }, margem = 0) {
+  const x0 = Math.floor(largura * margem);
+  const x1 = Math.ceil(largura * (1 - margem));
+  const y0 = Math.floor(altura * margem);
+  const y1 = Math.ceil(altura * (1 - margem));
+
+  const contagem = new Map();
+  let total = 0;
+  for (let y = y0; y < y1; y += 1) {
+    for (let x = x0; x < x1; x += 1) {
+      const b = (y * largura + x) * canais;
+      const c = (dados[b] << 16) | (dados[b + 1] << 8) | dados[b + 2];
+      contagem.set(c, (contagem.get(c) ?? 0) + 1);
+      total += 1;
+    }
+  }
+  let dominante = 0;
+  for (const quantos of contagem.values()) dominante = Math.max(dominante, quantos);
+  return 1 - dominante / total;
+}

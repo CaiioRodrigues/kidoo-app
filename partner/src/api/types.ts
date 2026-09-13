@@ -93,9 +93,36 @@ export type ParceiroAdmin = {
   futureBookings: number;
 };
 
+/**
+ * Uma assinatura, na fila de quem administra.
+ *
+ * O e-mail vem junto porque é por ele que se cruza com o comprovante de
+ * pagamento — é o único identificador que a família também conhece.
+ */
+export type AssinaturaAdmin = {
+  guardianId: string;
+  name: string;
+  email: string;
+  planId: string;
+  status: 'aguardando' | 'ativa' | 'vencida';
+  coinsRemaining: number;
+  coinsPerWeek: number;
+  renewsAt: string;
+};
+
 export type StatementRow = {
   month: string;
   kind: SlotKind;
+  /**
+   * De onde veio o repasse desta linha.
+   *
+   * `presenca` é criança que apareceu e teve o código lido. `falta` é lugar
+   * segurado sem presença — desmarcado a menos de cinco horas da aula, ou
+   * ninguém veio. Os dois pagam o mesmo, e ficam separados de propósito:
+   * somados, o extrato não diria quantas crianças de fato foram, que é o
+   * número usado para dimensionar turma.
+   */
+  natureza: 'presenca' | 'falta';
   checkIns: number;
   rateCents: number;
   totalCents: number;
@@ -264,6 +291,16 @@ export type PainelApi = {
   ): Promise<{ address: string | null; phone: string | null }>;
   /** Todos os estabelecimentos, para quem analisa pedidos. */
   parceirosAdmin(): Promise<ParceiroAdmin[]>;
+  /** A fila de assinaturas, com quem espera confirmação primeiro. */
+  assinaturasAdmin(): Promise<AssinaturaAdmin[]>;
+  /**
+   * Abre ou fecha o portão de uma assinatura.
+   *
+   * É o lugar do webhook do gateway, antes de ele existir: quando o pagamento
+   * aprovado chegar, o que ele faz é exatamente isto. Enquanto não chega, quem
+   * confirma é uma pessoa do Kidoo olhando o comprovante.
+   */
+  mudarAssinatura(guardianId: string, status: 'aguardando' | 'ativa' | 'vencida'): Promise<void>;
   /**
    * Liga ou desliga um estabelecimento, e diz quantas aulas futuras ficaram
    * de pé.

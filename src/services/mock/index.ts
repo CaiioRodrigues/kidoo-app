@@ -504,6 +504,32 @@ export const mockApi: KidooApi = {
       state.subscription = withCurrentCycle(state.subscription);
       return delay(state.subscription, 100);
     },
+
+    async setStatus(_guardianId, status) {
+      // O mock simula quem administra, como já faz com `confirmByPartner`. No
+      // Supabase quem decide é `is_kidoo_admin()`, e uma família que chamar
+      // isto recebe `not_admin`.
+      requireSession();
+      if (!state.subscription) {
+        throw new ApiError('not_found', 'Você ainda não tem um plano ativo.');
+      }
+      const renova = new Date();
+      renova.setMonth(renova.getMonth() + 1);
+      state.subscription = {
+        ...state.subscription,
+        status,
+        // Ativar renova o mês e devolve a cota, igual ao banco: sem isso,
+        // ativar uma assinatura vencida a deixaria vencida no instante
+        // seguinte.
+        ...(status === 'ativa'
+          ? {
+              renewsAt: renova.toISOString(),
+              coinsRemaining: state.subscription.coinsPerWeek,
+            }
+          : {}),
+      };
+      return delay(state.subscription, 100);
+    },
   },
 
   bookings: {
@@ -667,35 +693,53 @@ export const mockApi: KidooApi = {
       const check = canCancel(booking);
       if (!check.allowed) throw new ApiError('not_found', cancellationMessage(check));
 
-      // Devolve exatamente o que foi cobrado: a cota semanal recebe de volta a
-      // parte da assinatura, e os lotes de bônus voltam com a validade
-      // original — sem esticar o prazo de nada.
-      const subscription = state.subscription ? withCurrentCycle(state.subscription) : null;
-      if (subscription && booking.payment.fromSubscription > 0) {
-        state.subscription = {
-          ...subscription,
-          coinsRemaining: Math.min(
-            subscription.coinsPerWeek,
-            subscription.coinsRemaining + booking.payment.fromSubscription,
-          ),
-        };
-      }
-      if (booking.payment.bonusLots.length > 0) {
-        state.bonusGrants = restoreBonus(
-          state.bonusGrants,
-          booking.childId,
-          booking.payment.bonusLots,
-        );
+      /*
+        Dentro do prazo, nada volta — nem coin, nem vaga.
+
+        Espelha `cancel_booking` do banco linha por linha, e é o tipo de regra
+        em que mock e servidor discordando é caro de verdade: a tela ensaia o
+        resultado com o mock, a família vê o coin voltar, e no aparelho de
+        verdade ele não volta.
+
+        A vaga não ser liberada não é esquecimento: o lugar foi comprado. Soltá-la
+        deixaria outra família ocupar o mesmo assento, e o Kidoo pagaria duas
+        vezes por ele.
+      */
+      if (check.refunds) {
+        // Devolve exatamente o que foi cobrado: a cota semanal recebe de volta a
+        // parte da assinatura, e os lotes de bônus voltam com a validade
+        // original — sem esticar o prazo de nada.
+        const subscription = state.subscription ? withCurrentCycle(state.subscription) : null;
+        if (subscription && booking.payment.fromSubscription > 0) {
+          state.subscription = {
+            ...subscription,
+            coinsRemaining: Math.min(
+              subscription.coinsPerWeek,
+              subscription.coinsRemaining + booking.payment.fromSubscription,
+            ),
+          };
+        }
+        if (booking.payment.bonusLots.length > 0) {
+          state.bonusGrants = restoreBonus(
+            state.bonusGrants,
+            booking.childId,
+            booking.payment.bonusLots,
+          );
+        }
+
+        // A vaga volta para o parceiro. Sem isto a turma "encheria" com reservas
+        // canceladas e ele perderia lugar que está livre.
+        const session = CLASS_SESSIONS.find((item) => item.id === booking.sessionId);
+        if (session) session.slotsTaken = Math.max(0, session.slotsTaken - 1);
       }
 
-      // A vaga volta para o parceiro. Sem isto a turma "encheria" com reservas
-      // canceladas e ele perderia lugar que está livre.
-      const session = CLASS_SESSIONS.find((item) => item.id === booking.sessionId);
-      if (session) session.slotsTaken = Math.max(0, session.slotsTaken - 1);
-
-      const cancelled: Booking = { ...booking, status: 'cancelled', checkIn: null };
-      state.bookings = state.bookings.map((item) => (item.id === bookingId ? cancelled : item));
-      return delay(toDetails(cancelled));
+      const desmarcada: Booking = {
+        ...booking,
+        status: check.refunds ? 'cancelled' : 'no_show',
+        checkIn: null,
+      };
+      state.bookings = state.bookings.map((item) => (item.id === bookingId ? desmarcada : item));
+      return delay(toDetails(desmarcada));
     },
 
     async create({ sessionId, childId }) {
@@ -716,6 +760,29 @@ export const mockApi: KidooApi = {
       // recusa — e a divergência só apareceria em produção.
       if (!activity.partner.active) {
         throw new ApiError('not_found', 'Este estabelecimento não faz mais parte do Kidoo.');
+      }
+
+      /*
+        O portão da assinatura, antes de olhar saldo.
+
+        Antes da divisão do pagamento de propósito: uma aula paga inteira com
+        Kidoo Bônus não toca a cota, e deixá-la passar por fora seria uma porta
+        dos fundos com estoque próprio — quem subiu de nível antes de vencer
+        continuaria reservando de graça.
+      */
+      const assinatura = state.subscription
+        ? (state.subscription = withCurrentCycle(state.subscription))
+        : null;
+      if (!assinatura) {
+        throw new ApiError('not_found', 'Você ainda não tem um plano ativo.');
+      }
+      if (assinatura.status !== 'ativa') {
+        throw new ApiError(
+          'not_found',
+          assinatura.status === 'aguardando'
+            ? 'Sua assinatura está aguardando a confirmação do pagamento.'
+            : 'Sua assinatura venceu. Renove para voltar a reservar.',
+        );
       }
 
       // Antes de olhar lotação: quem já está na turma não está diante de um
