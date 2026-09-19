@@ -204,5 +204,95 @@ begin
   end if;
 end $$;
 
+-- ------------------------------------------------------------------------
+-- O Storage: a foto da criança é de quem?
+--
+-- Estas policies existiam desde a migration 000011 e NUNCA tinham rodado num
+-- teste: `run.sh` não criava o schema `storage`, as migrations checam
+-- `to_regclass('storage.objects')` e voltavam sem criar nada. A regra que
+-- impede um responsável de abrir a foto do filho de outra família era, até
+-- aqui, uma regra que ninguém nunca executou.
+--
+-- O bloco tem as duas metades de propósito. Só negar passaria com uma policy
+-- que nega tudo — inclusive o dono, que aí não conseguiria trocar a própria
+-- foto e o app quebraria sem nenhum teste acusar.
+-- ------------------------------------------------------------------------
+reset role;
+insert into storage.objects (bucket_id, name) values
+  ('criancas',     '22222222-2222-2222-2222-222222222222/filho-do-bruno.jpg'),
+  ('responsaveis', '22222222-2222-2222-2222-222222222222/perfil.jpg'),
+  ('criancas',     '11111111-1111-1111-1111-111111111111/filha-da-ana.jpg')
+on conflict do nothing;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+
+do $$
+declare v_linhas int;
+begin
+  -- Ler a foto da criança de outra família.
+  select count(*) into v_linhas from storage.objects
+   where bucket_id = 'criancas'
+     and name like '22222222-2222-2222-2222-222222222222/%';
+  if v_linhas > 0 then
+    raise exception 'Ana enxerga % foto(s) de criança de outra família', v_linhas;
+  end if;
+
+  -- Ler a foto do responsável de outra família.
+  select count(*) into v_linhas from storage.objects
+   where bucket_id = 'responsaveis'
+     and name like '22222222-2222-2222-2222-222222222222/%';
+  if v_linhas > 0 then
+    raise exception 'Ana enxerga % foto(s) de responsável de outra família', v_linhas;
+  end if;
+
+  -- E a própria, que TEM de aparecer: policy que nega tudo também passaria
+  -- nos dois testes acima, e quebraria a troca de foto no app.
+  select count(*) into v_linhas from storage.objects
+   where bucket_id = 'criancas'
+     and name like '11111111-1111-1111-1111-111111111111/%';
+  if v_linhas <> 1 then
+    raise exception 'Ana deveria ver a foto da própria filha, veio %', v_linhas;
+  end if;
+end $$;
+
+do $$
+declare v_ataques text[][] := array[
+    ['escrever na pasta de outra família',
+     $q$insert into storage.objects (bucket_id, name)
+        values ('criancas', '22222222-2222-2222-2222-222222222222/invadida.jpg')$q$],
+    ['trocar a foto de outra família',
+     $q$update storage.objects set name = 'roubada.jpg'
+        where bucket_id = 'criancas'
+          and name like '22222222-2222-2222-2222-222222222222/%'$q$],
+    ['subir imagem na pasta de um estabelecimento que não é seu',
+     $q$insert into storage.objects (bucket_id, name)
+        values ('atividades', 'cccccccc-0000-0000-0000-00000000000a/falsa.jpg')$q$],
+    ['apagar a foto de outra família',
+     $q$delete from storage.objects
+        where bucket_id = 'responsaveis'
+          and name like '22222222-2222-2222-2222-222222222222/%'$q$]
+  ];
+  v_afetadas int;
+begin
+  for i in 1 .. array_length(v_ataques, 1) loop
+    begin
+      execute v_ataques[i][2];
+      get diagnostics v_afetadas = row_count;
+      if v_afetadas > 0 then
+        raise exception 'ATAQUE PASSOU no Storage (% linha(s)): %', v_afetadas, v_ataques[i][1];
+      end if;
+    exception
+      when insufficient_privilege then null;
+      when check_violation then null;
+      when others then
+        if sqlerrm like 'ATAQUE PASSOU%' then raise; end if;
+        if sqlerrm not like '%row-level security%' and sqlerrm not like '%permission denied%' then
+          raise exception 'ataque "%" falhou por outro motivo: %', v_ataques[i][1], sqlerrm;
+        end if;
+    end;
+  end loop;
+end $$;
+
 reset role;
 \echo 'invasão: nenhum ataque passou'
