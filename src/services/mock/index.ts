@@ -30,6 +30,7 @@ import type {
   BookingReward,
   ActivityCategoryId,
   ActivityTally,
+  AulaFeita,
   BonusGrant,
   Booking,
   Review,
@@ -181,13 +182,20 @@ function toDetails(booking: Booking): BookingDetails {
   return { ...booking, activity, child };
 }
 
-/** Aulas efetivamente frequentadas, por modalidade. */
+/**
+ * Aulas efetivamente frequentadas.
+ *
+ * Devolve a contagem e a lista. A lista é a trilha; a contagem sai dela para
+ * que as duas não possam discordar — somar de um lado e listar de outro é como
+ * o total e a trilha acabariam contando histórias diferentes da mesma criança.
+ */
 function attendanceOf(childId: string): {
   total: number;
   byCategory: Map<ActivityCategoryId, number>;
+  history: AulaFeita[];
 } {
   const byCategory = new Map<ActivityCategoryId, number>();
-  let total = 0;
+  const history: AulaFeita[] = [];
 
   for (const booking of state.bookings) {
     if (booking.childId !== childId) continue;
@@ -196,11 +204,17 @@ function attendanceOf(childId: string): {
     const activity = ACTIVITIES.find((item) => item.id === booking.activityId);
     if (!activity) continue;
 
-    total += 1;
     byCategory.set(activity.category, (byCategory.get(activity.category) ?? 0) + 1);
+    history.push({
+      id: booking.id,
+      date: booking.scheduledAt,
+      category: activity.category,
+      activityName: activity.title,
+    });
   }
 
-  return { total, byCategory };
+  history.sort((a, b) => a.date.localeCompare(b.date));
+  return { total: history.length, byCategory, history };
 }
 
 /**
@@ -931,7 +945,7 @@ export const mockApi: KidooApi = {
       const child = state.children.find((item) => item.id === childId);
       if (!child) throw new ApiError('not_found', 'Criança não encontrada.');
 
-      const { total, byCategory } = attendanceOf(childId);
+      const { total, byCategory, history } = attendanceOf(childId);
       const { level, levelName, xpIntoLevel, xpForLevel, isMaxLevel } = levelFromXp(child.xp);
 
       const activityTally: ActivityTally[] = [...byCategory.entries()]
@@ -961,6 +975,7 @@ export const mockApi: KidooApi = {
         weeklyActivity: weeklyActivityOf(childId),
         totalActivities: total,
         totalCategories: byCategory.size,
+        history,
         bonus: buildWallet(childId, state.bonusGrants),
       });
     },

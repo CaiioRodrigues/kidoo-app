@@ -8,12 +8,14 @@ import {
   BonusWalletCard,
   EvolutionChart,
   PrimeiraJornada,
+  Trilha,
 } from '@/features/journey';
 import { BlobBackdrop } from '@/components/brand';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { Avatar, Badge, Card, ComingSoon, ProgressBar, Screen, Text } from '@/components/ui';
 import { useChildren, useJourney } from '@/hooks/queries';
 import { possessivo } from '@/lib/genero';
+import { montarTrilha, ultimosPassos } from '@/lib/trilha';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import {
   blobRadius,
@@ -25,6 +27,15 @@ import {
   type ThemeColors,
   type ThemePalette,
 } from '@/theme';
+
+/**
+ * Quantos passos da trilha cabem na tela antes de ela enterrar o resto.
+ *
+ * A Jornada já tem cabeçalho, nível, doze medalhas e dois blocos de resumo
+ * embaixo. Oito passos dão cerca de 830px — uma tela cheia de rolagem, que é
+ * o quanto uma seção pode ocupar sem virar a tela inteira.
+ */
+const PASSOS_NA_TELA = 8;
 
 /** Tela 10 — Jornada da criança. */
 export default function JourneyScreen() {
@@ -69,6 +80,10 @@ export default function JourneyScreen() {
   // é o primeiro dia de todo mundo, e é a única visita em que a tela não tem
   // nada de verdade para contar.
   const primeiraVez = journey.totalActivities === 0;
+  // A trilha é montada aqui, e não no serviço, porque ela é derivada das
+  // mesmas regras das conquistas — pô-la no backend obrigaria cada adapter a
+  // reimplementá-las, e a primeira regra nova divergiria em silêncio.
+  const { visiveis, anteriores } = ultimosPassos(montarTrilha(journey.history), PASSOS_NA_TELA);
 
   return (
     <Screen scroll edges={['top']} contentContainerStyle={styles.scroll}>
@@ -162,6 +177,11 @@ export default function JourneyScreen() {
           uma vez e melhor, que a primeira aula não aconteceu. */}
       {primeiraVez ? null : (
         <>
+          <Text variant="subheading" style={styles.sectionTitle}>
+            A trilha {possessivo(firstName, child.gender)}
+          </Text>
+          <Trilha passos={visiveis} anteriores={anteriores} />
+
           <Text variant="subheading" style={styles.sectionTitle}>
             Minhas atividades
           </Text>

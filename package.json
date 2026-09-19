@@ -73,6 +73,7 @@
     "test:recuperacao": "npx tsx scripts/testar-recuperacao.ts",
     "test:senha": "node scripts/testar-senha.mjs",
     "test:texto": "npx tsx scripts/testar-texto.ts",
+    "test:trilha": "npx tsx scripts/testar-trilha.ts",
     "test:senha-painel": "node scripts/testar-senha-painel.mjs",
     "test:sql": "bash supabase/tests/run.sh",
     "android": "expo run:android",

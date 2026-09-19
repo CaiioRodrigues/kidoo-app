@@ -151,6 +151,11 @@ ok(jornada.includes('Explorar atividades'), 'e oferece para onde ir');
 for (const secao of ['Moedas bônus', 'Minhas atividades', 'Minha evolução']) {
   ok(!jornada.includes(secao), `a seção "${secao}" não aparece com zero aula`);
 }
+// A trilha é a seção mais tentadora de mostrar vazia — ela é o rosto da tela.
+// Um caminho sem passo nenhum não é um começo: é um traço cinza sem nada em
+// volta, e ele apareceria bem embaixo do cartão que acabou de dizer, com o
+// guará e uma frase, que a primeira aula ainda não aconteceu.
+ok(!jornada.includes('A trilha da Alice'), 'nem a trilha, que com zero aula não tem o que contar');
 ok(
   jornada.includes('Minhas conquistas'),
   'as conquistas ficam — são a única parte da tela vazia que promete em vez de constatar falta',

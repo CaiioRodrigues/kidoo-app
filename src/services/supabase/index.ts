@@ -38,6 +38,7 @@ import type {
   Activity,
   ActivityCategoryId,
   ActivityTally,
+  AulaFeita,
   BookingDetails,
   Child,
   Guardian,
@@ -1027,15 +1028,20 @@ export const supabaseApi: KidooApi = {
           .order('expires_at')
           .returns<BonusGrantRow[]>(),
         supabase()
+          // `id` e o nome da atividade entram por causa da trilha: ela mostra
+          // cada aula, e não a soma delas. A ordem vem do banco para a lista
+          // não depender de a resposta chegar ordenada por acaso.
           .from('bookings')
-          .select('checked_in_at, scheduled_at, activity:activities(category_id)')
+          .select('id, checked_in_at, scheduled_at, activity:activities(category_id, title)')
           .eq('child_id', childId)
           .in('status', ['checked_in', 'completed'])
+          .order('scheduled_at')
           .returns<
             {
+              id: string;
               checked_in_at: string | null;
               scheduled_at: string;
-              activity: { category_id: string } | null;
+              activity: { category_id: string; title: string } | null;
             }[]
           >(),
       ]);
@@ -1045,9 +1051,17 @@ export const supabaseApi: KidooApi = {
       const history = historyResult.data ?? [];
 
       const byCategory = new Map<ActivityCategoryId, number>();
+      const aulas: AulaFeita[] = [];
       for (const item of history) {
         const category = item.activity?.category_id as ActivityCategoryId | undefined;
-        if (category) byCategory.set(category, (byCategory.get(category) ?? 0) + 1);
+        if (!category) continue;
+        byCategory.set(category, (byCategory.get(category) ?? 0) + 1);
+        aulas.push({
+          id: item.id,
+          date: item.scheduled_at,
+          category,
+          activityName: item.activity?.title ?? '',
+        });
       }
 
       const categories = unwrap(
@@ -1083,8 +1097,11 @@ export const supabaseApi: KidooApi = {
         achievements: buildAchievements(history.length, byCategory, new Date().toISOString()),
         activityTally,
         weeklyActivity: weeklyFrom(history),
-        totalActivities: history.length,
+        // `aulas.length`, e não `history.length`: uma reserva cuja atividade
+        // sumiu do catálogo não vira passo da trilha, e não pode virar soma.
+        totalActivities: aulas.length,
         totalCategories: byCategory.size,
+        history: aulas,
         bonus: toWallet(childId, grants),
       };
     },
