@@ -23,10 +23,15 @@ begin
 
   insert into partner_applications
     (user_id, name, neighborhood, city, address, latitude, longitude, phone,
-     categories, min_age, max_age, cnpj)
+     categories, min_age, max_age, cnpj, photo_path)
   values (auth.uid(), 'Escolinha do Bairro', 'Buritis', 'Belo Horizonte',
           'Rua Exemplo, 100', -19.97, -43.98, '31999990000',
-          array['futebol','judo'], 4, 12, '12.345.678/0001-90')
+          array['futebol','judo'], 4, 12, '12.345.678/0001-90',
+          -- Sem o prefixo do bucket: desde a 000023 a foto tem bucket próprio,
+          -- e o caminho guardado é a pasta do dono dentro dele. Montado com
+          -- `auth.uid()` porque é assim que o painel o monta — e porque psql
+          -- não interpola `:variavel` dentro de bloco com aspas-cifrão.
+          auth.uid()::text || '/espaco')
   returning id into v_id;
   perform set_config('kidoo.pedido', v_id::text, false);
 
@@ -94,6 +99,13 @@ begin
   select * into v_linha from pending_applications() limit 1;
   assert v_linha.email = 'novo@escolinha.com',
          'a fila traz o e-mail da conta, que não sai por PostgREST';
+  -- A foto existe para ser olhada por quem decide. Ela chegou ao bucket
+  -- privado na 000023 e ficou um commit inteiro sem ninguém que a lesse:
+  -- a policy liberava e a fila não devolvia o caminho. Esta asserção é o que
+  -- faz um `create or replace` distraído derrubar o teste em vez da tela.
+  assert v_linha.photo_path = '55555555-5555-5555-5555-555555555555/espaco',
+         'a fila traz o caminho da foto do espaço, veio: ' ||
+         coalesce(v_linha.photo_path, '(nulo)');
 
   v_parceiro := approve_application(v_id);
   assert v_parceiro.verified, 'aprovado nasce verificado';

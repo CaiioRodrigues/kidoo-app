@@ -12,10 +12,12 @@ import { Card, Erro, Vazio, useDados } from '@/components/ui';
  * escalar privilégio.
  */
 export function Pedidos() {
-  const { dado: pedidos, carregando, erro, recarregar } = useDados(
-    () => api.pedidosPendentes(),
-    [],
-  );
+  const {
+    dado: pedidos,
+    carregando,
+    erro,
+    recarregar,
+  } = useDados(() => api.pedidosPendentes(), []);
   // Os nomes das modalidades. Sem eles a tela mostrava o id cru — "ginastica",
   // sem acento, que parece dado corrompido para quem está decidindo.
   const { dado: categorias } = useDados(() => api.categorias(), []);
@@ -94,26 +96,37 @@ function CartaoPedido({
   return (
     <section className="card">
       <div className="card-pad">
-        <div className="row" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-          <h3>{pedido.name}</h3>
-          <span className="badge badge-espera">esperando</span>
+        {/* A foto e os dados lado a lado, e a foto primeiro na ordem de
+            leitura: o formulário diz o que o estabelecimento afirma ser, e a
+            foto é a única parte do pedido que mostra onde a criança vai ficar.
+            `flexWrap` porque numa janela estreita duas colunas de 260px não
+            cabem — aí a foto sobe e o texto desce, em vez de espremer as duas. */}
+        <div className="row" style={{ gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <FotoDoEspaco nome={pedido.name} url={pedido.photoUrl} />
+
+          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+              <h3>{pedido.name}</h3>
+              <span className="badge badge-espera">esperando</span>
+            </div>
+            <p className="faint">
+              {pedido.address} · {pedido.neighborhood}, {pedido.city}
+            </p>
+            <p className="faint" style={{ marginTop: 4 }}>
+              {pedido.phone} · {pedido.email}
+              {pedido.cnpj ? ` · CNPJ ${pedido.cnpj}` : ' · sem CNPJ informado'}
+            </p>
+            <p className="faint" style={{ marginTop: 4 }}>
+              {/* Cai no id se a lista ainda não chegou: melhor "judo" do que um
+                  traço no lugar da modalidade que ele quer oferecer. */}
+              {pedido.categories
+                .map((id) => categorias.find((c) => c.id === id)?.label ?? id)
+                .join(', ')}{' '}
+              · de {pedido.minAge} a {pedido.maxAge} anos · pedido em{' '}
+              {new Date(pedido.createdAt).toLocaleDateString('pt-BR')}
+            </p>
+          </div>
         </div>
-        <p className="faint">
-          {pedido.address} · {pedido.neighborhood}, {pedido.city}
-        </p>
-        <p className="faint" style={{ marginTop: 4 }}>
-          {pedido.phone} · {pedido.email}
-          {pedido.cnpj ? ` · CNPJ ${pedido.cnpj}` : ' · sem CNPJ informado'}
-        </p>
-        <p className="faint" style={{ marginTop: 4 }}>
-          {/* Cai no id se a lista ainda não chegou: melhor "judo" do que um
-              traço no lugar da modalidade que ele quer oferecer. */}
-          {pedido.categories
-            .map((id) => categorias.find((c) => c.id === id)?.label ?? id)
-            .join(', ')}{' '}
-          · de {pedido.minAge} a {pedido.maxAge} anos · pedido em{' '}
-          {new Date(pedido.createdAt).toLocaleDateString('pt-BR')}
-        </p>
 
         {erro && (
           <div style={{ marginTop: 12 }}>
@@ -168,5 +181,66 @@ function CartaoPedido({
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * A foto do espaço, do tamanho de quem decide com ela.
+ *
+ * O link abre o original em outra aba porque 220px não bastam para julgar um
+ * tatame, uma piscina ou uma sala — a miniatura diz se vale abrir, e o clique
+ * abre. `rel="noopener noreferrer"` porque o destino é conteúdo enviado por
+ * quem ainda não é parceiro: sem isso, a página aberta ganha referência à
+ * aba do painel por `window.opener`.
+ *
+ * Sem foto, uma caixa que diz isso. Um buraco no lugar da imagem parece falha
+ * de carregamento, e quem analisa ficaria recarregando à espera de algo que
+ * nunca foi enviado.
+ */
+function FotoDoEspaco({ nome, url }: { nome: string; url: string | null }) {
+  const caixa = {
+    width: 220,
+    height: 150,
+    flex: 'none' as const,
+    borderRadius: 10,
+  };
+
+  if (!url) {
+    return (
+      <div
+        style={{
+          ...caixa,
+          border: '1.5px dashed var(--border)',
+          display: 'grid',
+          placeItems: 'center',
+          textAlign: 'center',
+          padding: 12,
+        }}
+      >
+        <span className="faint" style={{ fontSize: 12 }}>
+          Pedido enviado sem foto do espaço
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={caixa}
+      title="Abrir em tamanho real"
+    >
+      <img
+        src={url}
+        alt={`Espaço de ${nome}`}
+        // Fundo e `objectFit`: a URL é assinada e expira em uma hora, então
+        // uma aba deixada aberta a manhã inteira vai mesmo cair aqui — e o
+        // que ela mostra é uma caixa cinza, não o texto alternativo esticando
+        // a linha e empurrando os botões de decisão para fora do lugar.
+        style={{ ...caixa, objectFit: 'cover', background: 'var(--card-muted)', display: 'block' }}
+      />
+    </a>
   );
 }

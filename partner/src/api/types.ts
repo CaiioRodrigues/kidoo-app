@@ -195,6 +195,14 @@ export type PedidoNaFila = {
   minAge: number;
   maxAge: number;
   cnpj: string | null;
+  /**
+   * A foto do espaço, já assinada e pronta para o `<img>` — ou `null` quando
+   * o pedido veio sem foto, ou quando o arquivo não existe mais no bucket.
+   *
+   * Vem URL, e não caminho, porque o bucket é privado: assinar é trabalho de
+   * quem fala com o Supabase, e a tela não tem por que saber o nome do bucket.
+   */
+  photoUrl: string | null;
   createdAt: string;
 };
 
