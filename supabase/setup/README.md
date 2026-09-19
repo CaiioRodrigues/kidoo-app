@@ -184,6 +184,21 @@ Se a primeira consulta der `relation "class_sessions_visible" does not exist`,
 o script não rodou — e o app fica sem listar turma nenhuma, porque é dessa
 visão que ele lê os horários.
 
+### Depois disso, um arquivo por mudança
+
+Da `19` em diante cada mudança vem no seu próprio arquivo numerado, para ser
+colada inteira no SQL Editor, na ordem. São transações: ou o arquivo passa
+todo, ou não passa nada.
+
+**Qual eu já rodei?** É a pergunta que aparece semanas depois, e a resposta
+estava espalhada no bloco de conferência do fim de cada arquivo. Cole
+[`00-o-que-ja-rodou.sql`](00-o-que-ja-rodou.sql) — ele não muda nada e devolve
+uma linha por arquivo, com `t` para o que já passou e `f` para o que falta.
+Rode a partir do primeiro `f`.
+
+Repetir um arquivo que já rodou não quebra nada: todos são idempotentes. Só
+gasta tempo.
+
 ## O link do e-mail de confirmação
 
 Quem cria conta recebe um e-mail com um link, e o link precisa voltar para o

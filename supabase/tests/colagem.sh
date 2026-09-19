@@ -110,6 +110,36 @@ for n in 19 20 21 22 23 24 25 26 27; do
   ok "$r" "$(basename "$arquivo")"
 done
 
+# --- e o mapa de quem já rodou tem de bater com o banco ---------------------
+#
+# `00-o-que-ja-rodou.sql` é o arquivo que responde "qual eu já rodei?", e ele
+# é uma lista escrita à mão: cada linha procura a marca de um arquivo. Duas
+# formas de ele mentir, e as duas são conferidas aqui.
+#
+#   1. Uma marca escrita errada — procura uma coluna que nunca existiu, e o
+#      arquivo aparece como `f` mesmo depois de rodado. O banco acima recebeu
+#      todas as colagens, então aqui nenhuma linha pode vir `f`.
+#   2. Um arquivo novo sem linha aqui — a consulta continua respondendo, e
+#      passa a mentir por omissão. A contagem pega isso.
+echo ""
+echo "C · o mapa do que já rodou"
+echo ""
+faltando=$(psql -X -q -t -A -d kidoo_colagem_velho \
+  -f "$RAIZ/supabase/setup/00-o-que-ja-rodou.sql" 2>/dev/null | grep -c '|f$' || true)
+[ "$faltando" = "0" ] && r=0 || r=1
+ok "$r" "nenhuma marca diz 'falta' num banco que recebeu tudo ($faltando)"
+
+linhas=$(psql -X -q -t -A -d kidoo_colagem_velho \
+  -f "$RAIZ/supabase/setup/00-o-que-ja-rodou.sql" 2>/dev/null | grep -c '|' || true)
+# Os arquivos de atualização são os numerados de 19 em diante. O `00-` é este
+# mapa, e os de 01 a 17 são da primeira subida — nenhum dos dois entra.
+arquivos=$(ls "$RAIZ"/supabase/setup/[0-9][0-9]-*.sql | while read -r a; do
+  n="$(basename "$a")"; n="${n%%-*}"
+  [ "$n" -ge 19 ] 2>/dev/null && echo "$n"
+done | wc -l)
+[ "$linhas" = "$arquivos" ] && r=0 || r=1
+ok "$r" "uma linha por arquivo de atualização ($linhas de $arquivos)"
+
 dropdb --if-exists kidoo_colagem_novo 2>/dev/null
 dropdb --if-exists kidoo_colagem_velho 2>/dev/null
 
