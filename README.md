@@ -305,7 +305,7 @@ não era legível — a versão anterior de judô lia como a letra "M".
 
 O catálogo trazia `distanceKm` fixo em cada atividade — o que só funciona
 enquanto todo mundo mora no mesmo lugar. Distância é uma relação entre o
-parceiro e *quem está olhando*, então agora o parceiro guarda
+parceiro e _quem está olhando_, então agora o parceiro guarda
 `latitude`/`longitude` e o valor sai de `haversineKm` (`src/lib/geo.ts`), no
 serviço e não na tela. No backend real isso vira um filtro por bounding box
 antes do haversine; a tela continua recebendo o número pronto.
@@ -324,7 +324,7 @@ ordenação por distância. Quatro decisões que valem também com backend:
 - **Arredondada na entrada.** Três casas decimais (~110 m) antes de guardar:
   não dá para reconstruir o endereço da família, e a chave de cache para de
   mudar a cada tremida do GPS.
-- **O prompt é do usuário.** Na abertura o app só *confere* uma permissão que
+- **O prompt é do usuário.** Na abertura o app só _confere_ uma permissão que
   já exista; o diálogo aparece quando alguém toca em "Perto de mim", com o
   rótulo na tela dizendo para quê.
 
@@ -548,7 +548,7 @@ A preferência de "já vi" é persistida (`src/lib/preferences.ts`), e enquanto
 ela não chega do armazenamento nada é exibido — assim quem já viu não vê o
 tutorial piscar a cada abertura.
 
-O módulo de preferências mantém um **espelho em memória** atualizado *antes* da
+O módulo de preferências mantém um **espelho em memória** atualizado _antes_ da
 gravação em disco. São dois problemas em um: a gravação podia falhar em
 silêncio, e o "já vi" vivia só no estado local da tela — então qualquer
 remontagem reapresentava o tutorial, sem erro visível em lugar nenhum. Com o

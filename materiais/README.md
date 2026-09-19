@@ -4,11 +4,11 @@ Três peças para a validação de mercado do Kidoo. Os arquivos finais estão n
 pasta; os geradores ficam em `geradores/`, para que uma correção de texto ou de
 preço não exija refazer o layout à mão.
 
-| Arquivo | Para quem | Quando usar |
-| --- | --- | --- |
-| `Kidoo-proposta-parceiros.pptx` | Dono de academia, escolinha, clube | Reunião de apresentação, depois que o parceiro já demonstrou interesse |
-| `Kidoo-pesquisa-estabelecimentos.docx` | O mesmo público | **Antes** da proposta — é entrevista, não venda |
-| `Kidoo-pesquisa-familias.docx` | Pais e mães de crianças de 3 a 12 anos | Porta de escola, grupo de bairro, fila de atividade |
+| Arquivo                                | Para quem                              | Quando usar                                                            |
+| -------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------- |
+| `Kidoo-proposta-parceiros.pptx`        | Dono de academia, escolinha, clube     | Reunião de apresentação, depois que o parceiro já demonstrou interesse |
+| `Kidoo-pesquisa-estabelecimentos.docx` | O mesmo público                        | **Antes** da proposta — é entrevista, não venda                        |
+| `Kidoo-pesquisa-familias.docx`         | Pais e mães de crianças de 3 a 12 anos | Porta de escola, grupo de bairro, fila de atividade                    |
 
 A ordem importa: as duas pesquisas existem para descobrir se a proposta do deck
 se sustenta. Aplicar o deck antes da pesquisa contamina a resposta — quem acabou

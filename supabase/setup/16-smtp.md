@@ -10,7 +10,7 @@ serve para famílias de verdade, por três motivos:
 - os modelos de e-mail ficam travados — o do Kidoo, em
   [`email-confirmacao.html`](email-confirmacao.html), nem entra.
 
-O sintoma disso em campo é sempre o mesmo: *"me cadastrei e não recebi nada"*.
+O sintoma disso em campo é sempre o mesmo: _"me cadastrei e não recebi nada"_.
 E é pior do que não pedir confirmação, porque a pessoa fez tudo certo e ficou
 parada.
 
@@ -25,10 +25,10 @@ sem site, mas ocupado — e `kidoo.app` indisponível.
 
 Registro e DNS ficam em lugares diferentes, e é a parte que confunde:
 
-| | Onde | Por quê |
-| --- | --- | --- |
-| **Registro** | [registro.br](https://registro.br), login gov.br | É o único lugar que vende `.br`. O Cloudflare recusa a extensão — isso é esperado, não é erro. R$ 40/ano, sem preço promocional de primeiro ano |
-| **DNS** | Cloudflare, plano gratuito | `Add a site` aceita qualquer TLD; a restrição é só na venda. Ele devolve dois nameservers, que você cola no registro.br em **Alterar servidores DNS** |
+|              | Onde                                             | Por quê                                                                                                                                               |
+| ------------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Registro** | [registro.br](https://registro.br), login gov.br | É o único lugar que vende `.br`. O Cloudflare recusa a extensão — isso é esperado, não é erro. R$ 40/ano, sem preço promocional de primeiro ano       |
+| **DNS**      | Cloudflare, plano gratuito                       | `Add a site` aceita qualquer TLD; a restrição é só na venda. Ele devolve dois nameservers, que você cola no registro.br em **Alterar servidores DNS** |
 
 O DNS no Cloudflare não é preferência: é ele que faz os registros do Resend
 propagarem em segundos em vez de horas, e é onde os subdomínios do painel vão
@@ -53,11 +53,11 @@ receber, clicar, entrar. Não dá para convidar ninguém.
 3. Ele devolve **três** registros. Numa conta da região São Paulo (`sa-east-1`)
    eles saem assim — confira contra a tela, porque o alvo muda com a região:
 
-   | Type | Name | Content |
-   | --- | --- | --- |
-   | `TXT` | `resend._domainkey` | `p=MIGfMA0GCSqG…` (a chave DKIM inteira) |
-   | `CNAME` | `rsend` | `rsend-sae1.forge.rmta.net` |
-   | `CNAME` | `send` | `send.forge.rmta.net` |
+   | Type    | Name                | Content                                  |
+   | ------- | ------------------- | ---------------------------------------- |
+   | `TXT`   | `resend._domainkey` | `p=MIGfMA0GCSqG…` (a chave DKIM inteira) |
+   | `CNAME` | `rsend`             | `rsend-sae1.forge.rmta.net`              |
+   | `CNAME` | `send`              | `send.forge.rmta.net`                    |
 
 4. **API Keys → Create API Key**.
 
@@ -112,14 +112,14 @@ silenciosa é a mais cara de investigar — foi ela que escondeu o push por dias
 **Project Settings → Authentication → SMTP Settings** → ligue **Enable Custom
 SMTP** e preencha:
 
-| Campo | Valor |
-| --- | --- |
-| Sender email | `nao-responda@sejakidoo.com.br` — mas veja a ponte abaixo |
-| Sender name | `Kidoo` |
-| Host | `smtp.resend.com` |
-| Port | `587` |
-| Username | **`resend`** — a palavra, não o seu e-mail nem o nome da empresa |
-| Password | a API key do Resend |
+| Campo        | Valor                                                            |
+| ------------ | ---------------------------------------------------------------- |
+| Sender email | `nao-responda@sejakidoo.com.br` — mas veja a ponte abaixo        |
+| Sender name  | `Kidoo`                                                          |
+| Host         | `smtp.resend.com`                                                |
+| Port         | `587`                                                            |
+| Username     | **`resend`** — a palavra, não o seu e-mail nem o nome da empresa |
+| Password     | a API key do Resend                                              |
 
 O **Username** é o campo que mais engana: parece que devia ser o endereço de
 quem envia, e é o mesmo literal `resend` para toda conta. Com outra coisa ali, a
@@ -176,12 +176,12 @@ quase sempre porque o e-mail não chegou.
 
 ## Se não chegar
 
-| Sintoma | Onde olhar |
-| --- | --- |
-| O domínio não verifica no Resend | proxy ligado, nome duplicado, ou a chave DKIM copiada encurtada — veja "Se demorar mesmo com tudo certo" |
-| "Error sending confirmation email" ao criar conta | o SMTP recusou. Username diferente de `resend`, ou remetente num domínio ainda não verificado |
-| Nada chega, nem no spam | a chave está errada, ou o domínio ainda não terminou de verificar |
-| Chega, mas cai no spam | DKIM ainda não propagou, ou você está no caminho sem domínio |
-| "Email rate limit exceeded" | o Rate limit do Supabase ainda está no valor antigo |
-| Chega para você e para mais ninguém | Resend sem domínio verificado: só entrega para a conta |
-| O link chega e não abre o app | não é SMTP: veja as Redirect URLs no README |
+| Sintoma                                           | Onde olhar                                                                                               |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| O domínio não verifica no Resend                  | proxy ligado, nome duplicado, ou a chave DKIM copiada encurtada — veja "Se demorar mesmo com tudo certo" |
+| "Error sending confirmation email" ao criar conta | o SMTP recusou. Username diferente de `resend`, ou remetente num domínio ainda não verificado            |
+| Nada chega, nem no spam                           | a chave está errada, ou o domínio ainda não terminou de verificar                                        |
+| Chega, mas cai no spam                            | DKIM ainda não propagou, ou você está no caminho sem domínio                                             |
+| "Email rate limit exceeded"                       | o Rate limit do Supabase ainda está no valor antigo                                                      |
+| Chega para você e para mais ninguém               | Resend sem domínio verificado: só entrega para a conta                                                   |
+| O link chega e não abre o app                     | não é SMTP: veja as Redirect URLs no README                                                              |

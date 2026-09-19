@@ -71,12 +71,8 @@ Deno.serve(async () => {
   // Uma consulta só para todos os destinatários, em vez de uma por aviso: numa
   // turma que abre 5 vagas de uma vez, seriam 5 idas ao banco por nada.
   const donos = [...new Set(pendentes.map((a) => a.guardian_id))];
-  const tokensResp = await rest(
-    `push_tokens?user_id=in.(${donos.join(',')})&select=token,user_id`,
-  );
-  const tokens: { token: string; user_id: string }[] = tokensResp.ok
-    ? await tokensResp.json()
-    : [];
+  const tokensResp = await rest(`push_tokens?user_id=in.(${donos.join(',')})&select=token,user_id`);
+  const tokens: { token: string; user_id: string }[] = tokensResp.ok ? await tokensResp.json() : [];
 
   const porDono = new Map<string, string[]>();
   for (const t of tokens) {

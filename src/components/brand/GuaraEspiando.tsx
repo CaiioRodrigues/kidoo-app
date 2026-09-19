@@ -11,7 +11,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-
 /**
  * O guará espia da borda da tela e some.
  *
@@ -84,7 +83,10 @@ export function GuaraEspiando({
       atraso,
       withSequence(
         withTiming(aMostra, { duration: 520, easing: Easing.out(Easing.back(1.4)) }),
-        withDelay(permanencia, withTiming(escondido, { duration: 360, easing: Easing.in(Easing.quad) })),
+        withDelay(
+          permanencia,
+          withTiming(escondido, { duration: 360, easing: Easing.in(Easing.quad) }),
+        ),
       ),
     );
   }, [semMovimento, atraso, permanencia, aMostra, escondido, x]);

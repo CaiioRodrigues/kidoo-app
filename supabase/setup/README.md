@@ -222,12 +222,12 @@ link já é a prova de que a pessoa tem acesso àquela caixa de entrada.
 
 ### Se o link não funcionar
 
-| Sintoma | Onde olhar |
-| --- | --- |
-| O link abre o navegador em vez do app | falta `kidoo://*` em Redirect URLs, ou a build instalada é anterior a esta |
-| "Este link expirou" | o padrão do Supabase é 24h; peça um novo pela tela de confirmação |
-| Cai no painel sendo família (ou o contrário) | o destino foi ignorado: confira as Redirect URLs |
-| Nenhum e-mail chega | sem SMTP próprio o Supabase limita o envio a poucos por hora — veja Authentication → Emails |
+| Sintoma                                      | Onde olhar                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| O link abre o navegador em vez do app        | falta `kidoo://*` em Redirect URLs, ou a build instalada é anterior a esta                  |
+| "Este link expirou"                          | o padrão do Supabase é 24h; peça um novo pela tela de confirmação                           |
+| Cai no painel sendo família (ou o contrário) | o destino foi ignorado: confira as Redirect URLs                                            |
+| Nenhum e-mail chega                          | sem SMTP próprio o Supabase limita o envio a poucos por hora — veja Authentication → Emails |
 
 ## O aviso de vaga não chegou
 

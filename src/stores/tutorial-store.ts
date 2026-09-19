@@ -4,9 +4,7 @@ import { PreferenceKeys, readPreference, writePreference } from '@/lib/preferenc
 
 type Status =
   /** Preferência ainda não lida — nada é exibido. */
-  | 'checking'
-  | 'show'
-  | 'hidden';
+  'checking' | 'show' | 'hidden';
 
 type TutorialState = {
   status: Status;

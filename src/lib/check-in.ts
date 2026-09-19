@@ -59,10 +59,7 @@ export type LocationProof = {
  * Localização simulada vira `unknown`, nunca `arrived`: se o aparelho avisa que
  * o dado é falso, o mínimo é não usá-lo como prova.
  */
-export function proximityTo(
-  partner: Coords,
-  proof: LocationProof | null,
-): Proximity {
+export function proximityTo(partner: Coords, proof: LocationProof | null): Proximity {
   if (!proof || proof.mocked) return { kind: 'unknown' };
 
   const distanceM = haversineKm(proof.origin, partner) * 1000;

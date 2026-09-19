@@ -18,7 +18,22 @@ const PGPORT = process.env.PORT ?? '5433';
 function sql(query: string): string[] {
   const out = execFileSync(
     'psql',
-    ['-h', PGHOST, '-p', PGPORT, '-U', 'postgres', '-d', 'kidoo_test', '-X', '-q', '-t', '-A', '-c', query],
+    [
+      '-h',
+      PGHOST,
+      '-p',
+      PGPORT,
+      '-U',
+      'postgres',
+      '-d',
+      'kidoo_test',
+      '-X',
+      '-q',
+      '-t',
+      '-A',
+      '-c',
+      query,
+    ],
     { encoding: 'utf8' },
   );
   return out.trim().split('\n').filter(Boolean);

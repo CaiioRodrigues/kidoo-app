@@ -23,7 +23,10 @@ function sql(query: string): string[] {
     ['-h', PGDATA, '-p', PORT, '-U', 'postgres', '-d', 'kidoo_test', '-tAc', query],
     { encoding: 'utf8' },
   );
-  return out.split('\n').map((line) => line.trim()).filter(Boolean);
+  return out
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -31,10 +34,7 @@ function sql(query: string): string[] {
  * painel chama seis funções que o app não chama — deixá-lo de fora seria
  * conferir metade do contrato.
  */
-const adapter = [
-  '../../src/services/supabase/index.ts',
-  '../../partner/src/api/supabase.ts',
-]
+const adapter = ['../../src/services/supabase/index.ts', '../../partner/src/api/supabase.ts']
   .map((caminho) => readFileSync(join(HERE, caminho), 'utf8'))
   .join('\n');
 const mappers = readFileSync(join(HERE, '../../src/services/supabase/mappers.ts'), 'utf8');
@@ -125,7 +125,10 @@ for (const nome of semRetorno) {
     // `unwrap` no app, `ok` no painel: os dois exigem linha de volta e tratam
     // `null` como "não encontrado".
     const dentroDeUnwrap = /\b(?:unwrap|ok)\(\s*(?:await\s+)?[^;]*$/.test(antes);
-    checa(!dentroDeUnwrap, `${nome} não devolve nada: envolvê-la em unwrap()/ok() faz todo sucesso virar erro`);
+    checa(
+      !dentroDeUnwrap,
+      `${nome} não devolve nada: envolvê-la em unwrap()/ok() faz todo sucesso virar erro`,
+    );
     checa(
       !/\.single</.test(depois),
       `${nome} não devolve nada: .single() nela devolve erro de "nenhuma linha"`,
@@ -145,7 +148,9 @@ for (const linha of sql(`select table_name || ' ' || column_name
 }
 
 // from('tabela') ... .select('a, b, rel:outra(c)')
-for (const [, tabela, lista] of adapter.matchAll(/\.from\('([a-z_]+)'\)\s*\n?\s*\.select\(\s*'([^']*)'/g)) {
+for (const [, tabela, lista] of adapter.matchAll(
+  /\.from\('([a-z_]+)'\)\s*\n?\s*\.select\(\s*'([^']*)'/g,
+)) {
   const disponiveis = colunas.get(tabela as string);
   if (!disponiveis) {
     falhas.push(`tabela ou visão ${tabela} não existe`);
@@ -204,7 +209,9 @@ const TABELA_DE = new Map([
 ]);
 
 for (const [tipo, tabela] of TABELA_DE) {
-  const bloco = mappers.match(new RegExp(`export type ${tipo} = \\{([^}]*(?:\\{[^}]*\\}[^}]*)*)\\};`));
+  const bloco = mappers.match(
+    new RegExp(`export type ${tipo} = \\{([^}]*(?:\\{[^}]*\\}[^}]*)*)\\};`),
+  );
   if (!bloco) {
     falhas.push(`mapper ${tipo} não encontrado`);
     continue;

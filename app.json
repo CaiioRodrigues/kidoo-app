@@ -10,9 +10,7 @@
     "newArchEnabled": true,
     "backgroundColor": "#FFFFFF",
     "primaryColor": "#6A3FC6",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "bundleIdentifier": "com.kidoo.app",
       "supportsTablet": false,
