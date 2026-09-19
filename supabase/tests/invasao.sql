@@ -221,7 +221,11 @@ reset role;
 insert into storage.objects (bucket_id, name) values
   ('criancas',     '22222222-2222-2222-2222-222222222222/filho-do-bruno.jpg'),
   ('responsaveis', '22222222-2222-2222-2222-222222222222/perfil.jpg'),
-  ('criancas',     '11111111-1111-1111-1111-111111111111/filha-da-ana.jpg')
+  ('criancas',     '11111111-1111-1111-1111-111111111111/filha-da-ana.jpg'),
+  -- A foto do pedido de outro candidato. Ela saiu do bucket público na
+  -- migration 000023: enquanto esteve em `atividades`, qualquer um com a URL
+  -- abria — sem login, sem policy no caminho.
+  ('pedidos',      'eeee0000-0000-0000-0000-000000000001/espaco')
 on conflict do nothing;
 
 set role authenticated;
@@ -246,8 +250,16 @@ begin
     raise exception 'Ana enxerga % foto(s) de responsável de outra família', v_linhas;
   end if;
 
+  -- Ler a foto do espaço de um candidato a parceiro.
+  select count(*) into v_linhas from storage.objects
+   where bucket_id = 'pedidos'
+     and name like 'eeee0000-0000-0000-0000-000000000001/%';
+  if v_linhas > 0 then
+    raise exception 'Ana enxerga a foto do pedido de um candidato a parceiro';
+  end if;
+
   -- E a própria, que TEM de aparecer: policy que nega tudo também passaria
-  -- nos dois testes acima, e quebraria a troca de foto no app.
+  -- nos testes acima, e quebraria a troca de foto no app.
   select count(*) into v_linhas from storage.objects
    where bucket_id = 'criancas'
      and name like '11111111-1111-1111-1111-111111111111/%';
@@ -268,6 +280,9 @@ declare v_ataques text[][] := array[
     ['subir imagem na pasta de um estabelecimento que não é seu',
      $q$insert into storage.objects (bucket_id, name)
         values ('atividades', 'cccccccc-0000-0000-0000-00000000000a/falsa.jpg')$q$],
+    ['escrever na pasta de pedido de outro candidato',
+     $q$insert into storage.objects (bucket_id, name)
+        values ('pedidos', 'eeee0000-0000-0000-0000-000000000001/espaco')$q$],
     ['apagar a foto de outra família',
      $q$delete from storage.objects
         where bucket_id = 'responsaveis'

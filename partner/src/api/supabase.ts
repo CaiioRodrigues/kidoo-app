@@ -412,6 +412,8 @@ async function minhasAtividades(partnerIds: string[]): Promise<ActivityRow[]> {
 }
 
 const BUCKET_ATIVIDADES = 'atividades';
+/** Privado: a foto do pedido não é vitrine, é documento de análise. */
+const BUCKET_PEDIDOS = 'pedidos';
 
 /**
  * Sobe a capa da atividade e devolve a URL pública.
@@ -613,14 +615,24 @@ async function enviarPedido(entrada: NovoPedido, corrigindo?: string): Promise<v
  * não há `partner_id` para pôr no caminho — que é justamente o que a policy
  * das capas compara.
  */
+/**
+ * A foto do espaço, enviada junto com o pedido.
+ *
+ * Vai para um bucket PRIVADO e próprio. Antes subia para `atividades`, que é
+ * a vitrine e é pública: a escrita era do dono da pasta, mas a leitura ficava
+ * aberta a qualquer um com a URL — e isto é material de um negócio em
+ * análise, enviado por quem ainda não é parceiro.
+ *
+ * O caminho começa no id de quem envia porque é a pasta que a policy compara.
+ */
 async function subirFotoDoPedido(arquivo: File): Promise<string> {
   const conta = await supabase().auth.getUser();
   const userId = conta.data.user?.id;
   if (!userId) throw new PainelError('Sua sessão expirou. Entre de novo.');
 
-  const caminho = `pedidos/${userId}/espaco`;
+  const caminho = `${userId}/espaco`;
   const { error } = await supabase()
-    .storage.from(BUCKET_ATIVIDADES)
+    .storage.from(BUCKET_PEDIDOS)
     .upload(caminho, arquivo, { contentType: arquivo.type, upsert: true });
   if (error) throw new PainelError('Não foi possível enviar a foto.');
   return caminho;
