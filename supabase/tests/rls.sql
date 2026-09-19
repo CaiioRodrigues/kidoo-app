@@ -1017,4 +1017,51 @@ begin
 end $$;
 
 reset role;
+
+-- ========================================================================
+-- A avaliação é pública; o id de quem a escreveu, não.
+--
+-- Vale para `authenticated` e para `anon` — a leitura do catálogo acontece
+-- nos dois papéis, e proteger só um deixaria a porta aberta pelo outro.
+--
+-- A guarda é sobre o GRANT, não sobre a policy: a policy decide linha, o
+-- grant decide coluna. Uma migration que precise mexer nos grants de
+-- `reviews` derruba isto aqui antes de derrubar a privacidade de alguém.
+-- ========================================================================
+
+do $$
+declare v_papel text;
+begin
+  foreach v_papel in array array['authenticated', 'anon'] loop
+    execute format('set local role %I', v_papel);
+
+    -- O que a tela mostra continua legível.
+    begin
+      perform id, activity_id, author_name, rating, comment, created_at, helpful_count
+         from reviews limit 1;
+    exception when insufficient_privilege then
+      raise exception '% perdeu acesso às colunas que a tela usa', v_papel;
+    end;
+
+    -- O dono, não.
+    declare
+      v_abriu boolean := false;
+    begin
+      begin
+        perform guardian_id from reviews limit 1;
+        v_abriu := true;
+      exception when insufficient_privilege then
+        null;
+      end;
+      if v_abriu then
+        raise exception
+          '% consegue ler reviews.guardian_id: dá para ligar todas as avaliações '
+          'do mesmo responsável entre estabelecimentos', v_papel;
+      end if;
+    end;
+  end loop;
+  reset role;
+end $$;
+
+reset role;
 \echo 'todos os testes passaram'
