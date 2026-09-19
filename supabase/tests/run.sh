@@ -51,6 +51,10 @@ psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/rls.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/partner.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/applications.sql"
 
+# E o mesmo banco, atacado de propósito: o que uma conta comum consegue fazer
+# se tentar. Vem depois porque reaproveita os dados que os outros criaram.
+psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/invasao.sql"
+
 # E os arquivos de `setup/` do jeito que uma pessoa os roda: colagem inteira no
 # SQL Editor, ou seja, uma transação por arquivo. Aqui em cima o psql abre uma
 # transação por instrução — o que passa de um jeito pode morrer do outro, e foi

@@ -90,14 +90,21 @@ dropdb --if-exists kidoo_colagem_velho 2>/dev/null
 createdb kidoo_colagem_velho
 ambiente kidoo_colagem_velho
 # O ponto de partida é o banco anterior aos arquivos de atualização: tudo até a
-# 000015. Da 000016 em diante é o que a 19, a 20, a 21, a 22, a 23 e a 24 fazem.
+# 000015. Da 000016 em diante é o que os arquivos de `setup/` fazem.
+#
+# O corte é por comparação, e não por lista escrita à mão: a lista existiu, e
+# a primeira migration nova depois dela entrou nos dois lados — o banco "de
+# pé" recebeu uma atualização que ainda não devia ter, e quebrou num erro que
+# não tinha nada a ver com a causa.
+PRIMEIRA_DO_SETUP=20260101000016
 for f in "$RAIZ"/supabase/migrations/*.sql; do
-  case "$(basename "$f")" in
-    2026010100001[6-9]*|20260101000020*) continue ;;
-  esac
+  nome="$(basename "$f")"
+  if [ "${nome%%_*}" \> "$PRIMEIRA_DO_SETUP" ] || [ "${nome%%_*}" = "$PRIMEIRA_DO_SETUP" ]; then
+    continue
+  fi
   psql -q -v ON_ERROR_STOP=1 -d kidoo_colagem_velho -f "$f" >/dev/null
 done
-for n in 19 20 21 22 23 24; do
+for n in 19 20 21 22 23 24 25; do
   arquivo=$(ls "$RAIZ"/supabase/setup/$n-*.sql)
   colar kidoo_colagem_velho "$arquivo" && r=0 || r=1
   ok "$r" "$(basename "$arquivo")"
