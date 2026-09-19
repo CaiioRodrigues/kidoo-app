@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { AchievementIcon } from './AchievementIcon';
 import { CategoryIcon } from '@/components/CategoryIcon';
@@ -8,6 +8,7 @@ import { Text } from '@/components/ui';
 import { formatPastDate } from '@/lib/format';
 import type { PassoDaTrilha } from '@/lib/trilha';
 import {
+  blobRadius,
   categoryTone,
   spacing,
   useStyles,
@@ -45,6 +46,40 @@ const ESQUERDA = 0.2;
 const DIREITA = 0.8;
 const NO = 56;
 
+/** As cores da marca, cicladas pelas manchas do fundo. */
+const CORES_DAS_MANCHAS: ((p: ThemePalette) => string)[] = [
+  (p) => p.purple,
+  (p) => p.teal,
+  (p) => p.yellow,
+  (p) => p.pink,
+];
+
+/**
+ * Uma forma orgânica em torno de um ponto.
+ *
+ * Quatro cúbicas com os raios desencontrados: círculo perfeito lê como bolha
+ * de interface, e a marca não tem nenhum trecho reto nem nenhum raio igual ao
+ * vizinho. Os fatores são fixos para a forma não mudar a cada renderização.
+ */
+function blob(cx: number, cy: number, r: number, variante: number): string {
+  // Quatro quartos, cada um com o seu raio. Dois raios iguais já devolvem a
+  // oval regular que a primeira versão desenhou — e oval lê como destaque de
+  // interface, não como forma da marca.
+  const v = variante % 2 === 0 ? 1 : -1;
+  const cima = r * (0.9 + 0.22 * v);
+  const dir = r * (1.14 - 0.3 * v);
+  const baixo = r * (0.78 + 0.34 * v);
+  const esq = r * (1.05 + 0.18 * v);
+  const k = 0.56;
+  return (
+    `M ${cx} ${cy - cima} ` +
+    `C ${cx + dir * k * 1.3} ${cy - cima}, ${cx + dir} ${cy - baixo * k}, ${cx + dir} ${cy} ` +
+    `C ${cx + dir} ${cy + baixo * k * 1.25}, ${cx + esq * k} ${cy + baixo}, ${cx} ${cy + baixo} ` +
+    `C ${cx - esq * k * 1.2} ${cy + baixo}, ${cx - esq} ${cy + baixo * k}, ${cx - esq} ${cy} ` +
+    `C ${cx - esq} ${cy - cima * k * 1.15}, ${cx - dir * k * 0.9} ${cy - cima}, ${cx} ${cy - cima} Z`
+  );
+}
+
 export function Trilha({
   passos,
   anteriores = 0,
@@ -53,7 +88,7 @@ export function Trilha({
   /** Quantas aulas ficaram antes do trecho mostrado. Zero esconde o aviso. */
   anteriores?: number;
 }) {
-  const { colors, isDark } = useTheme();
+  const { colors, palette, isDark } = useTheme();
   const styles = useStyles(makeStyles);
   const [largura, setLargura] = useState(0);
 
@@ -61,22 +96,94 @@ export function Trilha({
 
   if (passos.length === 0) return null;
 
+  const altura = passos.length * PASSO;
   const xDoPasso = (i: number) => (i % 2 === 0 ? ESQUERDA : DIREITA) * largura;
   const yDoPasso = (i: number) => i * PASSO + PASSO / 2;
+  const corDoPasso = (i: number) => categoryTone(passos[i]!.aula.category, isDark).solid;
 
-  // Cúbica entre cada par de nós: os pontos de controle ficam na vertical de
-  // cada ponta, o que dá a curva em S e nunca um bico.
-  let caminho = '';
-  if (largura > 0) {
-    caminho = `M ${xDoPasso(0)} ${yDoPasso(0)}`;
-    for (let i = 1; i < passos.length; i += 1) {
-      const x0 = xDoPasso(i - 1);
-      const y0 = yDoPasso(i - 1);
-      const x1 = xDoPasso(i);
-      const y1 = yDoPasso(i);
-      caminho += ` C ${x0} ${y0 + PASSO / 2}, ${x1} ${y1 - PASSO / 2}, ${x1} ${y1}`;
-    }
-  }
+  /*
+    Um trecho por par de nós, e não um traço só.
+
+    O caminho cinza único era a parte sem vida da tela: cada passo tem a cor da
+    modalidade no nó, e a linha que os liga ignorava todas elas. Agora cada
+    trecho é um degradê da cor de onde saiu para a cor de onde chega — a
+    troca acontece ao longo da curva, e não num corte embaixo do nó.
+
+    A cúbica é a mesma: pontos de controle na vertical de cada ponta, o que dá
+    a curva em S e nunca um bico.
+  */
+  const trechos =
+    largura > 0
+      ? passos.slice(1).map((_, k) => {
+          const i = k + 1;
+          const x0 = xDoPasso(i - 1);
+          const y0 = yDoPasso(i - 1);
+          const x1 = xDoPasso(i);
+          const y1 = yDoPasso(i);
+          return {
+            id: `${passos[i - 1]!.aula.id}-${passos[i]!.aula.id}`,
+            d: `M ${x0} ${y0} C ${x0} ${y0 + PASSO / 2}, ${x1} ${y1 - PASSO / 2}, ${x1} ${y1}`,
+            de: corDoPasso(i - 1),
+            para: corDoPasso(i),
+            y0,
+            y1,
+          };
+        })
+      : [];
+
+  /*
+    O rabo tracejado, depois do último passo.
+
+    A trilha terminar no nó mais recente fecha a história como se ela tivesse
+    acabado. O tracejado que segue e some diz o contrário — e é tracejado, e
+    não cheio, porque a próxima aula ainda não existe.
+  */
+  const ultimo = passos.length - 1;
+  const rabo =
+    largura > 0
+      ? `M ${xDoPasso(ultimo)} ${yDoPasso(ultimo)} C ${xDoPasso(ultimo)} ${
+          yDoPasso(ultimo) + PASSO * 0.4
+        }, ${xDoPasso(ultimo + 1)} ${yDoPasso(ultimo) + PASSO * 0.3}, ${xDoPasso(ultimo + 1)} ${
+          yDoPasso(ultimo) + PASSO * 0.62
+        }`
+      : '';
+
+  /*
+    As formas do guia da marca, atrás do caminho.
+
+    Elas existem na abertura e no alto das telas (`BlobBackdrop`) e paravam
+    ali. Aqui a superfície é grande e vazia por natureza — é um mapa —, e sem
+    elas a trilha flutua em branco. Ficam presas aos passos, e não espalhadas
+    ao acaso: uma a cada dois, do lado OPOSTO ao nó, onde não há texto para
+    competir com elas.
+  */
+  const manchas =
+    largura > 0
+      ? passos
+          .map((_, i) => i)
+          .filter((i) => i % 2 === 1)
+          .map((i) => ({
+            id: `mancha-${i}`,
+            // Do lado OPOSTO ao nó. Na primeira versão a conta não olhava de
+            // que lado o nó estava, e uma mancha caiu bem atrás de um deles:
+            // lida assim, ela vira destaque de seleção — o passo parecia
+            // escolhido.
+            // Encostada na borda, e não no meio do vazio: o `overflow: hidden`
+            // do mapa corta boa parte dela, e é o corte que faz a forma ler
+            // como fundo. Centrada, ela virava uma faixa clara atrás do texto
+            // — parecia realce de linha selecionada.
+            // `i % 4`, e não `i % 2`: as manchas só existem em passo ímpar, e
+            // `i % 2 === 0` ali dentro nunca é verdadeiro — todas as três
+            // caíram do mesmo lado. Alternar pede o dobro do período.
+            cx: (i % 4 === 1 ? -0.02 : 1.02) * largura,
+            // No vão entre dois passos, não na altura de um deles: é onde não
+            // há nó nem texto, e onde o caminho está atravessando o meio.
+            cy: yDoPasso(i) + PASSO / 2,
+            r: 52 + ((i * 17) % 26),
+            cor: CORES_DAS_MANCHAS[i % CORES_DAS_MANCHAS.length]!,
+            variante: i,
+          }))
+      : [];
 
   return (
     <View>
@@ -88,19 +195,52 @@ export function Trilha({
         </Text>
       ) : null}
 
-      <View onLayout={medir} style={{ height: passos.length * PASSO }}>
+      <View onLayout={medir} style={[styles.mapa, { height: altura }]}>
         {largura > 0 ? (
-          <Svg
-            style={StyleSheet.absoluteFill}
-            width={largura}
-            height={passos.length * PASSO}
-            pointerEvents="none"
-          >
+          <Svg style={StyleSheet.absoluteFill} width={largura} height={altura} pointerEvents="none">
+            <Defs>
+              {trechos.map((trecho) => (
+                <LinearGradient
+                  key={trecho.id}
+                  id={trecho.id}
+                  x1="0"
+                  y1={trecho.y0}
+                  x2="0"
+                  y2={trecho.y1}
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <Stop offset="0" stopColor={trecho.de} />
+                  <Stop offset="1" stopColor={trecho.para} />
+                </LinearGradient>
+              ))}
+            </Defs>
+
+            {manchas.map((mancha) => (
+              <Path
+                key={mancha.id}
+                d={blob(mancha.cx, mancha.cy, mancha.r, mancha.variante)}
+                fill={mancha.cor(palette)}
+                opacity={isDark ? 0.14 : 0.18}
+              />
+            ))}
+
+            {trechos.map((trecho) => (
+              <Path
+                key={trecho.id}
+                d={trecho.d}
+                stroke={`url(#${trecho.id})`}
+                strokeWidth={5}
+                strokeLinecap="round"
+                fill="none"
+              />
+            ))}
+
             <Path
-              d={caminho}
+              d={rabo}
               stroke={colors.border}
-              strokeWidth={4}
+              strokeWidth={5}
               strokeLinecap="round"
+              strokeDasharray="2 12"
               fill="none"
             />
           </Svg>
@@ -161,6 +301,20 @@ export function Trilha({
 const makeStyles = (colors: ThemeColors, _palette: ThemePalette) =>
   StyleSheet.create({
     anteriores: { marginBottom: spacing.sm },
+    /*
+      A superfície do mapa.
+
+      A trilha ocupa meia tela e, em fundo liso, ela lê como um diagrama solto
+      no branco. O tom surdo do tema a transforma numa área — um lugar por onde
+      o caminho passa —, e o raio grande num canto é o mesmo recorte dos
+      cartões da marca.
+    */
+    mapa: {
+      backgroundColor: colors.backgroundMuted,
+      overflow: 'hidden',
+      paddingHorizontal: spacing.sm,
+      ...blobRadius.card,
+    },
     passo: { height: PASSO, justifyContent: 'center' },
     no: {
       position: 'absolute',
