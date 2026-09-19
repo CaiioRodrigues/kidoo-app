@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Badge, Button, CoinBadge, Text } from '@/components/ui';
+import { formatCoins } from '@/lib/format';
 import { timeOnly } from '@/lib/schedule';
 import { slotsAvailable, type ClassSession, type SlotKind, type Uuid } from '@/types/domain';
 import { blobRadius, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
@@ -116,7 +117,7 @@ export function SessionPicker({
                 ? `${timeOnly(session.startsAt)}, você já reservou esta turma`
                 : `${timeOnly(session.startsAt)}, ${tipoDaTurma(session.kind)}, ${free} ${
                     free === 1 ? 'vaga' : 'vagas'
-                  }, ${session.coinCost} coins`
+                  }, ${formatCoins(session.coinCost)}`
             }
             disabled={jaReservada}
             onPress={() => onSelect(session)}

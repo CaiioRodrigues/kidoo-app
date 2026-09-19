@@ -76,3 +76,18 @@ export function formatDaysUntil(days: number): string {
   if (days === 1) return 'amanhã';
   return `em ${days} dias`;
 }
+
+/**
+ * "1 coin" / "3 coins", e a forma por extenso da marca.
+ *
+ * Existe porque o plural estava fixo: a etiqueta dizia "1 coins" em toda turma
+ * que custa uma moeda — e turma de uma moeda é o caso mais comum do catálogo,
+ * então o erro aparecia mais que o acerto. Sai daqui, e não de cada tela, para
+ * que o distintivo e o leitor de tela não possam discordar sobre o mesmo
+ * número.
+ */
+export function formatCoins(amount: number, forma: 'curta' | 'marca' = 'curta'): string {
+  const singular = amount === 1;
+  if (forma === 'marca') return `${amount} ${singular ? 'Kidoo Coin' : 'Kidoo Coins'}`;
+  return `${amount} ${singular ? 'coin' : 'coins'}`;
+}

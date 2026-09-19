@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { CoinIcon } from './CoinIcon';
+import { formatCoins } from '@/lib/format';
 import { Text } from './Text';
 import { radius, spacing, useStyles, useTheme, type ThemeColors, type ThemePalette } from '@/theme';
 
@@ -12,11 +13,11 @@ export function CoinBadge({ amount, size = 'md' }: { amount: number; size?: 'sm'
   return (
     <View
       style={[styles.badge, small && styles.badgeSm]}
-      accessibilityLabel={`${amount} Kidoo Coins`}
+      accessibilityLabel={formatCoins(amount, 'marca')}
     >
       <CoinIcon size={small ? 13 : 16} />
       <Text variant={small ? 'caption' : 'label'} color={colors.warning}>
-        {amount} {small ? 'coins' : 'Kidoo Coins'}
+        {formatCoins(amount, small ? 'curta' : 'marca')}
       </Text>
     </View>
   );

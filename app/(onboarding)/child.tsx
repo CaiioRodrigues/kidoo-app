@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { Guara } from '@/components/brand';
 import { HeaderBar } from '@/components/navigation';
 import { Avatar, Button, Chip, Input, Screen, StepIndicator, Text } from '@/components/ui';
 import { brDateToIso, isoDateToBr, maskBirthDate } from '@/lib/format';
@@ -98,8 +99,12 @@ export default function ChildProfileScreen() {
               Vamos começar com algumas informações básicas.
             </Text>
           </View>
+          {/* O guará no lugar do emoji 🧒, que é Emoji 5.0: em Android antigo
+              vira quadrado vazio, e o quadrado ficava bem no primeiro contato
+              da família com o cadastro. O mascote também não é desenhado pelo
+              sistema — é arquivo nosso, igual em todo aparelho. */}
           <View style={styles.introArt}>
-            <Text style={styles.introEmoji}>🧒</Text>
+            <Guara size={72} pose="apresenta" />
           </View>
         </View>
 
@@ -201,7 +206,6 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       backgroundColor: colors.primaryTint,
     },
-    introEmoji: { fontSize: 44, lineHeight: 52 },
     form: { gap: spacing.lg, marginTop: spacing.xxl },
     group: { gap: spacing.sm },
     genderRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

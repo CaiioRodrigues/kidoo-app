@@ -29,7 +29,16 @@
  */
 import { chromium } from 'playwright';
 
-const BASE = process.env.KIDOO_URL ?? 'http://localhost:8097';
+/*
+  Sem barra no fim, sempre — e cada uso escreve a sua.
+
+  Metade destes arquivos assumia a barra no padrão e a outra metade assumia que
+  ela não existia. Passar `KIDOO_URL` com barra para quem não esperava dava
+  `//nova-senha`, e o expo-router morre nisso com "Failed to construct 'URL'":
+  a tela fica em branco, e o teste acusa o produto por um erro de endereço.
+  Aconteceu, e me fez relatar teste quebrado duas vezes.
+*/
+const BASE = (process.env.KIDOO_URL ?? 'http://localhost:8097').replace(/\/+$/, '');
 const executablePath = process.env.CHROMIUM_PATH || undefined;
 
 const b = await chromium.launch(executablePath ? { executablePath } : {});
@@ -48,7 +57,21 @@ const ok = (c, d) => {
 const abrir = async (caminho) => {
   const pg = await b.newPage({ viewport: { width: 390, height: 844 } });
   await pg.goto(`${BASE}${caminho}`, { waitUntil: 'networkidle' });
-  await pg.waitForTimeout(5000);
+  /*
+    Esperar a tela existir, e não um tempo fixo.
+
+    Eram 5 s cravados, e sob carga o bundle demora mais que isso: o teste lia a
+    página em branco e acusava "não parou para pedir a senha nova" — uma falha
+    que aponta para o produto quando o defeito é do relógio. Erro de teste que
+    culpa o código é pior que teste nenhum: manda consertar o que não está
+    quebrado.
+  */
+  await pg.waitForFunction(() => document.body.innerText.trim().length > 0, null, {
+    timeout: 30000,
+  });
+  // O texto aparece antes de a hidratação terminar; este resto é para o toque
+  // seguinte encontrar os campos prontos.
+  await pg.waitForTimeout(1500);
   return pg;
 };
 

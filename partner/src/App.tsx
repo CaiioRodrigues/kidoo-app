@@ -98,7 +98,17 @@ export function App() {
     setEstado('dentro');
   }, []);
 
+  /*
+    Buscar quem está logado é exatamente o que um efeito serve para fazer:
+    sincronizar a tela com um sistema de fora — aqui, a sessão do Supabase.
+
+    O `set-state-in-effect` acusa porque `carregar` mexe no estado; ele está
+    certo sobre o mecanismo e errado sobre este caso. Desligado aqui, na linha,
+    e não na configuração: uma ocorrência nova em qualquer outro lugar do
+    painel continua derrubando o lint, que é o motivo de a regra existir.
+  */
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void carregar();
   }, [carregar]);
 

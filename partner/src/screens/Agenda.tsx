@@ -173,6 +173,11 @@ function GradeDaSemana({
   // No celular só cabem duas colunas e meia, e a semana começa no domingo:
   // sem isto, abrir a grade numa quinta mostra domingo e segunda — dois dias
   // que já passaram — e hoje fica escondido à direita.
+  //
+  // A chave da semana sai do array de dependências para cá: ali dentro o lint
+  // não consegue conferir uma expressão, e o que ele não confere ele não
+  // protege — uma dependência esquecida depois passaria batida.
+  const semana = inicio.toISOString();
   useEffect(() => {
     const caixa = rolagem.current;
     if (!caixa) return;
@@ -182,7 +187,7 @@ function GradeDaSemana({
     // grade abria no meio, com domingo e segunda escondidos à esquerda.
     const passaDaVista = coluna !== null && coluna.offsetLeft + coluna.offsetWidth > caixa.clientWidth;
     caixa.scrollLeft = passaDaVista && coluna ? Math.max(0, coluna.offsetLeft - 12) : 0;
-  }, [inicio.toISOString()]);
+  }, [semana]);
 
   return (
     <Card pad={false}>

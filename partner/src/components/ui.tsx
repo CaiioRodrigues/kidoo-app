@@ -89,11 +89,27 @@ export function useDados<T>(
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [gatilho, setGatilho] = useState(0);
+  /*
+    A função mais recente, guardada sem entrar nas dependências — senão toda
+    renderização do pai recarregaria os dados.
+
+    A escrita mora num efeito, e não no corpo do componente: uma renderização
+    pode ser descartada antes de virar tela, e escrever no ref ali deixaria a
+    função de uma árvore que nunca existiu valendo para a que existe. Declarado
+    antes do efeito que lê, ele roda antes a cada commit.
+  */
   const refCarregar = useRef(carregar);
-  refCarregar.current = carregar;
+  useEffect(() => {
+    refCarregar.current = carregar;
+  });
 
   useEffect(() => {
     let vivo = true;
+    // Marcar "carregando" ao começar a busca é o que faz a distinção descrita
+    // acima existir: sem isto, trocar de dia mantém na tela o dado do dia
+    // anterior como se fosse o novo. Desligado na linha, e não na
+    // configuração, para que a regra continue valendo no resto do painel.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCarregando(true);
     setErro(null);
     refCarregar
