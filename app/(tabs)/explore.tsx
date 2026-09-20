@@ -17,6 +17,7 @@ import { Chip, Divider, Input, Screen, Text } from '@/components/ui';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { useActivities, useCategories } from '@/hooks/queries';
 import { useLocationStore } from '@/stores/location-store';
+import { bairrosDoCatalogo, mesmoBairro } from '@/lib/bairros';
 import { RADIUS_OPTIONS_KM, type RadiusKm } from '@/lib/geo';
 import { categoryTone, spacing, useTheme } from '@/theme';
 import type { Activity, ActivityCategoryId } from '@/types/domain';
@@ -43,6 +44,27 @@ export default function ExploreScreen() {
   const nearbyActive = nearbyOnly && coords !== null;
   const locating = locationStatus === 'asking';
 
+  /*
+    Os bairros saem de uma segunda leitura do catálogo, com a modalidade e sem
+    o texto digitado.
+
+    Sem o texto porque a fileira tem de ficar parada: derivada da lista que
+    está na tela, escolher "Buritis" apagaria todos os outros chips e não
+    haveria como trocar de bairro sem limpar a busca à mão.
+
+    COM a modalidade porque a promessa da fileira é que nenhum chip leva a
+    lugar nenhum. Com "Judô" selecionado, um chip de um bairro que só tem
+    natação devolveria tela vazia — e um atalho que devolve nada é pior que
+    não existir.
+
+    Hoje isso é uma leitura do catálogo inteiro, o que só é aceitável porque
+    o catálogo é pequeno. Passando de algumas centenas de atividades, isto
+    vira uma chamada própria que devolve só os pares bairro/quantidade.
+  */
+  const filtrosDoBairro = useMemo(() => ({ category }), [category]);
+  const { data: catalogoDaModalidade = [] } = useActivities(filtrosDoBairro);
+  const bairros = useMemo(() => bairrosDoCatalogo(catalogoDaModalidade), [catalogoDaModalidade]);
+
   // O prompt do sistema só aparece a partir daqui — de um toque, com o rótulo
   // "Perto de mim" na tela dizendo para quê.
   const toggleNearby = useCallback(() => {
@@ -50,12 +72,20 @@ export default function ExploreScreen() {
       setNearbyOnly(false);
       return;
     }
+    // Bairro e "Perto de mim" respondem a MESMA pergunta — onde — por dois
+    // caminhos. Somar os dois é como se chega a "Savassi a menos de 3 km de
+    // onde eu estou": zero resultados, e a tela parecendo quebrada por ter
+    // obedecido. Ligar a distância desfaz o bairro escolhido.
+    //
+    // Só o bairro. Uma busca digitada ("natação", "Arena") é outra pergunta e
+    // continua valendo.
+    setQuery((atual) => (bairros.some((b) => mesmoBairro(atual, b.nome)) ? '' : atual));
     if (coords) {
       setNearbyOnly(true);
       return;
     }
     void requestLocation().then((granted) => setNearbyOnly(granted));
-  }, [coords, nearbyOnly, requestLocation, setNearbyOnly]);
+  }, [bairros, coords, nearbyOnly, requestLocation, setNearbyOnly]);
 
   // Digitar não deve travar a lista: a busca usa o valor "atrasado".
   const deferredQuery = useDeferredValue(query);
@@ -71,7 +101,6 @@ export default function ExploreScreen() {
 
   const { data: categories = [] } = useCategories();
   const { data: activities = [], isPending } = useActivities(filters);
-
   return (
     <Screen padded={false} edges={['top']}>
       <BlobBackdrop height={150} />
@@ -111,6 +140,10 @@ export default function ExploreScreen() {
             )
           }
         />
+        {/* Uma fileira, uma pergunta. Aqui é "onde": por distância, e então os
+            raios; ou por bairro, e então os bairros. Os dois ao mesmo tempo
+            fariam uma fileira longa de opções que se anulam. A modalidade tem
+            a fileira dela, logo abaixo. */}
         {nearbyActive
           ? RADIUS_OPTIONS_KM.map((option: RadiusKm) => (
               <Chip
@@ -120,7 +153,28 @@ export default function ExploreScreen() {
                 onPress={() => setRadiusKm(option)}
               />
             ))
-          : null}
+          : bairros.map((bairro) => {
+              const escolhido = mesmoBairro(query, bairro.nome);
+              return (
+                <Chip
+                  key={bairro.nome}
+                  label={bairro.nome}
+                  selected={escolhido}
+                  // O chip escreve na busca em vez de virar um filtro à parte:
+                  // é o campo que já sabia procurar bairro, e ninguém tinha
+                  // descoberto. Assim o toque mostra onde aquilo foi parar, dá
+                  // para editar e dá para apagar.
+                  onPress={() => setQuery(escolhido ? '' : bairro.nome)}
+                  left={
+                    <Ionicons
+                      name="location-outline"
+                      size={14}
+                      color={escolhido ? colors.primary : colors.textMuted}
+                    />
+                  }
+                />
+              );
+            })}
       </ScrollView>
 
       {locationStatus === 'denied' || locationStatus === 'unavailable' ? (

@@ -53,6 +53,8 @@
   "scripts": {
     "test:agenda": "TZ=America/Sao_Paulo npx tsx scripts/testar-agenda.ts",
     "test:auth": "npx tsx scripts/testar-auth.ts",
+    "test:bairros": "npx tsx scripts/testar-bairros.ts",
+    "test:bairros-na-tela": "node scripts/testar-bairros-na-tela.mjs",
     "test:cancelamento": "node scripts/testar-cancelamento.mjs",
     "test:compartilhado": "node scripts/testar-compartilhado.mjs",
     "test:conquistas": "npx tsx scripts/testar-conquistas.ts",
