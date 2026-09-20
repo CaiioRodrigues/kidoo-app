@@ -35,6 +35,29 @@ do $do$ begin
   -- justamente a falta de um deles que fez nenhum aviso chegar.
   if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
 end $do$;
+
+-- O schema `storage` do Supabase, em esqueleto.
+--
+-- Sem ele, TODAS as policies de Storage eram puladas em silêncio: as
+-- migrations checam `to_regclass('storage.objects')` e voltam sem criar nada.
+-- Resultado: a regra que impede um responsável de abrir a foto do filho de
+-- outra família nunca tinha sido executada por teste nenhum. As colunas aqui
+-- são as que as policies leem — `bucket_id` e `name` —, não o schema
+-- completo do Supabase.
+create schema if not exists storage;
+create table if not exists storage.buckets (
+  id text primary key, name text, public boolean default false,
+  file_size_limit bigint, allowed_mime_types text[]);
+create table if not exists storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text, name text, owner uuid);
+alter table storage.objects enable row level security;
+grant select, insert, update, delete on storage.objects to authenticated;
+grant select on storage.objects to anon;
+grant select on storage.buckets to authenticated, anon;
+create or replace function storage.foldername(name text) returns text[]
+  language sql immutable as $fn$ select string_to_array(name, '/') $fn$;
+grant usage on schema storage to authenticated, anon, service_role;
 -- No Supabase os papéis do cliente enxergam o schema `auth` — é de lá que sai
 -- `auth.uid()`, que as policies e o código chamam o tempo todo. Sem isto, um
 -- teste que chama `auth.uid()` fora de uma função `security definer` falharia
@@ -50,6 +73,10 @@ psql -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/seed.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/rls.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/partner.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/applications.sql"
+
+# E o mesmo banco, atacado de propósito: o que uma conta comum consegue fazer
+# se tentar. Vem depois porque reaproveita os dados que os outros criaram.
+psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/invasao.sql"
 
 # E os arquivos de `setup/` do jeito que uma pessoa os roda: colagem inteira no
 # SQL Editor, ou seja, uma transação por arquivo. Aqui em cima o psql abre uma

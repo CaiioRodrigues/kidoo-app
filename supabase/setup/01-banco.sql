@@ -3888,6 +3888,240 @@ grant execute on function admin_subscriptions() to authenticated;
 -- `current_subscription` continua igual: ela só delega para o ciclo, que agora
 -- devolve o `status` junto por ser `returns subscriptions`.
 
+-- =====================================================================
+-- 20260101000021_avaliacao_sem_dono.sql
+-- =====================================================================
+
+-- =====================================================================
+-- A avaliação deixa de carregar o id de quem a escreveu.
+-- =====================================================================
+--
+-- `reviews` é de leitura pública de propósito: o catálogo mostra nota e
+-- comentário para quem nem tem conta. O que vinha junto sem precisar era a
+-- coluna `guardian_id`.
+--
+-- Ela não abre porta nenhuma — a RLS decide por `auth.uid()`, que vem do
+-- token, e não por id que alguém mande. O problema é outro: com ela exposta,
+-- qualquer pessoa liga todas as avaliações do mesmo responsável entre
+-- estabelecimentos. Somado ao `author_name`, que é o primeiro nome, isso
+-- monta um perfil de por onde aquela família anda com a criança. Num app
+-- infantil, é mais do que a tela precisa mostrar para ser útil.
+--
+-- O app nunca pediu essa coluna: os dois `select` do adapter são
+-- `id, booking_id` e `id, activity_id, author_name, rating, comment,
+-- created_at, helpful_count`. Então isto não tira nada de ninguém.
+--
+-- `submit_review` continua devolvendo a linha inteira, e continua certo:
+-- ela é `security definer` e devolve a avaliação de quem acabou de escrever.
+-- Ver o próprio id não é vazamento.
+-- =====================================================================
+
+-- Não dá para tirar uma coluna de um `grant` de tabela: o jeito é derrubar o
+-- grant inteiro e reconceder coluna a coluna. Mesmo caminho do `update` de
+-- `partners`, que precisou disso para proteger `verified` e a coordenada.
+revoke select on reviews from anon, authenticated;
+
+grant select (id, booking_id, activity_id, author_name, rating, comment, created_at, helpful_count)
+  on reviews to anon, authenticated;
+
+-- =====================================================================
+-- 20260101000022_torneiras_fechadas.sql
+-- =====================================================================
+
+-- =====================================================================
+-- O cliente para de poder escrever no que decide dinheiro.
+-- =====================================================================
+--
+-- Achado num pentest contra o próprio banco: com um token de família comum,
+-- **um único PATCH** fazia cada uma destas coisas.
+--
+--   update subscriptions set status = 'ativa'        -- destrava o portão
+--   update subscriptions set coins_remaining = 9999  -- coins de graça
+--   insert into bonus_grants (...) values (...)      -- bônus de graça
+--   update children set xp = 999999                  -- nível falso
+--   insert into children (..., xp) values (..., 999999)
+--   update guardians set email = 'outro@exemplo.com' -- descola do auth
+--
+-- Nenhuma delas é furo de RLS: a policy diz "as SUAS linhas", e eram as
+-- linhas dela mesma. O furo é o GRANT. `20260101000004` concedeu
+-- `select, insert, update, delete` em bloco nessas tabelas, e a policy nunca
+-- foi desenhada para ser a única guarda — ela responde QUAIS linhas, não
+-- QUAIS colunas nem SE pode escrever.
+--
+-- O custo era real: coin comprado com nada vira aula, e aula confirmada vira
+-- repasse em dinheiro para um parceiro de verdade.
+--
+-- O que o cliente de fato escreve, e é tudo o que fica:
+--
+--   guardians  update (photo_url)
+--   children   insert (as colunas do formulário) e update (photo_url)
+--
+-- O resto — cota, bônus, XP — só muda por função `security definer`:
+-- `subscribe_plan`, `book_session`, `cancel_booking`, `confirm_by_partner`,
+-- `roll_subscription_cycle`, `set_subscription_status`. Elas continuam
+-- funcionando: rodam com o privilégio do dono, não com o de quem chama.
+-- =====================================================================
+
+-- ------------------------------------------------- a cota e o bônus --------
+
+-- Nenhuma escrita direta, de ninguém. `select` fica: as duas telas leem.
+revoke insert, update, delete on subscriptions from authenticated;
+revoke insert, update, delete on bonus_grants  from authenticated;
+
+-- ------------------------------------------------- o responsável -----------
+
+-- Grant de tabela não sabe excluir coluna: derruba e reconcede.
+revoke insert, update, delete on guardians from authenticated;
+grant update (photo_url) on guardians to authenticated;
+
+-- ------------------------------------------------- a criança ---------------
+
+revoke insert, update, delete on children from authenticated;
+
+-- O cadastro. `xp` fora: criança nasce com zero, e quem dá XP é a presença
+-- confirmada pelo parceiro.
+grant insert (guardian_id, name, birth_date, gender, photo_url, interests)
+  on children to authenticated;
+
+-- A troca de foto, e nada mais. `KidooApi.children` tem `list`, `create` e
+-- `updatePhoto` — o dia em que existir "editar perfil", a migration daquele
+-- dia acrescenta as colunas.
+grant update (photo_url) on children to authenticated;
+
+-- =====================================================================
+-- 20260101000023_foto_do_pedido_privada.sql
+-- =====================================================================
+
+-- =====================================================================
+-- A foto do pedido sai do bucket público.
+-- =====================================================================
+--
+-- Ela subia para `atividades/pedidos/<user_id>/espaco`, e `atividades` é
+-- público — a política `atividades_leitura` libera o bucket inteiro para
+-- `anon`. A escrita estava protegida (só o dono da pasta), mas a leitura não:
+-- quem tivesse a URL abria, sem login.
+--
+-- Não é dado de criança, é a foto do espaço de um negócio. Mas é material
+-- enviado DURANTE a análise, por quem ainda não é parceiro, e ficar público
+-- antes de haver decisão não é o que quem envia espera.
+--
+-- Bucket próprio, privado, com o caminho `<user_id>/espaco` — a pasta é o
+-- dono, mesma forma de `criancas` e `responsaveis`, pelo mesmo motivo: a
+-- regra não depende de consultar outra tabela, então não herda a RLS dela.
+--
+-- Quem analisa lê também. A foto existe para isso — `partner_applications`
+-- já segue `user_id = auth.uid() or is_kidoo_admin()`, e a policy do arquivo
+-- acompanha a da linha. Sem isso, a tela de análise nasceria sem conseguir
+-- abrir a foto que ela existe para mostrar.
+-- =====================================================================
+
+do $$
+begin
+  if to_regclass('storage.objects') is null then
+    raise notice 'sem schema storage (Postgres local): pulando bucket e policy';
+    return;
+  end if;
+
+  insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('pedidos', 'pedidos', false, 5242880,
+          array['image/jpeg','image/png','image/webp'])
+  on conflict (id) do update
+    set public = excluded.public,
+        file_size_limit = excluded.file_size_limit,
+        allowed_mime_types = excluded.allowed_mime_types;
+
+  drop policy if exists pedidos_do_dono on storage.objects;
+  create policy pedidos_do_dono on storage.objects
+    for all to authenticated
+    using (
+      bucket_id = 'pedidos'
+      and ((storage.foldername(name))[1] = auth.uid()::text or is_kidoo_admin())
+    )
+    with check (
+      -- Escrever é só do dono: quem analisa lê o pedido, não o reescreve.
+      bucket_id = 'pedidos'
+      and (storage.foldername(name))[1] = auth.uid()::text
+    );
+
+  -- A antiga, no bucket público, deixa de existir. Ela só regia escrita — a
+  -- leitura era do `atividades_leitura`, e é essa que nunca deveria ter
+  -- alcançado a foto de um pedido em análise.
+  drop policy if exists pedidos_propria_pasta on storage.objects;
+
+  raise notice 'bucket pedidos (privado) pronto';
+end $$;
+
+-- O caminho guardado perde o prefixo `pedidos/`, que agora é o nome do bucket
+-- e não mais uma pasta dentro de `atividades`.
+--
+-- ATENÇÃO: isto reescreve a COLUNA, não move o ARQUIVO. O que já foi enviado
+-- continua no bucket público até ser apagado à mão no Storage — bucket
+-- público serve por URL direta, sem passar por policy nenhuma. O cabeçalho do
+-- arquivo colável diz como conferir.
+update partner_applications
+   set photo_path = regexp_replace(photo_path, '^pedidos/', '')
+ where photo_path like 'pedidos/%';
+
+-- =====================================================================
+-- 20260101000024_foto_na_analise.sql
+-- =====================================================================
+
+-- =====================================================================
+-- A foto do pedido chega em quem analisa.
+-- =====================================================================
+--
+-- A migration anterior tirou essa foto do bucket público e deixou a policy
+-- do bucket novo liberar a leitura para `is_kidoo_admin()`. Faltava o outro
+-- lado: `pending_applications()` nunca devolveu `photo_path`, então a tela de
+-- análise não tinha o que assinar. A porta estava aberta e não havia corredor.
+--
+-- Um pedido chega com nome, endereço, CNPJ e modalidades — e a decisão é
+-- sobre um ESPAÇO onde criança vai ficar. A foto é a única parte do pedido
+-- que mostra o espaço; sem ela, aprovar é aprovar um formulário.
+--
+-- É `drop` + `create`, e não `create or replace`: a função é `returns table`,
+-- e `or replace` não muda a lista de colunas de retorno (`cannot change
+-- return type of existing function`). O `grant` morre junto com a função
+-- derrubada, então ele volta logo abaixo — esquecê-lo deixaria a fila inteira
+-- respondendo `permission denied` para quem analisa.
+-- =====================================================================
+
+drop function if exists pending_applications();
+
+create function pending_applications()
+returns table (
+  id           uuid,
+  name         text,
+  neighborhood text,
+  city         text,
+  address      text,
+  phone        text,
+  email        text,
+  categories   text[],
+  min_age      smallint,
+  max_age      smallint,
+  cnpj         text,
+  -- O caminho dentro do bucket `pedidos`, não a URL: URL assinada expira em
+  -- uma hora, e quem monta a fila é quem sabe quando vai exibi-la.
+  photo_path   text,
+  created_at   timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select a.id, a.name, a.neighborhood, a.city, a.address, a.phone,
+         u.email, a.categories, a.min_age, a.max_age, a.cnpj,
+         a.photo_path, a.created_at
+    from partner_applications a
+    join auth.users u on u.id = a.user_id
+   where a.status = 'pendente' and is_kidoo_admin()
+   order by a.created_at;
+$$;
+
+grant execute on function pending_applications() to authenticated;
+
 commit;
 
 -- Se chegou até aqui sem erro, o banco está pronto.

@@ -158,7 +158,11 @@ export function TutorialOverlay({ visible, onFinish }: { visible: boolean; onFin
 
               Maior que os 104 de antes porque agora é meio-corpo: no tamanho
               antigo o rosto caía para uns quarenta pixels. */}
-          <Animated.View key={`pose-${index}`} entering={FadeInDown.duration(280)} style={styles.mascotRow}>
+          <Animated.View
+            key={`pose-${index}`}
+            entering={FadeInDown.duration(280)}
+            style={styles.mascotRow}
+          >
             <Guara size={150} pose={step.pose} />
           </Animated.View>
 

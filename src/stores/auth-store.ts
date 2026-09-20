@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { clearQueryCache } from '@/lib/query-client';
 import { obterTokenDePush, pushBloqueadoPorPermissao, pushPlatform } from '@/lib/push';
 import { SecureKeys, secureDelete, secureGet, secureSet } from '@/lib/secure-storage';
+import { useOnboardingStore } from './onboarding-store';
 import type { SignInInput, SignUpInput } from '@/lib/validation';
 import { api } from '@/services';
 import type { Session, SignUpResult } from '@/types/domain';
@@ -201,6 +202,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Sair tem de levar os dados junto. Sem isto, o nome e a jornada da
       // criança continuam na memória do app depois do logout.
       clearQueryCache();
+      // E o ponteiro para a criança em foco: a próxima família a entrar neste
+      // aparelho não começa apontada para um filho da anterior.
+      await useOnboardingStore.getState().forgetActiveChild();
       set({ status: 'unauthenticated', session: null });
     }
   },

@@ -386,6 +386,23 @@ export type Achievement = {
   unlockedAt: IsoDateTime | null;
 };
 
+/**
+ * Uma aula que de fato aconteceu.
+ *
+ * O resto da jornada é contagem — total por modalidade, aulas por semana. Isto
+ * é a lista, e existe porque a trilha precisa de cada passo, não da soma: o
+ * que ela conta é a sequência, e uma soma não tem sequência.
+ */
+export type AulaFeita = {
+  /** O id da reserva. É estável e único, e serve de chave na lista. */
+  id: Uuid;
+  /** Quando a aula aconteceu — o horário da turma, não o do check-in. */
+  date: IsoDateTime;
+  category: ActivityCategoryId;
+  /** O nome que a família conhece: "Futebol Kids", não "futebol". */
+  activityName: string;
+};
+
 /** Quantas aulas a criança fez em cada modalidade. */
 export type ActivityTally = {
   category: ActivityCategoryId;
@@ -444,6 +461,15 @@ export type Journey = {
   weeklyActivity: { label: string; count: number }[];
   totalActivities: number;
   totalCategories: number;
+  /**
+   * As aulas feitas, da mais antiga para a mais recente.
+   *
+   * É o material da trilha. Vem em ordem de propósito: `montarTrilha` descobre
+   * em que aula cada conquista destravou percorrendo a lista com as mesmas
+   * regras que a grade usa, e uma lista fora de ordem daria a medalha à aula
+   * errada.
+   */
+  history: AulaFeita[];
   /** Carteira de Kidoo Bônus da criança. */
   bonus: BonusWallet;
 };

@@ -89,8 +89,7 @@ export async function obterTokenDePush(): Promise<string | null> {
 
     // O `projectId` vem do EAS. Sem ele o SDK não sabe por qual projeto assinar
     // o token, e a chamada falha com uma mensagem que não diz isso.
-    const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
     if (!projectId) return null;
 
     const { data } = await Notifications.getExpoPushTokenAsync({ projectId });

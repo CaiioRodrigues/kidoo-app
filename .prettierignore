@@ -4,3 +4,14 @@ dist
 android
 ios
 package-lock.json
+
+# Gerado pelo Firebase. Reformatar um arquivo que uma ferramenta reescreve é
+# trocar de lado a cada `google-services.json` novo que for baixado.
+google-services.json
+
+# O painel é outro projeto: package.json, tsconfig e eslint.config próprios.
+# O formatador da raiz alcançá-lo era o que mantinha 12 arquivos em falha
+# permanente — e `format:check` que sempre falha não distingue deriva nova de
+# dívida antiga, então não avisa nada. Quando o painel quiser Prettier, o
+# script é dele.
+partner

@@ -55,8 +55,12 @@ export function MapaDoEspaco({
   const caixa = useRef<HTMLDivElement>(null);
   const mapa = useRef<L.Map | null>(null);
   const marca = useRef<L.Marker | null>(null);
+  // A escrita mora num efeito, e não no corpo do componente: uma renderização
+  // descartada deixaria valendo o callback de uma árvore que nunca virou tela.
   const mover = useRef(aoMover);
-  mover.current = aoMover;
+  useEffect(() => {
+    mover.current = aoMover;
+  });
   /*
     De onde veio a coordenada nova.
 

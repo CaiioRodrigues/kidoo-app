@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "build:demo": "tsc --noEmit && VITE_DEMO=1 vite build"
   },
   "dependencies": {
@@ -23,7 +23,12 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.1.0",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^16.5.0",
     "typescript": "^5.9.2",
+    "typescript-eslint": "^8.70.0",
     "vite": "^7.1.0"
   }
 }

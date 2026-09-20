@@ -28,7 +28,16 @@ import { chromium } from 'playwright';
 
 import { pixels } from './lib/png.mjs';
 
-const BASE = process.env.KIDOO_URL ?? 'http://localhost:8095/';
+/*
+  Sem barra no fim, sempre — e cada uso escreve a sua.
+
+  Metade destes arquivos assumia a barra no padrão e a outra metade assumia que
+  ela não existia. Passar `KIDOO_URL` com barra para quem não esperava dava
+  `//nova-senha`, e o expo-router morre nisso com "Failed to construct 'URL'":
+  a tela fica em branco, e o teste acusa o produto por um erro de endereço.
+  Aconteceu, e me fez relatar teste quebrado duas vezes.
+*/
+const BASE = (process.env.KIDOO_URL ?? 'http://localhost:8095').replace(/\/+$/, '');
 const executablePath = process.env.CHROMIUM_PATH || undefined;
 
 /** O amarelo da face, como `CoinIcon` o define. */

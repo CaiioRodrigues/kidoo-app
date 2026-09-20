@@ -323,32 +323,52 @@ end $$;
 -- A regra "coins não acumulam" só vale se o banco a aplicar. Enquanto ela viveu
 -- só no cliente, um app que não recarrega gastava a cota da semana passada.
 select set_config('request.jwt.claim.sub', :'ana', false);
+
+/*
+  O preparo é do DONO, e isso não é detalhe de teste.
+
+  Até a 000022 estas linhas rodavam como `authenticated` — e rodavam porque a
+  família tinha `update` na própria assinatura, que era exatamente o furo. Com
+  a torneira fechada o teste parou de passar, o que é o teste funcionando: ele
+  estava usando um privilégio que o produto não devia ter.
+*/
+reset role;
+-- gasta um pouco e joga o ciclo para a semana anterior
+update subscriptions set coins_remaining = 1, cycle_started_at = week_start(now()) - interval '7 days'
+ where guardian_id = '11111111-1111-1111-1111-111111111111';
+set role authenticated;
+
 do $$
 declare v_sub subscriptions%rowtype;
 begin
-  -- gasta um pouco e joga o ciclo para a semana anterior
-  update subscriptions set coins_remaining = 1, cycle_started_at = week_start(now()) - interval '7 days'
-   where guardian_id = '11111111-1111-1111-1111-111111111111';
-
   v_sub := current_subscription();
   assert v_sub.coins_remaining = v_sub.coins_per_week,
          'a cota deveria voltar ao cheio na virada, veio ' || v_sub.coins_remaining;
   assert v_sub.cycle_started_at = week_start(now()), 'o ciclo deveria apontar para esta semana';
+end $$;
 
-  -- dentro da mesma semana, ler de novo não devolve coin nenhum
-  update subscriptions set coins_remaining = 2
-   where guardian_id = '11111111-1111-1111-1111-111111111111';
+-- dentro da mesma semana, ler de novo não devolve coin nenhum
+reset role;
+update subscriptions set coins_remaining = 2
+ where guardian_id = '11111111-1111-1111-1111-111111111111';
+set role authenticated;
+
+do $$
+declare v_sub subscriptions%rowtype;
+begin
   v_sub := current_subscription();
   assert v_sub.coins_remaining = 2, 'leitura não pode recarregar no meio da semana';
 end $$;
 
 -- ---- trocar de plano não devolve o que já foi gasto -------------------------
+reset role;
+update subscriptions set plan_id = 'start', coins_per_week = 8, coins_remaining = 3
+ where guardian_id = '11111111-1111-1111-1111-111111111111';
+set role authenticated;
+
 do $$
 declare v_sub subscriptions%rowtype;
 begin
-  update subscriptions set plan_id = 'start', coins_per_week = 8, coins_remaining = 3
-   where guardian_id = '11111111-1111-1111-1111-111111111111';
-
   -- gastou 5 dos 8; no Plus (12) deve sobrar 7, não 12
   v_sub := subscribe_plan('plus');
   assert v_sub.coins_per_week = 12, 'a cota vem da tabela de planos';
@@ -1014,6 +1034,53 @@ begin
          'mês vencido derruba a assinatura, veio ' || v_sub.status;
   assert v_sub.coins_remaining = 0,
          'e NÃO devolve a cota: era esta a torneira aberta';
+end $$;
+
+reset role;
+
+-- ========================================================================
+-- A avaliação é pública; o id de quem a escreveu, não.
+--
+-- Vale para `authenticated` e para `anon` — a leitura do catálogo acontece
+-- nos dois papéis, e proteger só um deixaria a porta aberta pelo outro.
+--
+-- A guarda é sobre o GRANT, não sobre a policy: a policy decide linha, o
+-- grant decide coluna. Uma migration que precise mexer nos grants de
+-- `reviews` derruba isto aqui antes de derrubar a privacidade de alguém.
+-- ========================================================================
+
+do $$
+declare v_papel text;
+begin
+  foreach v_papel in array array['authenticated', 'anon'] loop
+    execute format('set local role %I', v_papel);
+
+    -- O que a tela mostra continua legível.
+    begin
+      perform id, activity_id, author_name, rating, comment, created_at, helpful_count
+         from reviews limit 1;
+    exception when insufficient_privilege then
+      raise exception '% perdeu acesso às colunas que a tela usa', v_papel;
+    end;
+
+    -- O dono, não.
+    declare
+      v_abriu boolean := false;
+    begin
+      begin
+        perform guardian_id from reviews limit 1;
+        v_abriu := true;
+      exception when insufficient_privilege then
+        null;
+      end;
+      if v_abriu then
+        raise exception
+          '% consegue ler reviews.guardian_id: dá para ligar todas as avaliações '
+          'do mesmo responsável entre estabelecimentos', v_papel;
+      end if;
+    end;
+  end loop;
+  reset role;
 end $$;
 
 reset role;

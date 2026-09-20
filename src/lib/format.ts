@@ -76,3 +76,37 @@ export function formatDaysUntil(days: number): string {
   if (days === 1) return 'amanhã';
   return `em ${days} dias`;
 }
+
+/**
+ * "1 coin" / "3 coins", e a forma por extenso da marca.
+ *
+ * Existe porque o plural estava fixo: a etiqueta dizia "1 coins" em toda turma
+ * que custa uma moeda — e turma de uma moeda é o caso mais comum do catálogo,
+ * então o erro aparecia mais que o acerto. Sai daqui, e não de cada tela, para
+ * que o distintivo e o leitor de tela não possam discordar sobre o mesmo
+ * número.
+ */
+export function formatCoins(amount: number, forma: 'curta' | 'marca' = 'curta'): string {
+  const singular = amount === 1;
+  if (forma === 'marca') return `${amount} ${singular ? 'Kidoo Coin' : 'Kidoo Coins'}`;
+  return `${amount} ${singular ? 'coin' : 'coins'}`;
+}
+
+/**
+ * "12 de março" — a data de uma aula que já passou.
+ *
+ * Sem hora e sem ano: na trilha o que importa é quando foi, não às quantas
+ * horas, e a repetição do ano em vinte passos seguidos só ocupa espaço. O ano
+ * volta quando a aula não é deste ano, que é o único caso em que ele informa
+ * alguma coisa.
+ */
+export function formatPastDate(isoDateTime: string, now: Date = new Date()): string {
+  const date = new Date(isoDateTime);
+  if (Number.isNaN(date.getTime())) return '';
+  const mesmoAno = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    ...(mesmoAno ? {} : { year: 'numeric' }),
+  });
+}

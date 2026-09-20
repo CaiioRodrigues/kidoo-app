@@ -36,7 +36,16 @@ import { chromium } from 'playwright';
 
 import { fracaoPintada, pixels } from './lib/png.mjs';
 
-const BASE = process.env.KIDOO_URL ?? 'http://localhost:8097/';
+/*
+  Sem barra no fim, sempre — e cada uso escreve a sua.
+
+  Metade destes arquivos assumia a barra no padrão e a outra metade assumia que
+  ela não existia. Passar `KIDOO_URL` com barra para quem não esperava dava
+  `//nova-senha`, e o expo-router morre nisso com "Failed to construct 'URL'":
+  a tela fica em branco, e o teste acusa o produto por um erro de endereço.
+  Aconteceu, e me fez relatar teste quebrado duas vezes.
+*/
+const BASE = (process.env.KIDOO_URL ?? 'http://localhost:8097').replace(/\/+$/, '');
 const executablePath = process.env.CHROMIUM_PATH || undefined;
 
 let falhas = 0;
@@ -76,6 +85,20 @@ await p.waitForTimeout(1800);
 campos = p.locator('input:not([readonly])');
 await campos.nth(0).fill('Alice Rodrigues');
 await campos.nth(1).fill('10/05/2018');
+
+// O cadastro da criança abria com um 🧒 — Emoji 5.0, que em Android 8 vira
+// quadrado vazio bem no primeiro contato da família com o formulário. Quem
+// desenha agora é o guará, que é arquivo nosso. As duas metades: nenhum emoji
+// no texto, e a arte do mascote carregada de verdade.
+const cadastro = await txt();
+ok(!EMOJI.test(cadastro), 'nenhum emoji no cadastro da criança');
+const guaraDoCadastro = p.locator('img[alt="O guará, mascote do Kidoo"]').filter({ visible: true });
+ok((await guaraDoCadastro.count()) === 1, 'o guará está no lugar do emoji');
+if ((await guaraDoCadastro.count()) === 1) {
+  const largura = await guaraDoCadastro.evaluate((el) => el.naturalWidth);
+  ok(largura > 0, `e a arte carregou (${largura}px de origem)`);
+}
+
 await p.getByText('Menina').click();
 await p.getByText('Continuar').last().click();
 await p.waitForTimeout(1500);
@@ -128,6 +151,11 @@ ok(jornada.includes('Explorar atividades'), 'e oferece para onde ir');
 for (const secao of ['Moedas bônus', 'Minhas atividades', 'Minha evolução']) {
   ok(!jornada.includes(secao), `a seção "${secao}" não aparece com zero aula`);
 }
+// A trilha é a seção mais tentadora de mostrar vazia — ela é o rosto da tela.
+// Um caminho sem passo nenhum não é um começo: é um traço cinza sem nada em
+// volta, e ele apareceria bem embaixo do cartão que acabou de dizer, com o
+// guará e uma frase, que a primeira aula ainda não aconteceu.
+ok(!jornada.includes('A trilha da Alice'), 'nem a trilha, que com zero aula não tem o que contar');
 ok(
   jornada.includes('Minhas conquistas'),
   'as conquistas ficam — são a única parte da tela vazia que promete em vez de constatar falta',
@@ -183,6 +211,24 @@ console.log('\nO botão leva para onde diz\n');
 await p.getByText('Explorar atividades').last().click();
 await p.waitForTimeout(2000);
 ok(p.url().endsWith('/explore'), `"Explorar atividades" abriu o Explorar (${p.url()})`);
+
+console.log('\nO plural do coin, na vitrine\n');
+
+// A vitrine tem turma de uma moeda e turma de duas. `formatCoins` tem teste
+// próprio (`npm run test:texto`); o que falta provar é que o distintivo o
+// chama — antes daqui o plural era fixo no componente.
+const vitrine = await p.evaluate(() => document.body.innerText);
+ok(!/\b1 coins\b/.test(vitrine), 'nenhum "1 coins" na tela');
+ok(/\b1 coin\b/.test(vitrine), 'e existe uma turma de "1 coin" para provar que passou por ali');
+
+console.log('\nA tela de endereço que não existe\n');
+
+// Por último: isto recarrega a página e zera o backend em memória.
+await p.goto(`${BASE}/nao-existe-esta-tela`, { waitUntil: 'networkidle' });
+await p.waitForTimeout(2500);
+const perdido = await txt();
+ok(perdido.includes('Essa tela não existe'), 'a tela de erro abriu');
+ok(!EMOJI.test(perdido), 'e sem o 🧭, que era Emoji 11.0 — erro em cima de erro');
 
 await b.close();
 console.log(falhas === 0 ? '\nTudo certo.\n' : `\n${falhas} falha(s).\n`);

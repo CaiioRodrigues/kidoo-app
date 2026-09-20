@@ -35,9 +35,7 @@ function SelectableCardBase({ label, category, selected, onToggle }: SelectableC
       onPress={handlePress}
       style={({ pressed }) => [
         styles.card,
-        selected
-          ? { backgroundColor: tone.soft, borderColor: tone.solid }
-          : styles.cardIdle,
+        selected ? { backgroundColor: tone.soft, borderColor: tone.solid } : styles.cardIdle,
         pressed && styles.pressed,
       ]}
     >

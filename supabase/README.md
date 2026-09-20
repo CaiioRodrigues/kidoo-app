@@ -85,7 +85,7 @@ cheia e passaria por engano, sem a corrida ter acontecido.
 Três coisas que só apareceram rodando:
 
 - **Faltavam os `grant`.** RLS filtra linhas; `grant` decide se a tabela pode
-  ser tocada. O Supabase concede por *default privileges*, então em produção
+  ser tocada. O Supabase concede por _default privileges_, então em produção
   talvez passasse — mas num banco limpo o app inteiro responde
   `permission denied`, e o erro não menciona RLS em lugar nenhum.
 - **`unique (session_id, child_id)` prendia a família.** Reserva cancelada

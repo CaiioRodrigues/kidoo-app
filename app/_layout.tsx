@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createQueryClient } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useLocationStore } from '@/stores/location-store';
+import { useOnboardingStore } from '@/stores/onboarding-store';
 import { ThemeProvider, appFonts, useSystemUiSync, useTheme } from '@/theme';
 
 // Mantém a splash nativa até fontes e sessão estarem prontas: sem "flash" de
@@ -35,6 +36,7 @@ function ThemedApp() {
   const restore = useAuthStore((state) => state.restore);
   const authStatus = useAuthStore((state) => state.status);
   const hydrateLocation = useLocationStore((state) => state.hydrate);
+  const hydrateActiveChild = useOnboardingStore((state) => state.hydrateActiveChild);
 
   useEffect(() => {
     void restore();
@@ -45,6 +47,14 @@ function ThemedApp() {
   useEffect(() => {
     void hydrateLocation();
   }, [hydrateLocation]);
+
+  // Quem a família escolheu da última vez. Fora da espera da splash de
+  // propósito: se o keystore demorar, a Home abre na primeira criança e
+  // corrige sozinha um piscar depois — melhor que segurar o app inteiro por
+  // causa de qual dos dois filhos aparece primeiro.
+  useEffect(() => {
+    void hydrateActiveChild();
+  }, [hydrateActiveChild]);
 
   const fontsSettled = fontsLoaded || Boolean(fontError);
   const authSettled = authStatus !== 'idle' && authStatus !== 'restoring';

@@ -45,8 +45,7 @@ const MENSAGENS: Record<string, string> = {
   unknown_category: 'Uma das modalidades escolhidas não existe mais.',
   reason_required: 'Diga o motivo da recusa — é ele que volta para quem pediu.',
   too_many_dates: 'São turmas demais de uma vez. Reduza os dias ou as semanas.',
-  slots_already_taken:
-    'Já há reservas nestas vagas. Reduza só até o número que já foi reservado.',
+  slots_already_taken: 'Já há reservas nestas vagas. Reduza só até o número que já foi reservado.',
   booking_not_found: 'Reserva não encontrada.',
   no_check_in: 'Esta família ainda não fez o check-in no aplicativo.',
   wrong_code: 'Código inválido para esta reserva.',
@@ -58,7 +57,10 @@ function traduz(erro: { message: string } | null, padrao: string): never {
   throw new PainelError(conhecido ?? padrao);
 }
 
-function ok<T>(resultado: { data: T | null; error: { message: string } | null }, padrao: string): T {
+function ok<T>(
+  resultado: { data: T | null; error: { message: string } | null },
+  padrao: string,
+): T {
   if (resultado.error) traduz(resultado.error, padrao);
   if (resultado.data === null) throw new PainelError(padrao);
   return resultado.data;
@@ -107,7 +109,8 @@ async function criarConta(email: string, senha: string): Promise<ResultadoDaCont
     options: { emailRedirectTo: window.location.origin },
   });
 
-  if (error) throw new PainelError(mensagemDeAuth(error.message, 'Não foi possível criar a conta.'));
+  if (error)
+    throw new PainelError(mensagemDeAuth(error.message, 'Não foi possível criar a conta.'));
 
   // Sem sessão = o projeto exige confirmar o e-mail. Não é erro; é outra tela.
   return data.session ? { status: 'entrou' } : { status: 'confirmar', email };
@@ -412,6 +415,10 @@ async function minhasAtividades(partnerIds: string[]): Promise<ActivityRow[]> {
 }
 
 const BUCKET_ATIVIDADES = 'atividades';
+/** Privado: a foto do pedido não é vitrine, é documento de análise. */
+const BUCKET_PEDIDOS = 'pedidos';
+/** Uma hora é bem mais que o tempo de uma fila aberta, e curto para um link vazado. */
+const VALIDADE_URL_S = 3600;
 
 /**
  * Sobe a capa da atividade e devolve a URL pública.
@@ -613,14 +620,24 @@ async function enviarPedido(entrada: NovoPedido, corrigindo?: string): Promise<v
  * não há `partner_id` para pôr no caminho — que é justamente o que a policy
  * das capas compara.
  */
+/**
+ * A foto do espaço, enviada junto com o pedido.
+ *
+ * Vai para um bucket PRIVADO e próprio. Antes subia para `atividades`, que é
+ * a vitrine e é pública: a escrita era do dono da pasta, mas a leitura ficava
+ * aberta a qualquer um com a URL — e isto é material de um negócio em
+ * análise, enviado por quem ainda não é parceiro.
+ *
+ * O caminho começa no id de quem envia porque é a pasta que a policy compara.
+ */
 async function subirFotoDoPedido(arquivo: File): Promise<string> {
   const conta = await supabase().auth.getUser();
   const userId = conta.data.user?.id;
   if (!userId) throw new PainelError('Sua sessão expirou. Entre de novo.');
 
-  const caminho = `pedidos/${userId}/espaco`;
+  const caminho = `${userId}/espaco`;
   const { error } = await supabase()
-    .storage.from(BUCKET_ATIVIDADES)
+    .storage.from(BUCKET_PEDIDOS)
     .upload(caminho, arquivo, { contentType: arquivo.type, upsert: true });
   if (error) throw new PainelError('Não foi possível enviar a foto.');
   return caminho;
@@ -731,6 +748,7 @@ async function pedidosPendentes(): Promise<PedidoNaFila[]> {
     min_age: number;
     max_age: number;
     cnpj: string | null;
+    photo_path: string | null;
     created_at: string;
   };
   const linhas = await linhasDe<FilaSql>(
@@ -738,20 +756,47 @@ async function pedidosPendentes(): Promise<PedidoNaFila[]> {
     {},
     'Não foi possível carregar os pedidos.',
   );
-  return linhas.map((l) => ({
-    id: l.id,
-    name: l.name,
-    neighborhood: l.neighborhood,
-    city: l.city,
-    address: l.address,
-    phone: l.phone,
-    email: l.email,
-    categories: l.categories as ActivityCategoryId[],
-    minAge: l.min_age,
-    maxAge: l.max_age,
-    cnpj: l.cnpj,
-    createdAt: l.created_at,
-  }));
+  // Em paralelo, e não uma por vez: a fila tem quantos pedidos esperam análise,
+  // e assinar em série faria a tela demorar o número de pedidos vezes uma ida
+  // ao servidor — com o pior caso exatamente no dia em que mais gente esperou.
+  return Promise.all(
+    linhas.map(async (l) => ({
+      id: l.id,
+      name: l.name,
+      neighborhood: l.neighborhood,
+      city: l.city,
+      address: l.address,
+      phone: l.phone,
+      email: l.email,
+      categories: l.categories as ActivityCategoryId[],
+      minAge: l.min_age,
+      maxAge: l.max_age,
+      cnpj: l.cnpj,
+      photoUrl: await urlDaFotoDoPedido(l.photo_path),
+      createdAt: l.created_at,
+    })),
+  );
+}
+
+/**
+ * Caminho no bucket `pedidos` → URL que a tela consegue exibir.
+ *
+ * O bucket é privado, então cada exibição precisa de uma URL assinada. Quem
+ * analisa passa pela policy por `is_kidoo_admin()`; qualquer outra conta que
+ * chame isto recebe `null`, que é o mesmo que a tela mostra para pedido sem
+ * foto — negar aqui não é o nosso trabalho, é o do servidor, e ele já faz.
+ *
+ * Caminho antigo (`pedidos/...`, de quando a foto morava dentro do bucket da
+ * vitrine) vira `null`: o arquivo está no bucket velho, e assinar no bucket
+ * novo devolveria um link que responde 404 — pior que não mostrar nada, porque
+ * parece defeito da tela.
+ */
+async function urlDaFotoDoPedido(caminho: string | null): Promise<string | null> {
+  if (!caminho || caminho.startsWith('pedidos/')) return null;
+  const { data } = await supabase()
+    .storage.from(BUCKET_PEDIDOS)
+    .createSignedUrl(caminho, VALIDADE_URL_S);
+  return data?.signedUrl ?? null;
 }
 
 async function aprovarPedido(id: string): Promise<void> {

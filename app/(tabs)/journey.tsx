@@ -1,19 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { SeletorDeCrianca } from '@/features/children';
 import {
   AchievementBadge,
   BonusWalletCard,
   EvolutionChart,
   PrimeiraJornada,
+  Trilha,
 } from '@/features/journey';
 import { BlobBackdrop } from '@/components/brand';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { Avatar, Badge, Card, ComingSoon, ProgressBar, Screen, Text } from '@/components/ui';
 import { useChildren, useJourney } from '@/hooks/queries';
 import { possessivo } from '@/lib/genero';
+import { montarTrilha, ultimosPassos } from '@/lib/trilha';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import {
   blobRadius,
@@ -26,12 +29,23 @@ import {
   type ThemePalette,
 } from '@/theme';
 
+/**
+ * Quantos passos da trilha cabem na tela antes de ela enterrar o resto.
+ *
+ * A Jornada já tem cabeçalho, nível, doze medalhas e dois blocos de resumo
+ * embaixo. Oito passos dão cerca de 830px — uma tela cheia de rolagem, que é
+ * o quanto uma seção pode ocupar sem virar a tela inteira.
+ */
+const PASSOS_NA_TELA = 8;
+
 /** Tela 10 — Jornada da criança. */
 export default function JourneyScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const styles = useStyles(makeStyles);
   const activeChildId = useOnboardingStore((state) => state.activeChildId);
+  const setActiveChild = useOnboardingStore((state) => state.setActiveChild);
+  const [trocandoCrianca, setTrocandoCrianca] = useState(false);
   const { data: children = [] } = useChildren();
 
   const child = useMemo(
@@ -69,6 +83,10 @@ export default function JourneyScreen() {
   // é o primeiro dia de todo mundo, e é a única visita em que a tela não tem
   // nada de verdade para contar.
   const primeiraVez = journey.totalActivities === 0;
+  // A trilha é montada aqui, e não no serviço, porque ela é derivada das
+  // mesmas regras das conquistas — pô-la no backend obrigaria cada adapter a
+  // reimplementá-las, e a primeira regra nova divergiria em silêncio.
+  const { visiveis, anteriores } = ultimosPassos(montarTrilha(journey.history), PASSOS_NA_TELA);
 
   return (
     <Screen scroll edges={['top']} contentContainerStyle={styles.scroll}>
@@ -78,21 +96,33 @@ export default function JourneyScreen() {
         Jornada {possessivo(firstName, child.gender)}
       </Text>
 
-      <Card bordered elevation="none" style={styles.headerCard}>
-        <Avatar name={child.name} uri={child.photoUri} size={56} ring />
-        <View style={styles.headerInfo}>
-          <Text variant="subheading" numberOfLines={1}>
-            {child.name}
-          </Text>
-          <Badge label={journey.levelName} tone="brand" />
-        </View>
-        <View style={styles.xpBadge}>
-          <Ionicons name="trophy" size={16} color={colors.warning} />
-          <Text variant="label" color={colors.warning}>
-            {journey.xp} XP
-          </Text>
-        </View>
-      </Card>
+      {/* O cartão do topo é o seletor. A Jornada inteira é de uma criança só,
+          e o nome dela já está aqui — pôr um controle separado seria dizer a
+          mesma coisa duas vezes, com a segunda ocupando espaço. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${child.name}, trocar de criança`}
+        onPress={() => setTrocandoCrianca(true)}
+      >
+        <Card bordered elevation="none" style={styles.headerCard}>
+          <Avatar name={child.name} uri={child.photoUri} size={56} ring />
+          <View style={styles.headerInfo}>
+            <View style={styles.nomeELinha}>
+              <Text variant="subheading" numberOfLines={1} style={styles.nome}>
+                {child.name}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={colors.textFaint} />
+            </View>
+            <Badge label={journey.levelName} tone="brand" />
+          </View>
+          <View style={styles.xpBadge}>
+            <Ionicons name="trophy" size={16} color={colors.warning} />
+            <Text variant="label" color={colors.warning}>
+              {journey.xp} XP
+            </Text>
+          </View>
+        </Card>
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"
@@ -163,6 +193,11 @@ export default function JourneyScreen() {
       {primeiraVez ? null : (
         <>
           <Text variant="subheading" style={styles.sectionTitle}>
+            A trilha {possessivo(firstName, child.gender)}
+          </Text>
+          <Trilha passos={visiveis} anteriores={anteriores} />
+
+          <Text variant="subheading" style={styles.sectionTitle}>
             Minhas atividades
           </Text>
           <View style={styles.tallyRow}>
@@ -211,6 +246,21 @@ export default function JourneyScreen() {
           </Card>
         </>
       )}
+      <SeletorDeCrianca
+        visivel={trocandoCrianca}
+        criancas={children}
+        ativaId={child.id}
+        aoEscolher={(id) => {
+          setActiveChild(id);
+          setTrocandoCrianca(false);
+        }}
+        aoFechar={() => setTrocandoCrianca(false)}
+        aoAdicionar={() => {
+          setTrocandoCrianca(false);
+          router.push('/(onboarding)/child');
+        }}
+      />
+
     </Screen>
   );
 }
@@ -222,6 +272,11 @@ const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
     pageTitle: { marginTop: spacing.md, marginBottom: spacing.lg },
     headerCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.base },
     headerInfo: { flex: 1, gap: spacing.xs },
+    // `flexShrink` no nome, e não no conjunto: a setinha tem 16px e some
+    // inteira se ela puder encolher, e um nome longo comeria o sinal de que
+    // o cartão abre alguma coisa.
+    nomeELinha: { flexDirection: 'row', alignItems: 'center', gap: spacing.xxs },
+    nome: { flexShrink: 1 },
     xpBadge: {
       alignItems: 'center',
       gap: spacing.xxs,

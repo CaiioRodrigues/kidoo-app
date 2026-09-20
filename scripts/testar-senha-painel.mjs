@@ -18,7 +18,16 @@
  */
 import { chromium } from 'playwright';
 
-const BASE = process.env.PAINEL_URL ?? 'http://localhost:8098';
+/*
+  Sem barra no fim, sempre — e cada uso escreve a sua.
+
+  Metade destes arquivos assumia a barra no padrão e a outra metade assumia que
+  ela não existia. Passar `KIDOO_URL` com barra para quem não esperava dava
+  `//nova-senha`, e o expo-router morre nisso com "Failed to construct 'URL'":
+  a tela fica em branco, e o teste acusa o produto por um erro de endereço.
+  Aconteceu, e me fez relatar teste quebrado duas vezes.
+*/
+const BASE = (process.env.PAINEL_URL ?? 'http://localhost:8098').replace(/\/+$/, '');
 const executablePath = process.env.CHROMIUM_PATH || undefined;
 
 const b = await chromium.launch(executablePath ? { executablePath } : {});
@@ -44,7 +53,7 @@ const abrir = async (caminho) => {
 };
 
 console.log('--- pedir o link ---');
-await p.goto(`${BASE}/`, { waitUntil: 'networkidle' });
+await p.goto(BASE, { waitUntil: 'networkidle' });
 await p.waitForTimeout(1200);
 await p.getByText('Entrar', { exact: true }).first().click();
 await p.waitForTimeout(900);

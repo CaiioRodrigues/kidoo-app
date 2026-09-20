@@ -78,10 +78,7 @@ export default function ConfirmadoScreen() {
           <Text variant="body" color={colors.textMuted} center>
             {erro}
           </Text>
-          <Button
-            title="Voltar para o início"
-            onPress={() => router.replace('/(auth)/welcome')}
-          />
+          <Button title="Voltar para o início" onPress={() => router.replace('/(auth)/welcome')} />
         </View>
       ) : (
         <View style={styles.centro}>

@@ -47,7 +47,10 @@ function ActivityCardBase({ activity, onPress }: { activity: Activity; onPress: 
       <View style={styles.content}>
         <View style={styles.titleRow}>
           <View
-            style={[styles.iconBadge, { backgroundColor: categoryTone(activity.category, isDark).soft }]}
+            style={[
+              styles.iconBadge,
+              { backgroundColor: categoryTone(activity.category, isDark).soft },
+            ]}
           >
             <CategoryIcon category={activity.category} size={18} />
           </View>

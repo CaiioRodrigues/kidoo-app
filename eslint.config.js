@@ -12,7 +12,17 @@ module.exports = defineConfig([
     // `materiais/` é o mesmo caso: geradores de .pptx e .docx em CommonJS,
     // rodados à mão e sem relação com o bundle do app. `scripts/` idem: são
     // conferências de linha de comando cujo resultado é o que elas imprimem.
-    ignores: ['dist/*', 'node_modules/*', '.expo/*', 'android/*', 'ios/*', 'supabase/*', 'partner/*', 'materiais/*', 'scripts/*'],
+    ignores: [
+      'dist/*',
+      'node_modules/*',
+      '.expo/*',
+      'android/*',
+      'ios/*',
+      'supabase/*',
+      'partner/*',
+      'materiais/*',
+      'scripts/*',
+    ],
   },
   {
     rules: {

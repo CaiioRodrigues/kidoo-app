@@ -50,7 +50,10 @@ const GLYPHS: Record<ActivityCategoryId, (p: P) => React.ReactNode> = {
     <>
       <Circle cx="16" cy="16" r="11" {...p} />
       <Path d="M16 9.5 L20.5 13 L18.8 18.4 L13.2 18.4 L11.5 13 Z" {...p} />
-      <Path d="M16 5 L16 9.5 M27 13 L20.5 13 M22.5 25 L18.8 18.4 M9.5 25 L13.2 18.4 M5 13 L11.5 13" {...p} />
+      <Path
+        d="M16 5 L16 9.5 M27 13 L20.5 13 M22.5 25 L18.8 18.4 M9.5 25 L13.2 18.4 M5 13 L11.5 13"
+        {...p}
+      />
     </>
   ),
   // Nado: braçada sobre as ondas

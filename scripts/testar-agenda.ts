@@ -22,8 +22,15 @@ const ok = (cond: boolean, msg: string) => {
 };
 
 const turma = (iso: string, id = iso): ClassSession => ({
-  id, activityId: 'a', startsAt: iso, capacity: 20, enrolled: 10,
-  slotsOpen: 5, slotsTaken: 0, kind: 'ociosa', coinCost: 2,
+  id,
+  activityId: 'a',
+  startsAt: iso,
+  capacity: 20,
+  enrolled: 10,
+  slotsOpen: 5,
+  slotsTaken: 0,
+  kind: 'ociosa',
+  coinCost: 2,
 });
 
 // Terça, 8 de setembro de 2026, 10h da manhã, horário local.
@@ -48,23 +55,32 @@ ok(agenda.reduce((n, d) => n + d.sessions.length, 0) === 4, 'nenhuma turma se pe
 
 ok(firstDayWithSessions(agenda) === dayKey(agora), 'abre em hoje, que tem aula');
 const semHoje = buildSchedule(sessions.slice(1), agora);
-ok(firstDayWithSessions(semHoje) === agenda[2]!.key,
-   'sem aula hoje, abre na quinta — nunca num dia vazio');
-ok(firstDayWithSessions(buildSchedule([], agora)) === dayKey(agora),
-   'semana toda vazia cai em hoje, sem quebrar');
+ok(
+  firstDayWithSessions(semHoje) === agenda[2]!.key,
+  'sem aula hoje, abre na quinta — nunca num dia vazio',
+);
+ok(
+  firstDayWithSessions(buildSchedule([], agora)) === dayKey(agora),
+  'semana toda vazia cai em hoje, sem quebrar',
+);
 
-ok(nextDayWithSessions(agenda, agenda[1]!.key)?.key === agenda[2]!.key,
-   'do dia vazio, a próxima é a quinta');
-ok(nextDayWithSessions(agenda, agenda[5]!.key) === null,
-   'depois da última turma não há próxima');
+ok(
+  nextDayWithSessions(agenda, agenda[1]!.key)?.key === agenda[2]!.key,
+  'do dia vazio, a próxima é a quinta',
+);
+ok(nextDayWithSessions(agenda, agenda[5]!.key) === null, 'depois da última turma não há próxima');
 
 ok(shortDayLabel(agenda[0]!.date, agora) === 'Hoje', 'o primeiro chip diz Hoje');
 ok(shortDayLabel(agenda[1]!.date, agora) === 'Amanhã', 'o segundo diz Amanhã');
 ok(shortDayLabel(agenda[2]!.date, agora) === 'qui', 'o terceiro é o dia da semana, sem ponto');
-ok(longDayLabel(agenda[2]!.date, agora) === 'Quinta, 10 de setembro',
-   'o título do dia é por extenso, sem o "-feira"');
-ok(longDayLabel(agenda[4]!.date, agora) === 'Sábado, 12 de setembro',
-   'e sábado, que não tem sufixo, passa ileso');
+ok(
+  longDayLabel(agenda[2]!.date, agora) === 'Quinta, 10 de setembro',
+  'o título do dia é por extenso, sem o "-feira"',
+);
+ok(
+  longDayLabel(agenda[4]!.date, agora) === 'Sábado, 12 de setembro',
+  'e sábado, que não tem sufixo, passa ileso',
+);
 
 // A armadilha do fuso: 22h em Brasília (UTC-3) já é o dia seguinte em UTC.
 // Com `toISOString()` na chave, esta aula sumiria do dia em que acontece.

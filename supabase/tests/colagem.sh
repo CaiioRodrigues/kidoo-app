@@ -90,18 +90,55 @@ dropdb --if-exists kidoo_colagem_velho 2>/dev/null
 createdb kidoo_colagem_velho
 ambiente kidoo_colagem_velho
 # O ponto de partida é o banco anterior aos arquivos de atualização: tudo até a
-# 000015. Da 000016 em diante é o que a 19, a 20, a 21, a 22, a 23 e a 24 fazem.
+# 000015. Da 000016 em diante é o que os arquivos de `setup/` fazem.
+#
+# O corte é por comparação, e não por lista escrita à mão: a lista existiu, e
+# a primeira migration nova depois dela entrou nos dois lados — o banco "de
+# pé" recebeu uma atualização que ainda não devia ter, e quebrou num erro que
+# não tinha nada a ver com a causa.
+PRIMEIRA_DO_SETUP=20260101000016
 for f in "$RAIZ"/supabase/migrations/*.sql; do
-  case "$(basename "$f")" in
-    2026010100001[6-9]*|20260101000020*) continue ;;
-  esac
+  nome="$(basename "$f")"
+  if [ "${nome%%_*}" \> "$PRIMEIRA_DO_SETUP" ] || [ "${nome%%_*}" = "$PRIMEIRA_DO_SETUP" ]; then
+    continue
+  fi
   psql -q -v ON_ERROR_STOP=1 -d kidoo_colagem_velho -f "$f" >/dev/null
 done
-for n in 19 20 21 22 23; do
+for n in 19 20 21 22 23 24 25 26 27; do
   arquivo=$(ls "$RAIZ"/supabase/setup/$n-*.sql)
   colar kidoo_colagem_velho "$arquivo" && r=0 || r=1
   ok "$r" "$(basename "$arquivo")"
 done
+
+# --- e o mapa de quem já rodou tem de bater com o banco ---------------------
+#
+# `00-o-que-ja-rodou.sql` é o arquivo que responde "qual eu já rodei?", e ele
+# é uma lista escrita à mão: cada linha procura a marca de um arquivo. Duas
+# formas de ele mentir, e as duas são conferidas aqui.
+#
+#   1. Uma marca escrita errada — procura uma coluna que nunca existiu, e o
+#      arquivo aparece como `f` mesmo depois de rodado. O banco acima recebeu
+#      todas as colagens, então aqui nenhuma linha pode vir `f`.
+#   2. Um arquivo novo sem linha aqui — a consulta continua respondendo, e
+#      passa a mentir por omissão. A contagem pega isso.
+echo ""
+echo "C · o mapa do que já rodou"
+echo ""
+faltando=$(psql -X -q -t -A -d kidoo_colagem_velho \
+  -f "$RAIZ/supabase/setup/00-o-que-ja-rodou.sql" 2>/dev/null | grep -c '|f$' || true)
+[ "$faltando" = "0" ] && r=0 || r=1
+ok "$r" "nenhuma marca diz 'falta' num banco que recebeu tudo ($faltando)"
+
+linhas=$(psql -X -q -t -A -d kidoo_colagem_velho \
+  -f "$RAIZ/supabase/setup/00-o-que-ja-rodou.sql" 2>/dev/null | grep -c '|' || true)
+# Os arquivos de atualização são os numerados de 19 em diante. O `00-` é este
+# mapa, e os de 01 a 17 são da primeira subida — nenhum dos dois entra.
+arquivos=$(ls "$RAIZ"/supabase/setup/[0-9][0-9]-*.sql | while read -r a; do
+  n="$(basename "$a")"; n="${n%%-*}"
+  [ "$n" -ge 19 ] 2>/dev/null && echo "$n"
+done | wc -l)
+[ "$linhas" = "$arquivos" ] && r=0 || r=1
+ok "$r" "uma linha por arquivo de atualização ($linhas de $arquivos)"
 
 dropdb --if-exists kidoo_colagem_novo 2>/dev/null
 dropdb --if-exists kidoo_colagem_velho 2>/dev/null

@@ -26,7 +26,16 @@
  */
 import { chromium } from 'playwright';
 
-const BASE = process.env.KIDOO_URL ?? 'http://localhost:8095/';
+/*
+  Sem barra no fim, sempre — e cada uso escreve a sua.
+
+  Metade destes arquivos assumia a barra no padrão e a outra metade assumia que
+  ela não existia. Passar `KIDOO_URL` com barra para quem não esperava dava
+  `//nova-senha`, e o expo-router morre nisso com "Failed to construct 'URL'":
+  a tela fica em branco, e o teste acusa o produto por um erro de endereço.
+  Aconteceu, e me fez relatar teste quebrado duas vezes.
+*/
+const BASE = (process.env.KIDOO_URL ?? 'http://localhost:8095').replace(/\/+$/, '');
 const executablePath = process.env.CHROMIUM_PATH || undefined;
 
 const b = await chromium.launch(executablePath ? { executablePath } : {});
@@ -183,7 +192,7 @@ ok(/\/booking\//.test(p.url()), `voltou para a reserva pelo perfil do local (${p
 console.log('\nO local sem endereço nem telefone\n');
 
 const sem = await b.newPage({ viewport: { width: 390, height: 844 } });
-await sem.goto(`${BASE}partner/p-serra`, { waitUntil: 'networkidle' });
+await sem.goto(`${BASE}/partner/p-serra`, { waitUntil: 'networkidle' });
 await sem.waitForTimeout(5000);
 const semTexto = await sem.evaluate(() => document.body.innerText);
 
@@ -221,7 +230,7 @@ ok(
 console.log('\nO estabelecimento que saiu\n');
 
 const fora = await b.newPage({ viewport: { width: 390, height: 844 } });
-await fora.goto(`${BASE}partner/p-bom-tempo`, { waitUntil: 'networkidle' });
+await fora.goto(`${BASE}/partner/p-bom-tempo`, { waitUntil: 'networkidle' });
 await fora.waitForTimeout(5000);
 const foraTexto = await fora.evaluate(() => document.body.innerText);
 

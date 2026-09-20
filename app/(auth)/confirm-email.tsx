@@ -67,16 +67,13 @@ export default function ConfirmEmailScreen() {
       <Card background={palette.purpleTint} elevation="none" style={styles.why}>
         <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
         <Text variant="caption" color={colors.textMuted} style={styles.flex}>
-          É o que garante que ninguém crie uma conta com o seu e-mail. Vale
-          principalmente aqui, onde a conta guarda dados do seu filho.
+          É o que garante que ninguém crie uma conta com o seu e-mail. Vale principalmente aqui,
+          onde a conta guarda dados do seu filho.
         </Text>
       </Card>
 
       <View style={styles.actions}>
-        <Button
-          title="Já confirmei, entrar"
-          onPress={() => router.replace('/(auth)/sign-in')}
-        />
+        <Button title="Já confirmei, entrar" onPress={() => router.replace('/(auth)/sign-in')} />
         <Button
           title={sent ? 'E-mail reenviado' : 'Reenviar e-mail'}
           variant="secondary"

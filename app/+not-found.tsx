@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link, Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
@@ -11,7 +12,10 @@ export default function NotFoundScreen() {
     <>
       <Stack.Screen options={{ title: 'Ops!' }} />
       <View style={styles.container}>
-        <Text style={styles.emoji}>🧭</Text>
+        {/* Bússola da fonte de ícones, e não o emoji 🧭: ele é Emoji 11.0, e
+            em Android 8 ou anterior a tela de "não existe" abria com um
+            quadrado vazio — um erro em cima do outro. */}
+        <Ionicons name="compass-outline" size={48} color={colors.primary} />
         <Text variant="heading" center>
           Essa tela não existe
         </Text>
@@ -35,6 +39,5 @@ const makeStyles = (colors: ThemeColors) =>
       padding: spacing.xl,
       backgroundColor: colors.background,
     },
-    emoji: { fontSize: 48 },
     link: { marginTop: spacing.base },
   });
