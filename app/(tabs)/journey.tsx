@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { SeletorDeCrianca } from '@/features/children';
 import {
   AchievementBadge,
   BonusWalletCard,
@@ -43,6 +44,8 @@ export default function JourneyScreen() {
   const { colors, isDark } = useTheme();
   const styles = useStyles(makeStyles);
   const activeChildId = useOnboardingStore((state) => state.activeChildId);
+  const setActiveChild = useOnboardingStore((state) => state.setActiveChild);
+  const [trocandoCrianca, setTrocandoCrianca] = useState(false);
   const { data: children = [] } = useChildren();
 
   const child = useMemo(
@@ -93,21 +96,33 @@ export default function JourneyScreen() {
         Jornada {possessivo(firstName, child.gender)}
       </Text>
 
-      <Card bordered elevation="none" style={styles.headerCard}>
-        <Avatar name={child.name} uri={child.photoUri} size={56} ring />
-        <View style={styles.headerInfo}>
-          <Text variant="subheading" numberOfLines={1}>
-            {child.name}
-          </Text>
-          <Badge label={journey.levelName} tone="brand" />
-        </View>
-        <View style={styles.xpBadge}>
-          <Ionicons name="trophy" size={16} color={colors.warning} />
-          <Text variant="label" color={colors.warning}>
-            {journey.xp} XP
-          </Text>
-        </View>
-      </Card>
+      {/* O cartão do topo é o seletor. A Jornada inteira é de uma criança só,
+          e o nome dela já está aqui — pôr um controle separado seria dizer a
+          mesma coisa duas vezes, com a segunda ocupando espaço. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${child.name}, trocar de criança`}
+        onPress={() => setTrocandoCrianca(true)}
+      >
+        <Card bordered elevation="none" style={styles.headerCard}>
+          <Avatar name={child.name} uri={child.photoUri} size={56} ring />
+          <View style={styles.headerInfo}>
+            <View style={styles.nomeELinha}>
+              <Text variant="subheading" numberOfLines={1} style={styles.nome}>
+                {child.name}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={colors.textFaint} />
+            </View>
+            <Badge label={journey.levelName} tone="brand" />
+          </View>
+          <View style={styles.xpBadge}>
+            <Ionicons name="trophy" size={16} color={colors.warning} />
+            <Text variant="label" color={colors.warning}>
+              {journey.xp} XP
+            </Text>
+          </View>
+        </Card>
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"
@@ -231,6 +246,21 @@ export default function JourneyScreen() {
           </Card>
         </>
       )}
+      <SeletorDeCrianca
+        visivel={trocandoCrianca}
+        criancas={children}
+        ativaId={child.id}
+        aoEscolher={(id) => {
+          setActiveChild(id);
+          setTrocandoCrianca(false);
+        }}
+        aoFechar={() => setTrocandoCrianca(false)}
+        aoAdicionar={() => {
+          setTrocandoCrianca(false);
+          router.push('/(onboarding)/child');
+        }}
+      />
+
     </Screen>
   );
 }
@@ -242,6 +272,11 @@ const makeStyles = (colors: ThemeColors, palette: ThemePalette) =>
     pageTitle: { marginTop: spacing.md, marginBottom: spacing.lg },
     headerCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.base },
     headerInfo: { flex: 1, gap: spacing.xs },
+    // `flexShrink` no nome, e não no conjunto: a setinha tem 16px e some
+    // inteira se ela puder encolher, e um nome longo comeria o sinal de que
+    // o cartão abre alguma coisa.
+    nomeELinha: { flexDirection: 'row', alignItems: 'center', gap: spacing.xxs },
+    nome: { flexShrink: 1 },
     xpBadge: {
       alignItems: 'center',
       gap: spacing.xxs,

@@ -18,6 +18,14 @@ const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
 export const SecureKeys = {
   session: 'kidoo.session',
+  /**
+   * Qual criança está em foco.
+   *
+   * Um id não é credencial, mas é o ponteiro para o dado de um menor de
+   * idade — e a regra da casa é que dado de criança não passa por
+   * AsyncStorage. Aqui não custa nada: já é o armazenamento que o app usa.
+   */
+  criancaAtiva: 'kidoo.crianca-ativa',
 } as const;
 
 export type SecureKey = (typeof SecureKeys)[keyof typeof SecureKeys];

@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ActivityCard } from '@/features/activities';
+import { SeletorDeCrianca } from '@/features/children';
 import { BlobBackdrop, Guara } from '@/components/brand';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { TutorialOverlay, useTutorial } from '@/features/tutorial';
@@ -44,6 +45,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const guardian = useAuthStore((state) => state.session?.guardian ?? null);
   const activeChildId = useOnboardingStore((state) => state.activeChildId);
+
+  const setActiveChild = useOnboardingStore((state) => state.setActiveChild);
+  const [trocandoCrianca, setTrocandoCrianca] = useState(false);
 
   const { data: children = [] } = useChildren();
   const { data: categories = [] } = useCategories();
@@ -109,12 +113,16 @@ export default function HomeScreen() {
             left={<Avatar name={activeChild.name} uri={activeChild.photoUri} size={22} />}
             right={<Ionicons name="chevron-down" size={14} color={colors.textFaint} />}
             tone="muted"
+            onPress={() => setTrocandoCrianca(true)}
           />
         ) : null}
+        {/* Sem setinha: não há para onde ir. O Kidoo só tem catálogo em Belo
+            Horizonte, e a setinha prometia uma escolha que não existe — era
+            ela, e não a falta do seletor, que fazia o chip parecer quebrado.
+            Ela volta no dia em que houver a segunda cidade. */}
         <Chip
           label={guardian?.city ?? 'Belo Horizonte'}
           left={<Ionicons name="location-outline" size={14} color={colors.primary} />}
-          right={<Ionicons name="chevron-down" size={14} color={colors.textFaint} />}
           tone="muted"
         />
       </View>
@@ -276,6 +284,21 @@ export default function HomeScreen() {
         </Card>
       ) : null}
       <TutorialOverlay visible={tutorial.visible} onFinish={tutorial.dismiss} />
+      <SeletorDeCrianca
+        visivel={trocandoCrianca}
+        criancas={children}
+        ativaId={activeChild?.id ?? null}
+        aoEscolher={(id) => {
+          setActiveChild(id);
+          setTrocandoCrianca(false);
+        }}
+        aoFechar={() => setTrocandoCrianca(false)}
+        aoAdicionar={() => {
+          setTrocandoCrianca(false);
+          router.push('/(onboarding)/child');
+        }}
+      />
+
     </Screen>
   );
 }

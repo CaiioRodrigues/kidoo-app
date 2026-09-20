@@ -61,6 +61,7 @@
     "test:foto-do-responsavel": "node scripts/testar-foto-do-responsavel.mjs",
     "test:genero": "npx tsx scripts/testar-genero.ts",
     "test:irmaos": "node scripts/testar-irmaos.mjs",
+    "test:troca-de-crianca": "node scripts/testar-troca-de-crianca.mjs",
     "test:jornada": "node scripts/testar-jornada.mjs",
     "test:link": "npx tsx scripts/testar-link.ts",
     "test:local": "npx tsx scripts/testar-local.ts",
