@@ -298,7 +298,6 @@ export default function HomeScreen() {
           router.push('/(onboarding)/child');
         }}
       />
-
     </Screen>
   );
 }

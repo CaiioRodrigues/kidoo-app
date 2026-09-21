@@ -115,6 +115,7 @@ begin
   assert (select status from partner_applications where id = v_id) = 'aprovado';
   assert (select count(*) from pending_applications()) = 0, 'e sai da fila';
 
+
   -- Aprovar de novo criaria um segundo estabelecimento igual.
   begin
     perform approve_application(v_id);
@@ -141,6 +142,23 @@ begin
   assert (select amount_cents from payout_rates
            where partner_id = v_p and kind = 'ociosa') = 800,
          'o valor é o padrão da casa, não o que o candidato pediu';
+
+  -- O aprovado fica sabendo. Antes disto ele só descobria entrando no painel
+  -- por conta própria, e podia levar dias — ou desistir antes.
+  --
+  -- Conferido como dono do banco pelo mesmo motivo das linhas acima, e por um
+  -- a mais: `email_outbox` é fechada para app e painel. Ler isto como
+  -- `authenticated` devolve `permission denied` — que é o teste de invasão
+  -- passando, não este aqui falhando. (Escrevi assim da primeira vez, e a
+  -- suíte me corrigiu.)
+  assert (select count(*) from email_outbox
+           where kind = 'pedido_aprovado' and to_email = 'novo@escolinha.com') = 1,
+         'a aprovação põe um e-mail na caixa de saída';
+  assert (select data->>'estabelecimento' from email_outbox
+           where kind = 'pedido_aprovado') = 'Escolinha do Bairro',
+         'com o nome do estabelecimento, que é o assunto da mensagem';
+  assert (select sent_at from email_outbox where kind = 'pedido_aprovado') is null,
+         'e nasce pendente: quem entrega é a Edge Function, fora da transação';
 end $$;
 set role authenticated;
 
@@ -201,6 +219,19 @@ begin
   assert (select status from partner_applications where id = v_id) = 'pendente',
          'corrigir e reenviar volta o pedido para a fila';
 end $$;
+
+-- E o motivo SAI daqui. Ele foi escrito para o candidato corrigir; ficar
+-- guardado esperando que ele voltasse sozinho era metade do recurso.
+reset role;
+do $$ begin
+  assert (select data->>'motivo' from email_outbox where kind = 'pedido_recusado')
+         = 'Endereço não confere com o CNPJ.',
+         'o motivo da recusa vai junto no e-mail, palavra por palavra';
+  assert (select to_email from email_outbox where kind = 'pedido_recusado')
+         = 'novo@escolinha.com',
+         'e vai para quem pediu, não para quem analisou';
+end $$;
+set role authenticated;
 
 -- ---- modalidade inventada não vira atividade ----------------------------
 -- A modalidade é lista fechada: uma inventada viraria atividade que o app não
