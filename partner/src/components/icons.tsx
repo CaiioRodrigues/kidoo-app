@@ -105,3 +105,16 @@ export function IconeSair() {
     </svg>
   );
 }
+
+/** Moldura com montanha e sol: uma imagem. A capa que espera análise. */
+export function IconeCapas() {
+  return (
+    <svg {...base}>
+      <rect x="3" y="4.5" width="18" height="15" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      {/* A "montanha" encosta na borda de baixo de propósito: solta no meio,
+          ela lia como um triângulo qualquer em vez de paisagem. */}
+      <path d="M3 17l5-5 4 4 3-3 6 6" />
+    </svg>
+  );
+}

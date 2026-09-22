@@ -25,6 +25,7 @@ export type {
   ParceiroAdmin,
   Partner,
   Pedido,
+  CapaNaFila,
   PedidoNaFila,
   ResultadoDaConta,
   ResultadoDaSerie,

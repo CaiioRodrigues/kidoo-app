@@ -76,6 +76,9 @@ union all select '29-vencida-volta-para-a-fila',
 union all select '30-excluir-a-conta',
        to_regprocedure('public.delete_my_account()') is not null
 
+union all select '31-capa-passa-por-analise',
+       to_regprocedure('public.submit_cover(uuid, text)') is not null
+
 order by arquivo;
 
 -- ---------------------------------------------------------------------

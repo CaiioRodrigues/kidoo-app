@@ -8,6 +8,7 @@ import type {
   Partner,
   Pedido,
   ParceiroAdmin,
+  CapaNaFila,
   PedidoNaFila,
   ResultadoDaSerie,
   RosterRow,
@@ -50,7 +51,14 @@ let local: Partner = { ...PARCEIRO };
 
 // Uma com imagem própria e duas sem: é como o painel fica de verdade no
 // começo, e é o que deixa a diferença visível na demonstração.
-const DE_QUEM = { partnerId: PARCEIRO.id, partnerName: PARCEIRO.name };
+const DE_QUEM = {
+  partnerId: PARCEIRO.id,
+  partnerName: PARCEIRO.name,
+  // A demonstração publica na hora: não há quem analise, então capa em
+  // análise nunca existe aqui.
+  pendingImageUrl: null,
+  pendingImageReason: null,
+};
 
 const ATIVIDADES: ActivityRow[] = [
   {
@@ -388,9 +396,25 @@ export const demoApi: PainelApi = {
    */
   async trocarImagem(activityId, arquivo) {
     const url = URL.createObjectURL(arquivo);
+    // A demonstração publica na hora porque não há quem analise: a conta dela
+    // não é do Kidoo, e uma capa que ficasse "em análise" para sempre deixaria
+    // a tela parecendo quebrada. Quem prova a fila de verdade é
+    // `supabase/tests/partner.sql`, contra o banco.
     const atividade = ATIVIDADES.find((a) => a.id === activityId);
     if (atividade) atividade.imageUrl = url;
     return espera(url);
+  },
+
+  async capasPendentes() {
+    return espera<CapaNaFila[]>([]);
+  },
+
+  async aprovarCapa() {
+    throw new PainelError('Sua conta não analisa capas.');
+  },
+
+  async recusarCapa() {
+    throw new PainelError('Sua conta não analisa capas.');
   },
 
   // ------------------------------------------------ cadastro de parceiro --
