@@ -260,7 +260,6 @@ export default function JourneyScreen() {
           router.push('/(onboarding)/child');
         }}
       />
-
     </Screen>
   );
 }

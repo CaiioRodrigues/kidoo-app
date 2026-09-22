@@ -123,6 +123,51 @@ begin
 end $$;
 
 -- ------------------------------------------------------------------------
+-- Abrir as caixas de saída.
+-- ------------------------------------------------------------------------
+/*
+  `push_outbox` e `email_outbox` não são de ninguém: não têm `guardian_id` nem
+  `user_id`, então não há policy de dono para escrever. Elas são fechadas por
+  ausência — RLS ligada e policy nenhuma — e alcançáveis só pelo entregador,
+  que usa a chave de serviço.
+
+  Fechar por ausência é frágil de um jeito específico: um `grant` distraído em
+  qualquer migration futura abre a tabela inteira, e nada na tela denuncia.
+  `email_outbox` guarda endereço de e-mail e o motivo pelo qual um negócio foi
+  recusado — não é dado de criança, mas é dado de gente que não escolheu
+  publicá-lo.
+*/
+do $$
+declare
+  v_tabela text;
+  v_linhas int;
+begin
+  foreach v_tabela in array array['push_outbox','email_outbox'] loop
+    begin
+      execute format('select count(*) from %I', v_tabela) into v_linhas;
+    exception when insufficient_privilege then
+      v_linhas := 0;  -- sem grant é negação também
+    end;
+    if v_linhas > 0 then
+      raise exception 'Ana leu % linha(s) de %, que é da chave de serviço',
+                      v_linhas, v_tabela;
+    end if;
+  end loop;
+
+  -- E escrever é pior que ler: uma linha forjada aqui manda e-mail com o
+  -- remetente do Kidoo para o endereço que o atacante escolher.
+  begin
+    insert into email_outbox (to_email, kind, data)
+    values ('atacante@exemplo.com', 'pedido_aprovado', '{}'::jsonb);
+    raise exception 'Ana enfileirou um e-mail em nome do Kidoo';
+  exception
+    when insufficient_privilege then null;
+    when others then
+      if sqlerrm like '%row-level security%' then null; else raise; end if;
+  end;
+end $$;
+
+-- ------------------------------------------------------------------------
 -- Chamar as RPCs de administração sem ser administradora.
 -- ------------------------------------------------------------------------
 /*

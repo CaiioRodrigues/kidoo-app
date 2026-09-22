@@ -1036,6 +1036,46 @@ begin
          'e NÃO devolve a cota: era esta a torneira aberta';
 end $$;
 
+-- ---- e o vencido consegue voltar --------------------------------------------
+--
+-- Escolher o plano de novo é o que a tela oferece a quem está vencido, e por
+-- um tempo isso não fazia nada: `subscribe_plan` PRESERVAVA o estado na troca
+-- de plano — certo para quem está ativo, beco para quem venceu. A família
+-- escolhia, continuava vencida, e nem entrava na fila de confirmação do
+-- painel: quem poderia destravar não ficava sabendo que havia alguém preso.
+--
+-- As duas metades são testadas juntas porque o conserto de uma quebra a outra
+-- com uma linha de distância.
+do $$
+declare v_sub subscriptions%rowtype;
+begin
+  v_sub := subscribe_plan('plus');
+  assert v_sub.status = 'aguardando',
+         'vencida que escolhe de novo volta para a fila, veio ' || v_sub.status;
+
+  -- E continua sem reservar: voltar para a fila não é ter pago.
+  begin
+    perform book_session('eeeeeeee-0000-0000-0000-0000000000f2','aaaaaaaa-0000-0000-0000-0000000000c1');
+    assert false, 'voltar para a fila não libera reserva';
+  exception when others then
+    assert sqlerrm = 'subscription_inactive', 'esperado subscription_inactive, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- A outra metade: quem está ATIVO e troca de plano não pode ser jogado para a
+-- fila. Era a razão de o estado ser preservado, e ela continua valendo.
+select set_config('request.jwt.claim.sub', :'admin', false);
+select set_subscription_status('cccccccc-9999-0000-0000-000000000001', 'ativa');
+
+select set_config('request.jwt.claim.sub', :'carla', false);
+do $$
+declare v_sub subscriptions%rowtype;
+begin
+  v_sub := subscribe_plan('start');
+  assert v_sub.status = 'ativa',
+         'trocar de plano com assinatura ativa não tranca ninguém, veio ' || v_sub.status;
+end $$;
+
 reset role;
 
 -- ========================================================================

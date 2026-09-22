@@ -65,6 +65,14 @@ union all select '27-foto-na-analise',
                    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                   where n.nspname = 'public' and p.proname = 'pending_applications'), false)
 
+union all select '28-email-da-decisao',
+       to_regclass('public.email_outbox') is not null
+
+union all select '29-vencida-volta-para-a-fila',
+       coalesce((select prosrc like '%vencida%'
+                   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'public' and p.proname = 'subscribe_plan'), false)
+
 order by arquivo;
 
 -- ---------------------------------------------------------------------
