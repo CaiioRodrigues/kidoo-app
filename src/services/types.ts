@@ -55,6 +55,16 @@ export type KidooApi = {
     /** Reenvia o e-mail de confirmação para quem não recebeu. */
     resendConfirmation(email: string): Promise<void>;
     /**
+     * Apaga a conta e tudo que identifica a família.
+     *
+     * Vive aqui, e não numa área "perfil", porque o efeito é a conta deixar de
+     * existir — depois dela não há sessão para nada mais usar.
+     *
+     * Não recebe id de propósito: o servidor apaga quem chamou. Uma assinatura
+     * que aceitasse "qual conta" seria uma porta para apagar a dos outros.
+     */
+    deleteAccount(): Promise<void>;
+    /**
      * Manda o link de redefinição de senha.
      *
      * Não devolve nada, e não devolve de propósito: dizer se o e-mail tem

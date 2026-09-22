@@ -24,6 +24,8 @@ import { MeuLocal } from '@/screens/MeuLocal';
 import { Turmas } from '@/screens/Turmas';
 import { Rodape } from '@/components/Rodape';
 import { Vitrine } from '@/screens/Vitrine';
+import { Documento } from '@/screens/Documento';
+import type { DocumentoId } from '@shared/documentos';
 import { ehLinkDeRecuperacao, erroDoLink } from '@/recuperacao';
 
 type Aba = 'agenda' | 'turmas' | 'local' | 'repasse' | 'pedidos' | 'parceiros' | 'assinaturas';
@@ -62,10 +64,41 @@ const ABAS: ItemDeMenu[] = [
   logado, com a senha antiga valendo.
 */
 const HASH_DA_CHEGADA = typeof window === 'undefined' ? '' : window.location.hash;
+
+/*
+  Os documentos têm endereço próprio: `/termos` e `/privacidade`.
+
+  Lido uma vez, na carga, como o hash acima — e resolvido ANTES de qualquer
+  coisa que dependa de sessão. A loja pede uma URL que abra para quem não tem
+  conta; um documento atrás do login não serve para o fim que ele tem.
+
+  O painel é uma página só, então isto depende do servidor devolver o
+  `index.html` para qualquer caminho. Já é o caso: é a mesma reescrita que faz
+  o link de redefinição de senha funcionar.
+*/
+const CAMINHO = typeof window === 'undefined' ? '/' : window.location.pathname;
+const DOCUMENTO_DA_URL: DocumentoId | null =
+  CAMINHO === '/termos' ? 'termos' : CAMINHO === '/privacidade' ? 'privacidade' : null;
 const CHEGOU_PARA_TROCAR_SENHA = ehLinkDeRecuperacao(HASH_DA_CHEGADA);
 const ERRO_DA_CHEGADA = erroDoLink(HASH_DA_CHEGADA);
 
+/**
+ * A porta de entrada, que só decide entre duas coisas.
+ *
+ * Os documentos não dependem de sessão, de rede nem de nada ter carregado —
+ * quem abre `/privacidade` vindo da loja não tem conta. Por isso eles vêm
+ * antes do painel.
+ *
+ * E vêm num componente separado, não num `return` no topo do `Painel`: sair
+ * antes dos hooks quebra a ordem deles entre renderizações. O lint recusou a
+ * primeira versão, com razão.
+ */
 export function App() {
+  if (DOCUMENTO_DA_URL) return <Documento id={DOCUMENTO_DA_URL} />;
+  return <Painel />;
+}
+
+function Painel() {
   const [estado, setEstado] = useState<'verificando' | 'fora' | 'dentro'>('verificando');
   const [parceiros, setParceiros] = useState<Partner[]>([]);
   const [erro, setErro] = useState<string | null>(null);

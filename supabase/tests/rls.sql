@@ -1123,5 +1123,132 @@ begin
   reset role;
 end $$;
 
+-- ========================================================================
+-- Apagar a conta: o que some, o que fica, e o que fica sem nome.
+--
+-- O Perfil prometia a exclusão "a qualquer momento, conforme a LGPD" e não
+-- havia por onde pedir. Agora há — e a parte difícil não é apagar, é NÃO
+-- apagar o que não pode sumir.
+--
+-- `bookings` é duas coisas: o histórico da criança e o registro do que o Kidoo
+-- pagou a um parceiro de verdade. Apagar a família levava as duas (a chave era
+-- `on delete cascade`), e o extrato de quem já recebeu passaria a mentir.
+-- ========================================================================
+\set sai 'aaaaaaaa-0000-0000-0000-00000000de11'
+\set saic 'aaaaaaaa-0000-0000-0000-00000000de12'
+
+reset role;
+insert into auth.users (id, email) values (:'sai', 'sai@exemplo.com') on conflict do nothing;
+insert into guardians (id, name, email, city) values
+  (:'sai', 'Quem Sai', 'sai@exemplo.com', 'BH') on conflict do nothing;
+insert into children (id, guardian_id, name, birth_date) values
+  (:'saic', :'sai', 'Filho de Quem Sai', '2017-06-01') on conflict do nothing;
+
+-- Uma aula que ACONTECEU e teve presença confirmada: isto virou dinheiro para
+-- o parceiro e não pode desaparecer.
+insert into bookings (id, guardian_id, child_id, session_id, activity_id, status,
+                      scheduled_at, coin_cost, slot_kind, partner_confirmed_at)
+values ('bbbbbbbb-0000-0000-0000-00000000de01', :'sai', :'saic',
+        'eeeeeeee-0000-0000-0000-000000000003', 'dddddddd-0000-0000-0000-00000000000a',
+        'checked_in', now() - interval '10 days', 2, 'ociosa', now() - interval '10 days')
+on conflict do nothing;
+
+-- E uma aula que AINDA VAI acontecer: ninguém pagou nada, e a vaga tem de
+-- voltar para a turma.
+insert into bookings (id, guardian_id, child_id, session_id, activity_id, status,
+                      scheduled_at, coin_cost, slot_kind)
+values ('bbbbbbbb-0000-0000-0000-00000000de02', :'sai', :'saic',
+        'eeeeeeee-0000-0000-0000-0000000000f2', 'dddddddd-0000-0000-0000-00000000000a',
+        'confirmed', now() + interval '3 days', 2, 'ociosa')
+on conflict do nothing;
+update class_sessions set slots_taken = slots_taken + 1
+ where id = 'eeeeeeee-0000-0000-0000-0000000000f2';
+
+do $$ begin
+  perform set_config('kidoo.repasse_antes',
+    (select coalesce(sum(total_cents), 0)::text from partner_payouts), false);
+  perform set_config('kidoo.vagas_antes',
+    (select slots_taken::text from class_sessions
+      where id = 'eeeeeeee-0000-0000-0000-0000000000f2'), false);
+end $$;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'sai', false);
+do $$ begin
+  perform delete_my_account();
+end $$;
+
+reset role;
+do $$
+declare v_linha bookings%rowtype;
+begin
+  -- 1 · A aula que virou dinheiro continua lá, e sem dono.
+  select * into v_linha from bookings where id = 'bbbbbbbb-0000-0000-0000-00000000de01';
+  assert found, 'a aula já paga ao parceiro NÃO pode sumir com a conta';
+  assert v_linha.guardian_id is null and v_linha.child_id is null,
+         'mas ela perde o vínculo com a família: é registro financeiro, não histórico de criança';
+
+  -- 2 · O extrato do parceiro não se mexeu.
+  assert (select coalesce(sum(total_cents), 0) from partner_payouts)
+         = current_setting('kidoo.repasse_antes')::bigint,
+         'o extrato de quem já recebeu mudou de valor por causa de uma exclusão';
+
+  -- 3 · A aula que não aconteceu some, e a vaga volta para a turma.
+  assert not exists (select 1 from bookings where id = 'bbbbbbbb-0000-0000-0000-00000000de02'),
+         'reserva futura não é registro financeiro: tem de sumir';
+  assert (select slots_taken from class_sessions where id = 'eeeeeeee-0000-0000-0000-0000000000f2')
+         = current_setting('kidoo.vagas_antes')::int - 1,
+         'a vaga da reserva futura tem de voltar: slots_taken é contador, não contagem';
+
+  -- 4 · A família não existe mais em lugar nenhum.
+  assert not exists (select 1 from children  where guardian_id = 'aaaaaaaa-0000-0000-0000-00000000de11'),
+         'a criança tem de sumir';
+  assert not exists (select 1 from guardians where id = 'aaaaaaaa-0000-0000-0000-00000000de11'),
+         'o responsável tem de sumir';
+  assert not exists (select 1 from auth.users where id = 'aaaaaaaa-0000-0000-0000-00000000de11'),
+         'e a conta também: sem isso o e-mail continuaria ocupado';
+end $$;
+
+-- 5 · A linha anonimizada some para todo mundo. `guardian_id = auth.uid()` com
+-- nulo não é verdadeiro, então ela deixa de ser de alguém sem virar de
+-- qualquer um.
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$ begin
+  assert not exists (select 1 from bookings where id = 'bbbbbbbb-0000-0000-0000-00000000de01'),
+         'reserva sem dono não pode aparecer para outra família';
+end $$;
+reset role;
+
+-- 6 · E ninguém apaga a conta de outra pessoa: a função não pergunta qual é.
+--
+-- A família que sai daqui é descartável, e não a Ana. Os arquivos de teste
+-- dividem o mesmo banco: apagar uma família que os outros usam faz `partner.sql`
+-- quebrar dez arquivos adiante, num erro que não tem nada a ver com a causa.
+-- Já aconteceu nesta suíte, e aconteceu de novo enquanto eu escrevia isto.
+\set sai2 'aaaaaaaa-0000-0000-0000-00000000de21'
+insert into auth.users (id, email) values (:'sai2', 'sai2@exemplo.com') on conflict do nothing;
+insert into guardians (id, name, email, city) values
+  (:'sai2', 'Outro Que Sai', 'sai2@exemplo.com', 'BH') on conflict do nothing;
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'sai2', false);
+do $$ begin
+  perform delete_my_account();
+end $$;
+
+-- A conferência roda como dono do banco, porque `authenticated` não lê
+-- `auth.users` — nem aqui nem no Supabase de verdade. (Escrevi a asserção no
+-- papel errado da primeira vez e levei `permission denied for table users`.)
+reset role;
+do $$ begin
+  assert not exists (select 1 from auth.users where id = 'aaaaaaaa-0000-0000-0000-00000000de21'),
+         'a conta de quem chamou foi apagada';
+  assert exists (select 1 from auth.users where id = '11111111-1111-1111-1111-111111111111'),
+         'e só a de quem chamou: a conta da Ana continua lá';
+  assert exists (select 1 from children where guardian_id = '11111111-1111-1111-1111-111111111111'),
+         'com as crianças dela intactas';
+end $$;
+
 reset role;
 \echo 'todos os testes passaram'

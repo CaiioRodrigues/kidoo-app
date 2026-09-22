@@ -585,6 +585,42 @@ export const supabaseApi: KidooApi = {
     },
 
     /**
+     * Apaga a conta.
+     *
+     * As fotos saem AQUI, do lado do cliente, e não dentro da função do banco.
+     * `storage.objects` não pertence ao dono das nossas funções no Supabase —
+     * um `delete` lá dentro falharia por privilégio e derrubaria a exclusão
+     * inteira por causa de um arquivo. Aqui a própria policy de Storage já
+     * autoriza: a pasta é o id de quem está pedindo.
+     *
+     * E se a remoção da foto falhar, a exclusão segue. Ficar com a conta viva
+     * porque um arquivo resistiu seria transformar um problema de limpeza num
+     * direito negado.
+     */
+    async deleteAccount() {
+      const userId = await currentUserId();
+
+      await Promise.all(
+        [BUCKET_CRIANCAS, BUCKET_RESPONSAVEIS].map(async (bucket) => {
+          try {
+            const { data } = await supabase().storage.from(bucket).list(userId);
+            const caminhos = (data ?? []).map((arquivo) => `${userId}/${arquivo.name}`);
+            if (caminhos.length > 0) await supabase().storage.from(bucket).remove(caminhos);
+          } catch {
+            // Limpeza é melhor-esforço; a exclusão da conta não é.
+          }
+        }),
+      );
+
+      run(await supabase().rpc('delete_my_account'), 'Não foi possível excluir a conta.');
+
+      // A sessão não existe mais do lado do servidor. Sem isto o app seguiria
+      // com um token de uma conta apagada, e a próxima chamada falharia com
+      // uma mensagem que não explica nada.
+      await supabase().auth.signOut();
+    },
+
+    /**
      * Quem guarda a sessão do Supabase é o próprio supabase-js (Keychain no
      * aparelho, nada no navegador). O token que o app persiste pode estar
      * velho — o cliente renova sozinho —, então ele serve só como sinal de que

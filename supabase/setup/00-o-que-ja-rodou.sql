@@ -73,6 +73,9 @@ union all select '29-vencida-volta-para-a-fila',
                    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                   where n.nspname = 'public' and p.proname = 'subscribe_plan'), false)
 
+union all select '30-excluir-a-conta',
+       to_regprocedure('public.delete_my_account()') is not null
+
 order by arquivo;
 
 -- ---------------------------------------------------------------------

@@ -5,6 +5,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { KidooLogo } from '@/components/brand';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { Button, Screen, Text } from '@/components/ui';
+import { LinkDoDocumento } from '@/components/LinkDoDocumento';
 import { blobRadius, categoryTone, spacing, useStyles, useTheme, type ThemeColors } from '@/theme';
 import type { ActivityCategoryId } from '@/types/domain';
 
@@ -65,8 +66,8 @@ export default function WelcomeScreen() {
             onPress={() => router.replace('/(tabs)/home')}
           />
           <Text variant="caption" color={colors.textFaint} center style={styles.legal}>
-            Ao continuar você concorda com os Termos de Uso e com a Política de Privacidade do
-            Kidoo.
+            Ao continuar você concorda com os <LinkDoDocumento id="termos" /> e com a{' '}
+            <LinkDoDocumento id="privacidade" /> do Kidoo.
           </Text>
         </Animated.View>
       </View>
