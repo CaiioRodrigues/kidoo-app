@@ -291,6 +291,20 @@ export const mockApi: KidooApi = {
       state.session = null;
       return delay(undefined, 120);
     },
+    async deleteAccount() {
+      // A demonstração apaga o que dá para apagar em memória. Não vale como
+      // prova de que o caminho de verdade funciona — quem prova isso é
+      // `supabase/tests/rls.sql`, contra o banco.
+      const dono = state.session?.guardian.id;
+      if (dono) {
+        const filhos = state.children.filter((c) => c.guardianId === dono).map((c) => c.id);
+        state.children = state.children.filter((c) => c.guardianId !== dono);
+        state.bookings = state.bookings.filter((b) => !filhos.includes(b.childId));
+        state.subscription = null;
+      }
+      state.session = null;
+      return delay(undefined, 200);
+    },
     async restore(token) {
       if (!state.session || state.session.accessToken !== token) return delay(null, 80);
       if (Date.parse(state.session.expiresAt) < Date.now()) {

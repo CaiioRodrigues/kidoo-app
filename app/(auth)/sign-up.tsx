@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { HeaderBar } from '@/components/navigation';
+import { LinkDoDocumento } from '@/components/LinkDoDocumento';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { fieldErrors, signUpSchema } from '@/lib/validation';
 import { toUserMessage } from '@/services';
@@ -114,9 +115,14 @@ export default function SignUpScreen() {
                 <Ionicons name="checkmark" size={14} color={colors.textOnPrimary} />
               ) : null}
             </View>
+            {/* Os dois nomes são links de verdade. Enquanto eram texto puro, a
+                caixa obrigava a família a declarar que leu dois documentos que
+                não existiam — e é essa declaração que a LGPD chama de
+                consentimento informado. */}
             <Text variant="caption" color={colors.textMuted} style={styles.termsText}>
-              Li e aceito os Termos de Uso e a Política de Privacidade, incluindo o tratamento dos
-              dados do meu filho conforme a LGPD.
+              Li e aceito os <LinkDoDocumento id="termos" /> e a{' '}
+              <LinkDoDocumento id="privacidade" />, incluindo o tratamento dos dados do meu filho
+              conforme a LGPD.
             </Text>
           </Pressable>
 

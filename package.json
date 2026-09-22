@@ -58,6 +58,8 @@
     "test:cancelamento": "node scripts/testar-cancelamento.mjs",
     "test:compartilhado": "node scripts/testar-compartilhado.mjs",
     "test:conquistas": "npx tsx scripts/testar-conquistas.ts",
+    "test:consentimento": "node scripts/testar-consentimento.mjs",
+    "test:documentos": "npx tsx scripts/testar-documentos.ts",
     "test:erro-de-envio": "npx tsx scripts/testar-erro-de-envio.ts",
     "test:filesystem": "node scripts/testar-filesystem.mjs",
     "test:foto-do-responsavel": "node scripts/testar-foto-do-responsavel.mjs",

@@ -5,6 +5,7 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar, Button, Card, Divider, Screen, Text, ThemePicker } from '@/components/ui';
 import { BlobBackdrop } from '@/components/brand';
+import { LinkDoDocumento } from '@/components/LinkDoDocumento';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 import { useTutorialStore } from '@/stores/tutorial-store';
 import { confirmAction } from '@/lib/confirm';
@@ -19,7 +20,7 @@ import {
   useUpdateChildPhoto,
 } from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
-import { backendName, toUserMessage } from '@/services';
+import { api, backendName, toUserMessage } from '@/services';
 import { spacing, useTheme } from '@/theme';
 
 export default function ProfileScreen() {
@@ -31,6 +32,8 @@ export default function ProfileScreen() {
   const { data: subscription } = useSubscription();
   const simular = useSimularPagamento();
   const [signingOut, setSigningOut] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroDaExclusao, setErroDaExclusao] = useState<string | null>(null);
   const restartTutorial = useTutorialStore((state) => state.restart);
   const resetRascunho = useOnboardingStore((state) => state.reset);
   const updatePhoto = useUpdateChildPhoto();
@@ -150,6 +153,53 @@ export default function ProfileScreen() {
     // tutorial aparecia duplicado, um por cima do outro.
     router.navigate('/(tabs)/home');
   }, [restartTutorial, router]);
+
+  const handleExcluirConta = useCallback(async () => {
+    /*
+      Duas perguntas, e não uma.
+
+      Sair da conta e apagar a conta ficam no mesmo canto da tela e têm a mesma
+      cara de botão vermelho. A diferença é que uma delas não tem volta: as
+      aulas, a Jornada e as conquistas da criança somem e não há como
+      restaurar. Um diálogo só, do jeito que o "Sair" tem, deixaria a distância
+      entre as duas do tamanho de um toque errado.
+
+      O segundo diálogo não repete o primeiro — ele nomeia o que se perde.
+    */
+    const primeiro = await confirmAction({
+      title: 'Excluir minha conta',
+      message:
+        'Isto apaga a sua conta e os dados das suas crianças: as aulas, a Jornada, as ' +
+        'conquistas e as fotos. Não há como desfazer.',
+      confirmLabel: 'Continuar',
+      destructive: true,
+    });
+    if (!primeiro) return;
+
+    const nomes = children.map((child) => child.name.split(' ')[0]).join(' e ');
+    const segundo = await confirmAction({
+      title: 'Tem certeza?',
+      message: nomes
+        ? `Vamos apagar tudo do Kidoo${nomes ? `, incluindo a Jornada de ${nomes}` : ''}. Esta ação é definitiva.`
+        : 'Vamos apagar sua conta do Kidoo. Esta ação é definitiva.',
+      confirmLabel: 'Excluir para sempre',
+      destructive: true,
+    });
+    if (!segundo) return;
+
+    setExcluindo(true);
+    try {
+      await api.auth.deleteAccount();
+      // O store de sessão é quem manda as telas embora; `deleteAccount` já
+      // encerrou a sessão do lado do servidor.
+      await signOut();
+      router.replace('/(auth)/welcome');
+    } catch (e) {
+      setErroDaExclusao(toUserMessage(e));
+    } finally {
+      setExcluindo(false);
+    }
+  }, [children, router, signOut]);
 
   const handleSignOut = useCallback(async () => {
     const confirmado = await confirmAction({
@@ -376,9 +426,39 @@ export default function ProfileScreen() {
       </Text>
       <Card bordered elevation="none" style={styles.card}>
         <Text variant="caption" color={colors.textMuted}>
-          Coletamos apenas o necessário para sugerir atividades adequadas à idade. Você pode pedir a
-          exclusão dos dados do seu filho a qualquer momento, conforme a LGPD.
+          Coletamos apenas o necessário para sugerir atividades adequadas à idade. O que guardamos,
+          quem consegue ver e por quanto tempo está na <LinkDoDocumento id="privacidade" />; as
+          regras do serviço, nos <LinkDoDocumento id="termos" />.
         </Text>
+
+        {session ? (
+          <>
+            <Divider />
+            {/*
+              O botão fica AQUI, embaixo do texto que promete o direito, e não
+              perdido no rodapé. Por muito tempo esta tela dizia "você pode
+              pedir a exclusão a qualquer momento" sem oferecer por onde — era
+              promessa sem mecanismo.
+            */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Excluir minha conta e os dados das minhas crianças"
+              onPress={() => void handleExcluirConta()}
+              disabled={excluindo}
+              style={styles.row}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              <Text variant="body" color={colors.danger} style={styles.flex}>
+                {excluindo ? 'Excluindo…' : 'Excluir minha conta e os dados das minhas crianças'}
+              </Text>
+            </Pressable>
+            {erroDaExclusao ? (
+              <Text variant="caption" color={colors.danger}>
+                {erroDaExclusao}
+              </Text>
+            ) : null}
+          </>
+        ) : null}
       </Card>
 
       {session ? (
