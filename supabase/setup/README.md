@@ -299,8 +299,10 @@ No dia:
 
 1. **Painel → Votações → Criar votação.** Nome, categorias (uma por linha) e,
    se quiser, a senha da festa. Ela nasce recebendo inscrições.
-2. **Divulgue `sejakidoo.com.br/votacao`.** Quem abre tira a foto pelo próprio
-   celular e escolhe um nome. Sem conta, sem login.
+2. **Divulgue o `/votacao`.** O endereço é o do painel publicado mais
+   `/votacao` — hoje `sejakidoo.com.br/votacao`, porque é ali que o painel
+   responde. Quem abre tira a foto pelo próprio celular e escolhe um nome:
+   sem conta, sem login.
 3. **Liberar a votação** quando todo mundo estiver inscrito. Isso FECHA as
    inscrições — quem chegar depois só vota.
 4. **Contar os votos** encerra a urna e publica o pódio de três por categoria.

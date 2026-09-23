@@ -232,33 +232,10 @@ function Painel() {
     entendendo o que aconteceu, porque o formulário se apresenta.
 
     Quem analisa pedidos e ainda não tem estabelecimento próprio (o caso da
-    operação do Kidoo) cai na fila de pedidos, não no formulário: mandá-lo
-    cadastrar uma escolinha seria o oposto do que ele veio fazer.
+    operação do Kidoo) NÃO cai aqui: mandá-lo cadastrar uma escolinha seria o
+    oposto do que ele veio fazer. Ele segue para o painel abaixo.
   */
-  if (!parceiro) {
-    if (doKidoo) {
-      return (
-        <div className="shell">
-          <nav className="sidebar" aria-label="Seções do painel">
-            <Marca papel="Operação" />
-            <button className="nav-item" aria-current="page">
-              <IconePedidos />
-              Pedidos
-            </button>
-            <div className="sidebar-foot">
-              <button className="nav-item" onClick={() => void desconectar()}>
-                <IconeSair />
-                Sair
-              </button>
-            </div>
-          </nav>
-          <main className="main">
-            <Pedidos />
-          </main>
-        </div>
-      );
-    }
-
+  if (!parceiro && !doKidoo) {
     return (
       <div className="cadastro-pagina">
         <div className="cadastro-cabeca">
@@ -273,16 +250,34 @@ function Painel() {
     );
   }
 
+  /*
+    O menu é montado, não escrito duas vezes.
+
+    A conta da operação — que analisa e não tem estabelecimento próprio — tinha
+    uma casca só dela, com "Pedidos" escrito à mão como único item. Funcionou
+    enquanto Pedidos era a única tela de quem analisa; depois disso, cada aba
+    nova (Estabelecimentos, Assinaturas, Capas, Denúncias, Votações) nasceu
+    invisível justamente para a conta que existe para usá-las. Um menu montado
+    a partir da lista não tem como esquecer de um item novo.
+  */
+  const itens = [...(parceiro ? ABAS : []), ...(doKidoo ? ABAS_DO_KIDOO : [])];
+  /*
+    A aba guardada pode não existir para esta conta: o padrão é `agenda`, e
+    quem não tem estabelecimento não tem agenda. Cair na primeira do menu evita
+    a tela em branco — e evita um efeito só para consertar estado.
+  */
+  const abaAtual = itens.some((i) => i.id === aba) ? aba : itens[0]?.id;
+
   return (
     <div className="shell">
       <nav className="sidebar" aria-label="Seções do painel">
-        <Marca />
+        <Marca papel={parceiro ? undefined : 'Operação'} />
 
-        {[...ABAS, ...(doKidoo ? ABAS_DO_KIDOO : [])].map((item) => (
+        {itens.map((item) => (
           <button
             key={item.id}
             className="nav-item"
-            aria-current={aba === item.id ? 'page' : undefined}
+            aria-current={abaAtual === item.id ? 'page' : undefined}
             onClick={() => setAba(item.id)}
           >
             <item.Icone />
@@ -291,27 +286,29 @@ function Painel() {
         ))}
 
         <div className="sidebar-foot">
-          <div className="sidebar-who">
-            {/*
+          {parceiro && (
+            <div className="sidebar-who">
+              {/*
               Com mais de um estabelecimento, mostrar só o primeiro seria dizer
               que a agenda é dele — e ela traz as turmas de todos.
             */}
-            {varios ? (
-              <>
-                <strong style={{ color: 'var(--text)' }}>
-                  {parceiros.length} estabelecimentos
-                </strong>
-                <br />
-                {parceiros.map((p) => p.name).join(' · ')}
-              </>
-            ) : (
-              <>
-                <strong style={{ color: 'var(--text)' }}>{parceiro.name}</strong>
-                <br />
-                {parceiro.neighborhood} · {parceiro.city}
-              </>
-            )}
-          </div>
+              {varios ? (
+                <>
+                  <strong style={{ color: 'var(--text)' }}>
+                    {parceiros.length} estabelecimentos
+                  </strong>
+                  <br />
+                  {parceiros.map((p) => p.name).join(' · ')}
+                </>
+              ) : (
+                <>
+                  <strong style={{ color: 'var(--text)' }}>{parceiro.name}</strong>
+                  <br />
+                  {parceiro.neighborhood} · {parceiro.city}
+                </>
+              )}
+            </div>
+          )}
           <button className="nav-item" onClick={() => void desconectar()}>
             <IconeSair />
             Sair
@@ -327,16 +324,16 @@ function Painel() {
       </nav>
 
       <main className="main">
-        {aba === 'agenda' && <Agenda varios={varios} />}
-        {aba === 'turmas' && <Turmas parceiros={parceiros} varios={varios} />}
-        {aba === 'local' && <MeuLocal parceiros={parceiros} />}
-        {aba === 'repasse' && <Repasse />}
-        {aba === 'pedidos' && <Pedidos />}
-        {aba === 'capas' && <Capas />}
-        {aba === 'denuncias' && <Denuncias />}
-        {aba === 'parceiros' && <Parceiros />}
-        {aba === 'assinaturas' && <Assinaturas />}
-        {aba === 'votacoes' && <Votacoes />}
+        {abaAtual === 'agenda' && <Agenda varios={varios} />}
+        {abaAtual === 'turmas' && <Turmas parceiros={parceiros} varios={varios} />}
+        {abaAtual === 'local' && <MeuLocal parceiros={parceiros} />}
+        {abaAtual === 'repasse' && <Repasse />}
+        {abaAtual === 'pedidos' && <Pedidos />}
+        {abaAtual === 'capas' && <Capas />}
+        {abaAtual === 'denuncias' && <Denuncias />}
+        {abaAtual === 'parceiros' && <Parceiros />}
+        {abaAtual === 'assinaturas' && <Assinaturas />}
+        {abaAtual === 'votacoes' && <Votacoes />}
 
         {/* Sem ação: quem está aqui já entrou e já tem espaço cadastrado.
             Repetir "Cadastrar meu espaço" para essa pessoa seria oferecer a
