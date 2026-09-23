@@ -150,6 +150,10 @@ export type ActivityRow = {
   partnerName: string;
   /** `null` quando o parceiro ainda não subiu a dele — o app cai na foto da modalidade. */
   imageUrl: string | null;
+  /** Enviada e esperando análise. Enquanto existe, `imageUrl` continua no ar. */
+  pendingImageUrl: string | null;
+  /** Por que a última foi recusada. Sem isto, o parceiro reenvia a mesma. */
+  pendingImageReason: string | null;
 };
 
 /** As modalidades que o Kidoo conhece — lista fechada, vinda do banco. */
@@ -180,6 +184,66 @@ export type Pedido = NovoPedido & {
   /** Por que foi recusado. Sem isto a recusa é um beco: ele reenvia igual. */
   reason: string | null;
   createdAt: string;
+};
+
+/** Por que a família denunciou. Lista fechada, igual à do banco. */
+export type MotivoDaDenuncia = 'imagem' | 'descricao' | 'seguranca' | 'outro';
+
+/** Uma denúncia esperando alguém do Kidoo olhar. */
+export type DenunciaNaFila = {
+  id: string;
+  activityId: string;
+  activity: string;
+  partner: string;
+  reason: MotivoDaDenuncia;
+  /** O que a família escreveu, quando escreveu. */
+  detail: string | null;
+  /** A capa que saiu do ar por causa desta denúncia. `null` se não era imagem. */
+  hiddenUrl: string | null;
+  createdAt: string;
+};
+
+/** Uma capa esperando análise, como quem decide a vê. */
+export type CapaNaFila = {
+  activityId: string;
+  activity: string;
+  partner: string;
+  category: ActivityCategoryId;
+  /** A que está no ar. `null` quando a atividade nunca teve capa. */
+  currentUrl: string | null;
+  pendingUrl: string;
+  sentAt: string;
+};
+
+/**
+ * Uma votação, como quem organiza a vê.
+ *
+ * O nome é genérico de propósito: a primeira é de fantasia, a próxima pode ser
+ * "melhor parceiro do ano". Nada aqui — nem no banco — sabe de Halloween; a
+ * decoração mora na página pública.
+ */
+export type VotacaoAdmin = {
+  id: string;
+  title: string;
+  status: StatusDaVotacao;
+  /** Quantos se inscreveram. */
+  entries: number;
+  /** Quantas PESSOAS votaram, não quantos votos. */
+  voters: number;
+  createdAt: string;
+};
+
+/** Os quatro estados, na ordem em que acontecem. */
+export type StatusDaVotacao = 'rascunho' | 'inscricoes' | 'votacao' | 'apurada';
+
+/** O pedido de uma votação nova. */
+export type NovaVotacao = {
+  title: string;
+  subtitle: string;
+  /** Uma por linha no formulário; vazias são descartadas pelo banco. */
+  categories: string[];
+  /** A senha da festa. Vazia = qualquer um com o link vota. */
+  passphrase: string;
 };
 
 /** O pedido como quem analisa o vê — com o e-mail da conta junto. */
@@ -279,7 +343,29 @@ export type PainelApi = {
    * foto de banco de imagens escolhida por modalidade, igual para toda
    * escolinha de futebol do país — e não havia tela nenhuma para trocar.
    */
+  /**
+   * Manda uma capa para análise.
+   *
+   * Devolve a URL enviada, mas ela NÃO é a capa ainda: desde a 000028 a
+   * imagem espera alguém olhar antes de aparecer para as famílias. O bucket é
+   * público e o catálogo é de criança — trocar e publicar no mesmo segundo era
+   * a única parte do produto em que qualquer imagem ia ao ar sem revisão.
+   */
   trocarImagem(activityId: string, arquivo: File): Promise<string>;
+  /** A fila de capas esperando análise. Só quem é do Kidoo enxerga. */
+  capasPendentes(): Promise<CapaNaFila[]>;
+  aprovarCapa(activityId: string): Promise<void>;
+  /** Recusar exige motivo: sem ele o parceiro reenvia a mesma imagem. */
+  recusarCapa(activityId: string, motivo: string): Promise<void>;
+  /** As denúncias abertas. Só quem é do Kidoo enxerga. */
+  denunciasAbertas(): Promise<DenunciaNaFila[]>;
+  /**
+   * Resolve uma denúncia.
+   *
+   * `restaurar` decide o destino da capa escondida: de volta ao ar, ou fora
+   * para sempre. Não há meio-termo, e é isso que a tela pergunta.
+   */
+  resolverDenuncia(id: string, restaurar: boolean, nota?: string): Promise<void>;
   extrato(meses?: number): Promise<StatementRow[]>;
   /**
    * Grava o endereço e o telefone que a família vê no app.
@@ -342,4 +428,19 @@ export type PainelApi = {
   aprovarPedido(id: string): Promise<void>;
   /** O motivo é obrigatório: o banco recusa uma recusa sem ele. */
   recusarPedido(id: string, motivo: string): Promise<void>;
+
+  // --------------------------------------------------------------- votação --
+
+  /** Todas as votações, da mais nova para a mais velha. */
+  votacoesAdmin(): Promise<VotacaoAdmin[]>;
+  /** Cria já em `inscricoes`: quem organiza quer a página no ar agora. */
+  criarVotacao(entrada: NovaVotacao): Promise<string>;
+  /**
+   * Empurra a votação um passo adiante, e devolve onde ela parou.
+   *
+   * Só para frente. Voltar de `votacao` para `inscricoes` deixaria alguém se
+   * inscrever depois que os votos começaram, e voltar de `apurada` reabriria
+   * uma urna já contada — o banco recusa as duas.
+   */
+  avancarVotacao(id: string): Promise<StatusDaVotacao>;
 };

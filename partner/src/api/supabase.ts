@@ -12,11 +12,17 @@ import type {
   NovoPedido,
   Partner,
   Pedido,
+  CapaNaFila,
+  DenunciaNaFila,
+  MotivoDaDenuncia,
   PedidoNaFila,
   ResultadoDaConta,
   ResultadoDaSerie,
   RosterRow,
   StatementRow,
+  NovaVotacao,
+  StatusDaVotacao,
+  VotacaoAdmin,
 } from './types';
 import type { ActivityCategoryId, SlotKind } from '@app/types/domain';
 
@@ -50,6 +56,10 @@ const MENSAGENS: Record<string, string> = {
   no_check_in: 'Esta família ainda não fez o check-in no aplicativo.',
   wrong_code: 'Código inválido para esta reserva.',
   code_expired: 'O código expirou. Peça para a família gerar um novo no app.',
+  title_required: 'A votação precisa de um nome.',
+  categories_required: 'Escreva pelo menos uma categoria.',
+  poll_not_found: 'Votação não encontrada.',
+  already_counted: 'Esta votação já foi apurada. Não há passo depois de contar os votos.',
 };
 
 function traduz(erro: { message: string } | null, padrao: string): never {
@@ -388,7 +398,10 @@ async function minhasAtividades(partnerIds: string[]): Promise<ActivityRow[]> {
   const linhas = ok(
     await supabase()
       .from('activities')
-      .select('id, title, category_id, image_url, partner_id, parceiro:partners(name)')
+      .select(
+        'id, title, category_id, image_url, pending_image_url, pending_image_reason, ' +
+          'partner_id, parceiro:partners(name)',
+      )
       .in('partner_id', partnerIds)
       .eq('active', true)
       .order('title')
@@ -398,6 +411,8 @@ async function minhasAtividades(partnerIds: string[]): Promise<ActivityRow[]> {
           title: string;
           category_id: string;
           image_url: string | null;
+          pending_image_url: string | null;
+          pending_image_reason: string | null;
           partner_id: string;
           parceiro: { name: string } | null;
         }[]
@@ -411,6 +426,8 @@ async function minhasAtividades(partnerIds: string[]): Promise<ActivityRow[]> {
     partnerId: l.partner_id,
     partnerName: l.parceiro?.name ?? '',
     imageUrl: l.image_url,
+    pendingImageUrl: l.pending_image_url,
+    pendingImageReason: l.pending_image_reason,
   }));
 }
 
@@ -438,13 +455,33 @@ async function trocarImagem(activityId: string, arquivo: File): Promise<string> 
   const parceiro = ok(
     await supabase()
       .from('activities')
-      .select('partner_id')
+      .select('partner_id, image_url')
       .eq('id', activityId)
-      .single<{ partner_id: string }>(),
+      .single<{ partner_id: string; image_url: string | null }>(),
     'Não foi possível identificar a atividade.',
   );
+  const atividadeAtual = parceiro;
 
-  const caminho = `${parceiro.partner_id}/${activityId}`;
+  /*
+    Duas vagas fixas por atividade, `-a` e `-b`, e a nova vai para a que NÃO
+    está no ar.
+
+    A capa pendente não pode sobrescrever a publicada: enquanto a análise não
+    sai, a família continua vendo a antiga, e `upsert` no mesmo caminho a
+    apagaria na hora — a fila protegeria o catálogo de uma imagem nova e o
+    deixaria sem imagem nenhuma.
+
+    Duas vagas, e não um nome com a hora dentro, porque nome único acumula
+    arquivo: cada troca deixaria o anterior no bucket para sempre. Assim são
+    no máximo dois por atividade, e a vaga livre é sempre reaproveitada.
+
+    Capa antiga, sem sufixo (de antes desta fila), cai em `-a` e o arquivo
+    velho fica órfão uma vez só.
+  */
+  const emUso = atividadeAtual?.image_url ?? '';
+  const vaga = emUso.includes(`${activityId}-a`) ? 'b' : 'a';
+  const caminho = `${parceiro.partner_id}/${activityId}-${vaga}`;
+
   const { error: erroUpload } = await supabase()
     .storage.from(BUCKET_ATIVIDADES)
     .upload(caminho, arquivo, { contentType: arquivo.type, upsert: true });
@@ -457,17 +494,133 @@ async function trocarImagem(activityId: string, arquivo: File): Promise<string> 
   // mudaria nada na tela de ninguém até o cache expirar.
   const url = `${data.publicUrl}?v=${Date.now()}`;
 
-  ok(
-    await supabase()
-      .from('activities')
-      .update({ image_url: url })
-      .eq('id', activityId)
-      .select('id')
-      .single<{ id: string }>(),
-    'A imagem subiu, mas não foi possível salvá-la na atividade.',
-  );
+  // E aqui ela NÃO vira capa: vira pendente. Quem publica é `approve_cover`,
+  // depois de alguém olhar. O parceiro não escreve `image_url` desde a
+  // 000028 — a coluna saiu do grant dele.
+  const { error } = await supabase().rpc('submit_cover', {
+    p_activity_id: activityId,
+    p_url: url,
+  });
+  if (error) traduz(error, 'A imagem subiu, mas não entrou na fila de análise.');
 
   return url;
+}
+
+// ------------------------------------------------- a fila de capas ---------
+
+async function capasPendentes(): Promise<CapaNaFila[]> {
+  type Linha = {
+    activity_id: string;
+    activity: string;
+    partner: string;
+    category_id: string;
+    current_url: string | null;
+    pending_url: string;
+    sent_at: string;
+  };
+  const linhas = await linhasDe<Linha>(
+    'pending_covers',
+    {},
+    'Não foi possível carregar as capas em análise.',
+  );
+  return linhas.map((l) => ({
+    activityId: l.activity_id,
+    activity: l.activity,
+    partner: l.partner,
+    category: l.category_id as ActivityCategoryId,
+    currentUrl: l.current_url,
+    pendingUrl: l.pending_url,
+    sentAt: l.sent_at,
+  }));
+}
+
+async function denunciasAbertas(): Promise<DenunciaNaFila[]> {
+  type Linha = {
+    id: string;
+    activity_id: string;
+    activity: string;
+    partner: string;
+    reason: MotivoDaDenuncia;
+    detail: string | null;
+    hidden_url: string | null;
+    created_at: string;
+  };
+  const linhas = await linhasDe<Linha>(
+    'pending_reports',
+    {},
+    'Não foi possível carregar as denúncias.',
+  );
+  return linhas.map((l) => ({
+    id: l.id,
+    activityId: l.activity_id,
+    activity: l.activity,
+    partner: l.partner,
+    reason: l.reason,
+    detail: l.detail,
+    hiddenUrl: l.hidden_url,
+    createdAt: l.created_at,
+  }));
+}
+
+async function resolverDenuncia(id: string, restaurar: boolean, nota?: string): Promise<void> {
+  const { error } = await supabase().rpc('resolve_report', {
+    p_id: id,
+    p_restaurar: restaurar,
+    p_resolution: nota ?? null,
+  });
+  if (error) traduz(error, 'Não foi possível resolver esta denúncia.');
+}
+
+async function aprovarCapa(activityId: string): Promise<void> {
+  const { error } = await supabase().rpc('approve_cover', { p_activity_id: activityId });
+  if (error) traduz(error, 'Não foi possível publicar esta capa.');
+}
+
+async function recusarCapa(activityId: string, motivo: string): Promise<void> {
+  const { error } = await supabase().rpc('reject_cover', {
+    p_activity_id: activityId,
+    p_reason: motivo,
+  });
+  if (error) traduz(error, 'Não foi possível recusar esta capa.');
+}
+
+// ----------------------------------------------------------------- votação --
+
+async function votacoesAdmin(): Promise<VotacaoAdmin[]> {
+  type Linha = {
+    id: string;
+    title: string;
+    status: StatusDaVotacao;
+    entries: number;
+    voters: number;
+    created_at: string;
+  };
+  const linhas = await linhasDe<Linha>('admin_polls', {}, 'Não foi possível carregar as votações.');
+  return linhas.map((l) => ({
+    id: l.id,
+    title: l.title,
+    status: l.status,
+    entries: Number(l.entries),
+    voters: Number(l.voters),
+    createdAt: l.created_at,
+  }));
+}
+
+async function criarVotacao(entrada: NovaVotacao): Promise<string> {
+  const { data, error } = await supabase().rpc('create_poll', {
+    p_title: entrada.title,
+    p_subtitle: entrada.subtitle,
+    p_categories: entrada.categories,
+    p_passphrase: entrada.passphrase,
+  });
+  if (error) traduz(error, 'Não foi possível criar a votação.');
+  return data as string;
+}
+
+async function avancarVotacao(id: string): Promise<StatusDaVotacao> {
+  const { data, error } = await supabase().rpc('advance_poll', { p_poll_id: id });
+  if (error) traduz(error, 'Não foi possível avançar a votação.');
+  return data as StatusDaVotacao;
 }
 
 // ----------------------------------------------------------------- repasse --
@@ -841,6 +994,11 @@ export const supabaseApi: PainelApi = {
   meuPedido,
   enviarPedido,
   subirFotoDoPedido,
+  capasPendentes,
+  aprovarCapa,
+  recusarCapa,
+  denunciasAbertas,
+  resolverDenuncia,
   souDoKidoo,
   parceirosAdmin,
   ligarParceiro,
@@ -849,4 +1007,7 @@ export const supabaseApi: PainelApi = {
   pedidosPendentes,
   aprovarPedido,
   recusarPedido,
+  votacoesAdmin,
+  criarVotacao,
+  avancarVotacao,
 };

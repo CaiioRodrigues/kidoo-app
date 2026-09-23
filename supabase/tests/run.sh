@@ -73,6 +73,7 @@ psql -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/seed.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/rls.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/partner.sql"
 psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/applications.sql"
+psql -X -q -v ON_ERROR_STOP=1 -d kidoo_test -f "$HERE/votacao.sql"
 
 # E o mesmo banco, atacado de propósito: o que uma conta comum consegue fazer
 # se tentar. Vem depois porque reaproveita os dados que os outros criaram.

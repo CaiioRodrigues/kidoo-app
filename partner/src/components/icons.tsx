@@ -105,3 +105,40 @@ export function IconeSair() {
     </svg>
   );
 }
+
+/** Moldura com montanha e sol: uma imagem. A capa que espera análise. */
+export function IconeCapas() {
+  return (
+    <svg {...base}>
+      <rect x="3" y="4.5" width="18" height="15" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      {/* A "montanha" encosta na borda de baixo de propósito: solta no meio,
+          ela lia como um triângulo qualquer em vez de paisagem. */}
+      <path d="M3 17l5-5 4 4 3-3 6 6" />
+    </svg>
+  );
+}
+
+/** Urna com a fenda e o papel entrando. */
+export function IconeVotacao() {
+  return (
+    <svg {...base}>
+      <path d="M4 10.5h16v9.5H4z" />
+      <path d="M9 10.5V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3.5" />
+      {/* A fenda é o que distingue urna de caixa: sem ela, o desenho é um
+          pacote de correio. */}
+      <path d="M9.5 14.5h5" />
+    </svg>
+  );
+}
+
+/** Bandeira num mastro: o sinal que alguém levantou. */
+export function IconeDenuncias() {
+  return (
+    <svg {...base}>
+      <path d="M6 21V3.5" />
+      {/* A bandeira ondula de leve: um triângulo reto lia como seta. */}
+      <path d="M6 4.5h10.5c1.2 0 1.7 1 1 1.9l-1.6 2c-.4.5-.4 1.2 0 1.7l1.6 2c.7.9.2 1.9-1 1.9H6" />
+    </svg>
+  );
+}

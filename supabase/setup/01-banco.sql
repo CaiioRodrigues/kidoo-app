@@ -4501,6 +4501,849 @@ $$;
 
 grant execute on function delete_my_account() to authenticated;
 
+-- =====================================================================
+-- 20260101000028_capa_passa_por_analise.sql
+-- =====================================================================
+
+-- =====================================================================
+-- A capa da atividade passa a ser analisada antes de ir ao ar.
+-- =====================================================================
+--
+-- A capa vai para o bucket `atividades`, que é PÚBLICO, e aparece no cartão
+-- que toda família vê. Até aqui o parceiro trocava e a imagem estava no ar no
+-- mesmo segundo, sem ninguém olhar — num app para crianças.
+--
+-- O que existia de verificação era técnica: o bucket recusa acima de 5 MB e
+-- aceita só jpeg, png e webp. Isso impede um vídeo; não impede uma imagem
+-- imprópria de 2 MB.
+--
+-- ---------------------------------------------------- por que não é só tela --
+--
+-- `partner_writes_activities` é `for all` e o `grant` da 000004 deu a tabela
+-- inteira: hoje o parceiro escreve `image_url` direto, por um PATCH. Uma fila
+-- que existisse só no painel seria teatro — bastaria não usar o painel.
+--
+-- Então a coluna sai da mão dele, como saiu a cota da assinatura na 000022.
+-- A capa passa a mudar por função, e a função decide quem pode o quê.
+-- =====================================================================
+
+alter table activities add column if not exists pending_image_url text;
+alter table activities add column if not exists pending_image_at  timestamptz;
+-- Por que a última foi recusada. Fica na atividade, e não numa tabela de
+-- histórico, porque quem precisa ler é o parceiro na tela dele — e sem o
+-- motivo ele manda a mesma imagem de novo.
+alter table activities add column if not exists pending_image_reason text;
+
+comment on column activities.pending_image_url is
+  'Capa enviada esperando análise. A que está no ar continua em image_url.';
+
+-- ------------------------------------------------------- a torneira ---------
+
+revoke insert, update, delete on activities from authenticated;
+-- Nada volta. O painel só escrevia `image_url`, e é exatamente isso que passa
+-- a ir por função. Criar atividade já era de `approve_application`.
+
+-- --------------------------------------------------------- o parceiro ------
+
+/**
+ * O parceiro manda uma capa para análise.
+ *
+ * Recebe a URL porque o arquivo já subiu: o Storage tem policy própria, e a
+ * pasta é o id do parceiro. O que esta função controla é o que vira CAPA —
+ * que é outra coisa, e é a que aparece para a família.
+ */
+create or replace function submit_cover(p_activity_id uuid, p_url text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_partner uuid;
+begin
+  select partner_id into v_partner from activities where id = p_activity_id;
+  if not found then
+    raise exception 'activity_not_found' using errcode = 'P0002';
+  end if;
+  if not is_partner_member(v_partner) then
+    raise exception 'not_this_partner' using errcode = '42501';
+  end if;
+  if coalesce(btrim(p_url), '') = '' then
+    raise exception 'image_required' using errcode = 'P0001';
+  end if;
+
+  update activities
+     set pending_image_url    = p_url,
+         pending_image_at     = now(),
+         -- O motivo da recusa anterior sai de cena: ele era sobre a imagem
+         -- que acabou de ser substituída.
+         pending_image_reason = null
+   where id = p_activity_id;
+end;
+$$;
+
+-- ----------------------------------------------------------- quem analisa --
+
+/**
+ * A fila de capas esperando análise.
+ *
+ * Traz a que está no ar junto com a pendente. Julgar uma capa sem ver a atual
+ * é julgar metade: o que importa é se a nova pode substituir aquela.
+ */
+create or replace function pending_covers()
+returns table (
+  activity_id   uuid,
+  activity      text,
+  partner       text,
+  category_id   text,
+  current_url   text,
+  pending_url   text,
+  sent_at       timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select a.id, a.title, p.name, a.category_id,
+         a.image_url, a.pending_image_url, a.pending_image_at
+    from activities a
+    join partners p on p.id = a.partner_id
+   where a.pending_image_url is not null and is_kidoo_admin()
+   order by a.pending_image_at;
+$$;
+
+/** Aprovar publica: a pendente vira a capa que a família vê. */
+create or replace function approve_cover(p_activity_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_pendente text;
+begin
+  if not is_kidoo_admin() then
+    raise exception 'not_admin' using errcode = '42501';
+  end if;
+
+  select pending_image_url into v_pendente
+    from activities where id = p_activity_id for update;
+  if v_pendente is null then
+    raise exception 'no_pending_cover' using errcode = 'P0002';
+  end if;
+
+  update activities
+     set image_url            = v_pendente,
+         pending_image_url    = null,
+         pending_image_at     = null,
+         pending_image_reason = null
+   where id = p_activity_id;
+end;
+$$;
+
+/**
+ * Recusar, com motivo.
+ *
+ * Mesma regra da recusa de cadastro, pelo mesmo motivo: sem dizer o que está
+ * errado, o parceiro reenvia a mesma imagem e alguém recusa de novo, para
+ * sempre.
+ */
+create or replace function reject_cover(p_activity_id uuid, p_reason text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_kidoo_admin() then
+    raise exception 'not_admin' using errcode = '42501';
+  end if;
+  if coalesce(btrim(p_reason), '') = '' then
+    raise exception 'reason_required' using errcode = 'P0001';
+  end if;
+
+  update activities
+     set pending_image_url    = null,
+         pending_image_at     = null,
+         pending_image_reason = p_reason
+   where id = p_activity_id and pending_image_url is not null;
+
+  if not found then
+    raise exception 'no_pending_cover' using errcode = 'P0002';
+  end if;
+end;
+$$;
+
+grant execute on function submit_cover(uuid, text)  to authenticated;
+grant execute on function pending_covers()          to authenticated;
+grant execute on function approve_cover(uuid)       to authenticated;
+grant execute on function reject_cover(uuid, text)  to authenticated;
+
+-- =====================================================================
+-- 20260101000029_denuncia.sql
+-- =====================================================================
+
+-- =====================================================================
+-- A família consegue denunciar uma imagem imprópria.
+-- =====================================================================
+--
+-- A 000028 pôs a capa nova numa fila antes de ir ao ar. Isto cobre o que
+-- escapa da fila: a capa que já estava publicada antes dela existir, e o
+-- julgamento que erra — quem analisa é gente, e vê uma imagem por segundo.
+--
+-- ------------------------------------------------ a decisão que pesa aqui --
+--
+-- UMA denúncia já tira a capa do ar, sem esperar uma segunda.
+--
+-- É abusável de propósito, e a conta é assimétrica: uma capa escondida por
+-- engano vira a foto genérica da modalidade por alguns minutos, e volta com
+-- um clique. Uma imagem imprópria que fica no ar está num app de criança, e
+-- não volta atrás. Entre punir o parceiro por engano e deixar a imagem
+-- passar, a escolha é a primeira.
+--
+-- O abuso fica limitado por construção: uma denúncia por família por
+-- atividade (índice único), e a capa escondida volta inteira, porque a URL
+-- antiga é guardada na própria denúncia.
+--
+-- Esconder é só para imagem. Denúncia sobre descrição ou segurança entra na
+-- fila e espera gente — não há nada para tirar do ar automaticamente, e
+-- apagar texto de parceiro por um clique de terceiro seria outra história.
+-- =====================================================================
+
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'report_reason') then
+    create type report_reason as enum ('imagem', 'descricao', 'seguranca', 'outro');
+  end if;
+end $$;
+
+create table if not exists reports (
+  id           uuid primary key default gen_random_uuid(),
+  guardian_id  uuid not null references guardians (id) on delete cascade,
+  activity_id  uuid not null references activities (id) on delete cascade,
+  reason       report_reason not null,
+  detail       text,
+  created_at   timestamptz not null default now(),
+  -- A capa que estava no ar quando a denúncia chegou. É o que permite
+  -- desfazer: sem guardar aqui, "restaurar" seria pedir a imagem de volta ao
+  -- parceiro, e o engano viraria trabalho dele.
+  hidden_url   text,
+  resolved_at  timestamptz,
+  resolved_by  uuid references auth.users (id),
+  resolution   text
+);
+
+-- Uma por família por atividade. Sem isto, uma conta sozinha derruba a mesma
+-- capa quantas vezes quiser, e a fila de quem analisa vira ruído.
+create unique index if not exists uma_denuncia_por_familia
+  on reports (guardian_id, activity_id);
+
+create index if not exists reports_abertas on reports (created_at)
+  where resolved_at is null;
+
+alter table reports enable row level security;
+
+-- A família lê as próprias, e não escreve direto: quem cria é a função, que
+-- também esconde a capa na mesma transação.
+drop policy if exists reports_own on reports;
+create policy reports_own on reports for select to authenticated
+  using (guardian_id = auth.uid());
+
+revoke insert, update, delete on reports from authenticated;
+grant select on reports to authenticated;
+
+-- --------------------------------------------------------- denunciar -------
+
+/**
+ * Denuncia uma atividade, e tira a capa do ar quando o motivo é a imagem.
+ *
+ * As duas coisas na mesma transação de propósito: registrar a denúncia e
+ * deixar a imagem no ar por mais um instante seriam dois estados, e o instante
+ * é justamente o que se quer evitar.
+ */
+create or replace function report_activity(
+  p_activity_id uuid,
+  p_reason      report_reason,
+  p_detail      text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_guardian uuid := auth.uid();
+  v_capa     text;
+begin
+  if v_guardian is null then
+    raise exception 'not_authenticated' using errcode = '28000';
+  end if;
+  if not exists (select 1 from activities where id = p_activity_id) then
+    raise exception 'activity_not_found' using errcode = 'P0002';
+  end if;
+  if exists (select 1 from reports
+              where guardian_id = v_guardian and activity_id = p_activity_id) then
+    raise exception 'already_reported' using errcode = 'P0001';
+  end if;
+
+  if p_reason = 'imagem' then
+    -- Guarda ANTES de apagar. Ler depois devolveria o nulo que acabamos de
+    -- escrever, e "restaurar" não teria o que restaurar — o engano viraria
+    -- trabalho do parceiro, que teria de mandar a imagem de novo.
+    select image_url into v_capa from activities where id = p_activity_id for update;
+
+    -- Sai do ar AGORA. O app cai na foto genérica da modalidade, que é o
+    -- mesmo que ele mostra para atividade sem capa — ninguém vê buraco.
+    update activities set image_url = null where id = p_activity_id;
+  end if;
+
+  insert into reports (guardian_id, activity_id, reason, detail, hidden_url)
+  values (v_guardian, p_activity_id, p_reason, nullif(btrim(p_detail), ''), v_capa);
+end;
+$$;
+
+-- ----------------------------------------------------------- quem analisa --
+
+create or replace function pending_reports()
+returns table (
+  id          uuid,
+  activity_id uuid,
+  activity    text,
+  partner     text,
+  reason      report_reason,
+  detail      text,
+  hidden_url  text,
+  created_at  timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select r.id, a.id, a.title, p.name, r.reason, r.detail, r.hidden_url, r.created_at
+    from reports r
+    join activities a on a.id = r.activity_id
+    join partners   p on p.id = a.partner_id
+   where r.resolved_at is null and is_kidoo_admin()
+   order by r.created_at;
+$$;
+
+/**
+ * Resolve uma denúncia.
+ *
+ * `p_restaurar` decide o destino da capa escondida: de volta ao ar, ou fora
+ * para sempre. Não tem meio-termo, e é isso que a tela pergunta.
+ */
+create or replace function resolve_report(
+  p_id         uuid,
+  p_restaurar  boolean,
+  p_resolution text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_rep reports%rowtype;
+begin
+  if not is_kidoo_admin() then
+    raise exception 'not_admin' using errcode = '42501';
+  end if;
+
+  select * into v_rep from reports where id = p_id for update;
+  if not found then
+    raise exception 'report_not_found' using errcode = 'P0002';
+  end if;
+  if v_rep.resolved_at is not null then
+    raise exception 'already_resolved' using errcode = 'P0001';
+  end if;
+
+  -- Só restaura se ainda não houver capa: se o parceiro já mandou outra e ela
+  -- foi aprovada enquanto a denúncia esperava, devolver a antiga desfaria uma
+  -- decisão que já foi tomada.
+  if p_restaurar and v_rep.hidden_url is not null then
+    update activities set image_url = coalesce(image_url, v_rep.hidden_url)
+     where id = v_rep.activity_id;
+  end if;
+
+  update reports
+     set resolved_at = now(), resolved_by = auth.uid(),
+         resolution  = nullif(btrim(p_resolution), '')
+   where id = p_id;
+end;
+$$;
+
+grant execute on function report_activity(uuid, report_reason, text) to authenticated;
+grant execute on function pending_reports()                          to authenticated;
+grant execute on function resolve_report(uuid, boolean, text)        to authenticated;
+
+-- =====================================================================
+-- 20260101000030_votacao.sql
+-- =====================================================================
+
+-- =====================================================================
+-- Votação com fotos: inscrição, cédula e apuração.
+-- =====================================================================
+--
+-- Nada aqui sabe o que está sendo votado. `polls`, `poll_categories`,
+-- `poll_entries` e `ballots` servem para fantasia de Halloween do mesmo jeito
+-- que para melhor estabelecimento parceiro do ano — a diferença mora nos
+-- rótulos que alguém digita, não no schema.
+--
+-- É de propósito: a primeira votação é de uma festa, e seria fácil escrever
+-- `costume_id` e `scariest_votes` em tudo. Aí a segunda votação começaria com
+-- uma migration de renomeação ou com nomes mentindo para sempre.
+--
+-- ------------------------------------------------------ quem vota é anônimo --
+--
+-- Convidado de festa não cria conta. Quem vota é `anon`, identificado por uma
+-- chave que o navegador guarda — e a garantia de um voto por categoria é
+-- índice único no banco, não disciplina da tela. Recarregar, voltar e clicar
+-- duas vezes não passam.
+--
+-- Não impede quem abrir uma janela anônima de propósito. Nada impede, sem
+-- entregar um código na mão de cada pessoa — e é por isso que `voter_key` é
+-- texto livre: o dia em que a votação valer algo, os códigos são gerados e
+-- distribuídos, e nada aqui muda.
+-- =====================================================================
+
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'poll_status') then
+    -- Os quatro estados são os quatro botões de quem organiza, nesta ordem.
+    create type poll_status as enum ('rascunho', 'inscricoes', 'votacao', 'apurada');
+  end if;
+end $$;
+
+create table if not exists polls (
+  id         uuid primary key default gen_random_uuid(),
+  title      text not null,
+  subtitle   text,
+  status     poll_status not null default 'rascunho',
+  /** A senha da festa. Nula quando a votação é aberta a qualquer um com o link. */
+  passphrase text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists poll_categories (
+  id       uuid primary key default gen_random_uuid(),
+  poll_id  uuid not null references polls (id) on delete cascade,
+  label    text not null,
+  position smallint not null default 0
+);
+
+create index if not exists poll_categories_da_votacao on poll_categories (poll_id, position);
+
+create table if not exists poll_entries (
+  id         uuid primary key default gen_random_uuid(),
+  poll_id    uuid not null references polls (id) on delete cascade,
+  name       text not null,
+  /** Caminho no bucket `votacao`. A foto é a inscrição: sem ela não há o que votar. */
+  photo_path text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists poll_entries_da_votacao on poll_entries (poll_id, created_at);
+
+create table if not exists ballots (
+  id          uuid primary key default gen_random_uuid(),
+  poll_id     uuid not null references polls (id) on delete cascade,
+  category_id uuid not null references poll_categories (id) on delete cascade,
+  entry_id    uuid not null references poll_entries (id) on delete cascade,
+  /**
+   * Quem votou, do jeito que der para saber.
+   *
+   * Hoje é um id que o navegador guarda. Amanhã pode ser um código impresso e
+   * entregue na porta — o schema não muda, só quem gera a chave.
+   */
+  voter_key   text not null,
+  created_at  timestamptz not null default now()
+);
+
+-- A garantia que importa. Um voto por categoria por chave, decidido pelo
+-- banco: a tela pode falhar, o duplo clique acontece, e nada disso passa.
+create unique index if not exists um_voto_por_categoria
+  on ballots (category_id, voter_key);
+
+alter table polls           enable row level security;
+alter table poll_categories enable row level security;
+alter table poll_entries    enable row level security;
+alter table ballots         enable row level security;
+
+-- ------------------------------------------------------------- leitura -----
+--
+-- A votação e os inscritos são públicos: é o que a cédula mostra. Os VOTOS
+-- não são — ler `ballots` seria ver o placar antes da apuração, e saber em
+-- quem cada aparelho votou.
+
+drop policy if exists polls_publicas on polls;
+create policy polls_publicas on polls for select to anon, authenticated using (true);
+
+drop policy if exists categorias_publicas on poll_categories;
+create policy categorias_publicas on poll_categories
+  for select to anon, authenticated using (true);
+
+drop policy if exists inscritos_publicos on poll_entries;
+create policy inscritos_publicos on poll_entries
+  for select to anon, authenticated using (true);
+
+grant select on polls, poll_categories, poll_entries to anon, authenticated;
+-- `ballots` fica sem policy e sem grant: nem ler, nem escrever. Quem escreve
+-- é a função, que confere o estado da votação antes.
+revoke all on ballots from anon, authenticated;
+
+-- ------------------------------------------------------- o que está no ar --
+
+/**
+ * A votação em andamento, com categorias e inscritos.
+ *
+ * Uma chamada, e não três, porque a tela mostra os três juntos: em três a
+ * página teria três carregamentos e três erros possíveis para uma coisa só.
+ */
+create or replace function current_poll()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select to_jsonb(p) - 'passphrase' || jsonb_build_object(
+           'protegida', p.passphrase is not null,
+           'categories', coalesce((
+             select jsonb_agg(jsonb_build_object('id', c.id, 'label', c.label)
+                              order by c.position, c.label)
+               from poll_categories c where c.poll_id = p.id), '[]'::jsonb),
+           'entries', coalesce((
+             select jsonb_agg(jsonb_build_object('id', e.id, 'name', e.name,
+                                                 'photoPath', e.photo_path)
+                              order by e.created_at)
+               from poll_entries e where e.poll_id = p.id), '[]'::jsonb)
+         )
+    from polls p
+   where p.status <> 'rascunho'
+   order by p.created_at desc
+   limit 1;
+$$;
+
+-- ------------------------------------------------------------ inscrever ----
+
+/** Entra na disputa: um nome e uma foto. */
+create or replace function submit_entry(p_poll_id uuid, p_name text, p_photo_path text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_status poll_status;
+  v_id     uuid;
+begin
+  select status into v_status from polls where id = p_poll_id;
+  if not found then
+    raise exception 'poll_not_found' using errcode = 'P0002';
+  end if;
+  -- Inscrever durante a votação mudaria a cédula com gente no meio dela: quem
+  -- votou antes não teria visto esta opção.
+  if v_status <> 'inscricoes' then
+    raise exception 'entries_closed' using errcode = 'P0001';
+  end if;
+  if coalesce(btrim(p_name), '') = '' then
+    raise exception 'name_required' using errcode = 'P0001';
+  end if;
+  if coalesce(btrim(p_photo_path), '') = '' then
+    raise exception 'photo_required' using errcode = 'P0001';
+  end if;
+
+  insert into poll_entries (poll_id, name, photo_path)
+  values (p_poll_id, btrim(p_name), p_photo_path)
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- --------------------------------------------------------------- votar -----
+
+/**
+ * Registra a cédula inteira: uma escolha por categoria.
+ *
+ * Tudo numa transação de propósito. Votar categoria por categoria deixaria
+ * cédula pela metade quando a rede cai no meio — e meia cédula conta para um
+ * lado e não para o outro.
+ *
+ * `p_choices` é um objeto `{ "<category_id>": "<entry_id>" }`.
+ */
+create or replace function cast_ballot(
+  p_poll_id    uuid,
+  p_voter_key  text,
+  p_choices    jsonb,
+  p_passphrase text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_poll   polls%rowtype;
+  v_cat    text;
+  v_entry  uuid;
+begin
+  select * into v_poll from polls where id = p_poll_id;
+  if not found then
+    raise exception 'poll_not_found' using errcode = 'P0002';
+  end if;
+  if v_poll.status <> 'votacao' then
+    raise exception 'voting_closed' using errcode = 'P0001';
+  end if;
+  -- A senha da festa. Não protege de quem está lá dentro; protege do link
+  -- vazado, que é o problema real.
+  if v_poll.passphrase is not null
+     and lower(btrim(coalesce(p_passphrase, ''))) <> lower(btrim(v_poll.passphrase)) then
+    raise exception 'wrong_passphrase' using errcode = '42501';
+  end if;
+  if coalesce(btrim(p_voter_key), '') = '' then
+    raise exception 'voter_required' using errcode = 'P0001';
+  end if;
+
+  for v_cat, v_entry in
+    select key, value::text::uuid from jsonb_each_text(p_choices)
+  loop
+    -- Categoria e inscrito têm de ser DESTA votação. Sem isto, uma cédula
+    -- montada à mão votaria numa categoria de outra festa.
+    if not exists (select 1 from poll_categories
+                    where id = v_cat::uuid and poll_id = p_poll_id) then
+      raise exception 'category_not_in_poll' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from poll_entries
+                    where id = v_entry and poll_id = p_poll_id) then
+      raise exception 'entry_not_in_poll' using errcode = 'P0001';
+    end if;
+
+    insert into ballots (poll_id, category_id, entry_id, voter_key)
+    values (p_poll_id, v_cat::uuid, v_entry, btrim(p_voter_key));
+  end loop;
+end;
+$$;
+
+/** Já votou? A tela pergunta antes de mostrar a cédula. */
+create or replace function has_voted(p_poll_id uuid, p_voter_key text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from ballots
+                  where poll_id = p_poll_id and voter_key = btrim(p_voter_key));
+$$;
+
+-- ------------------------------------------------------------ apuração -----
+
+/**
+ * O pódio de cada categoria.
+ *
+ * Só depois de apurada. Enquanto a votação corre, devolver o placar parcial
+ * mudaria o voto de quem ainda não votou — e a ideia é justamente a virada no
+ * fim.
+ */
+create or replace function poll_results(p_poll_id uuid)
+returns table (
+  category_id uuid,
+  category    text,
+  place       int,
+  entry_id    uuid,
+  entry       text,
+  photo_path  text,
+  votes       bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with contagem as (
+    select c.id as category_id, c.label, c.position,
+           e.id as entry_id, e.name, e.photo_path,
+           count(b.id) as votos
+      from poll_categories c
+      join polls p on p.id = c.poll_id and p.status = 'apurada'
+      join poll_entries e on e.poll_id = c.poll_id
+      left join ballots b on b.category_id = c.id and b.entry_id = e.id
+     where c.poll_id = p_poll_id
+     group by c.id, c.label, c.position, e.id, e.name, e.photo_path
+  )
+  select category_id, label,
+         -- `rank`, e não `row_number`: empate em primeiro dá dois primeiros, e
+         -- inventar uma ordem entre eles seria decidir no desempate o que a
+         -- festa não decidiu.
+         rank() over (partition by category_id order by votos desc)::int,
+         entry_id, name, photo_path, votos
+    from contagem
+   where votos > 0
+   order by position, rank() over (partition by category_id order by votos desc), name;
+$$;
+
+grant execute on function current_poll()                            to anon, authenticated;
+grant execute on function submit_entry(uuid, text, text)            to anon, authenticated;
+grant execute on function cast_ballot(uuid, text, jsonb, text)      to anon, authenticated;
+grant execute on function has_voted(uuid, text)                     to anon, authenticated;
+grant execute on function poll_results(uuid)                        to anon, authenticated;
+
+-- ------------------------------------------------------- quem organiza -----
+--
+-- As quatro portas, na ordem em que a festa acontece: abrir inscrições, abrir
+-- a votação, apurar. `is_kidoo_admin()` é o mesmo portão do resto do painel —
+-- não há papel novo para isto.
+
+/** Cria a votação com as categorias, e já abre as inscrições. */
+create or replace function create_poll(
+  p_title      text,
+  p_subtitle   text,
+  p_categories text[],
+  p_passphrase text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id  uuid;
+  v_cat text;
+  v_i   smallint := 0;
+begin
+  if not is_kidoo_admin() then
+    raise exception 'not_admin' using errcode = '42501';
+  end if;
+  if coalesce(btrim(p_title), '') = '' then
+    raise exception 'title_required' using errcode = 'P0001';
+  end if;
+  if coalesce(array_length(p_categories, 1), 0) = 0 then
+    raise exception 'categories_required' using errcode = 'P0001';
+  end if;
+
+  insert into polls (title, subtitle, status, passphrase)
+  values (btrim(p_title), nullif(btrim(coalesce(p_subtitle, '')), ''), 'inscricoes',
+          nullif(btrim(coalesce(p_passphrase, '')), ''))
+  returning id into v_id;
+
+  foreach v_cat in array p_categories loop
+    if btrim(v_cat) <> '' then
+      insert into poll_categories (poll_id, label, position)
+      values (v_id, btrim(v_cat), v_i);
+      v_i := v_i + 1;
+    end if;
+  end loop;
+
+  return v_id;
+end;
+$$;
+
+/**
+ * Empurra a votação para o próximo estado.
+ *
+ * Só para a frente, e um de cada vez. Voltar de `apurada` para `votacao`
+ * republicaria uma urna já aberta, com o resultado conhecido — é a única
+ * transição que ninguém deve poder fazer por engano.
+ */
+create or replace function advance_poll(p_poll_id uuid)
+returns poll_status
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_status poll_status;
+begin
+  if not is_kidoo_admin() then
+    raise exception 'not_admin' using errcode = '42501';
+  end if;
+
+  select status into v_status from polls where id = p_poll_id for update;
+  if not found then
+    raise exception 'poll_not_found' using errcode = 'P0002';
+  end if;
+
+  v_status := case v_status
+    when 'rascunho'  then 'inscricoes'
+    when 'inscricoes' then 'votacao'
+    when 'votacao'   then 'apurada'
+    else raise_already_counted()
+  end;
+
+  update polls set status = v_status where id = p_poll_id;
+  return v_status;
+end;
+$$;
+
+/** Existe só para o `case` acima ter como recusar o quarto passo. */
+create or replace function raise_already_counted()
+returns poll_status
+language plpgsql
+as $$
+begin
+  raise exception 'already_counted' using errcode = 'P0001';
+end;
+$$;
+
+/** Tudo o que quem organiza precisa ver, inclusive antes de apurar. */
+create or replace function admin_polls()
+returns table (
+  id         uuid,
+  title      text,
+  status     poll_status,
+  entries    bigint,
+  voters     bigint,
+  created_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id, p.title, p.status,
+         (select count(*) from poll_entries e where e.poll_id = p.id),
+         -- Votantes, não votos: quem votou em três categorias é uma pessoa.
+         (select count(distinct b.voter_key) from ballots b where b.poll_id = p.id),
+         p.created_at
+    from polls p
+   where is_kidoo_admin()
+   order by p.created_at desc;
+$$;
+
+grant execute on function create_poll(text, text, text[], text) to authenticated;
+grant execute on function advance_poll(uuid)                     to authenticated;
+grant execute on function admin_polls()                          to authenticated;
+
+-- ----------------------------------------------------------- as fotos ------
+--
+-- Bucket próprio e público: a foto da inscrição existe para todo mundo ver na
+-- cédula, e assinar uma URL por inscrito seria dezenas de idas ao servidor
+-- para montar uma tela de lista.
+--
+-- Escrita aberta para `anon` é o preço de não ter login numa festa. Fica
+-- limitado pelo que o bucket aceita — 5 MB e imagem — e pelo tempo: uma
+-- votação dura uma noite.
+do $$
+begin
+  if to_regclass('storage.objects') is null then
+    raise notice 'sem schema storage (Postgres local): pulando bucket da votação';
+    return;
+  end if;
+
+  insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('votacao', 'votacao', true, 5242880,
+          array['image/jpeg','image/png','image/webp'])
+  on conflict (id) do update
+    set public = excluded.public,
+        file_size_limit = excluded.file_size_limit,
+        allowed_mime_types = excluded.allowed_mime_types;
+
+  drop policy if exists votacao_leitura on storage.objects;
+  create policy votacao_leitura on storage.objects
+    for select to anon, authenticated using (bucket_id = 'votacao');
+
+  drop policy if exists votacao_escrita on storage.objects;
+  create policy votacao_escrita on storage.objects
+    for insert to anon, authenticated with check (bucket_id = 'votacao');
+end $$;
+
 commit;
 
 -- Se chegou até aqui sem erro, o banco está pronto.

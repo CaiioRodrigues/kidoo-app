@@ -694,6 +694,27 @@ function CapaDaAtividade({
               ? 'JPG, PNG ou WebP, até 5 MB.'
               : 'Sem imagem, o app usa uma foto genérica da modalidade.'}
           </p>
+
+          {/*
+            O estado da análise, quando existe.
+
+            Sem isto o parceiro troca a capa, não vê mudança nenhuma no app e
+            conclui que o envio falhou — mandaria de novo, e de novo. A espera
+            precisa ser dita; a recusa, mais ainda, porque sem o motivo ele
+            reenvia exatamente a mesma imagem.
+          */}
+          {atividade.pendingImageUrl ? (
+            <p style={{ fontSize: 12, marginTop: 4, color: 'var(--text-muted)' }}>
+              <span className="badge badge-espera">em análise</span>{' '}
+              Enviada e esperando liberação. Até lá, a família continua vendo a capa anterior.
+            </p>
+          ) : null}
+
+          {!atividade.pendingImageUrl && atividade.pendingImageReason ? (
+            <p style={{ fontSize: 12, marginTop: 4, color: 'var(--danger)' }}>
+              Esta capa não foi publicada: {atividade.pendingImageReason} Envie outra imagem.
+            </p>
+          ) : null}
           {erro ? (
             <p style={{ fontSize: 12, marginTop: 4, color: 'var(--danger)' }}>{erro}</p>
           ) : null}

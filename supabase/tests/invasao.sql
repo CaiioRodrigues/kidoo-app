@@ -168,6 +168,45 @@ begin
 end $$;
 
 -- ------------------------------------------------------------------------
+-- Derrubar capa alheia sem passar pela denúncia.
+-- ------------------------------------------------------------------------
+/*
+  A denúncia tira a capa do ar de propósito — mas por UMA função, que registra
+  quem pediu e guarda a imagem para poder desfazer. Escrever em `activities`
+  direto seria o mesmo estrago sem nenhuma das duas coisas: capa apagada, sem
+  dono e sem volta.
+
+  E `reports` fecha o outro lado: uma linha forjada com `hidden_url` apontando
+  para onde o atacante quiser faria quem analisa olhar para a imagem dele.
+*/
+do $$
+declare v_antes text;
+begin
+  select image_url into v_antes from activities limit 1;
+
+  begin
+    update activities set image_url = null;
+  exception when others then null;
+  end;
+  if (select image_url from activities limit 1) is distinct from v_antes then
+    raise exception 'Ana apagou a capa de uma atividade escrevendo direto na tabela';
+  end if;
+
+  begin
+    insert into reports (guardian_id, activity_id, reason, hidden_url)
+    values (auth.uid(), (select id from activities limit 1), 'imagem', 'https://atacante/x.jpg');
+    raise exception 'Ana forjou uma denúncia com imagem escolhida por ela';
+  exception
+    when insufficient_privilege then null;
+    when others then
+      if sqlerrm like '%row-level security%' or sqlerrm like '%Ana forjou%' then
+        if sqlerrm like '%Ana forjou%' then raise; end if;
+      else raise;
+      end if;
+  end;
+end $$;
+
+-- ------------------------------------------------------------------------
 -- Chamar as RPCs de administração sem ser administradora.
 -- ------------------------------------------------------------------------
 /*

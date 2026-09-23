@@ -4,6 +4,7 @@
 \set arena '33333333-3333-3333-3333-333333333333'
 \set pampulha '44444444-4444-4444-4444-444444444444'
 \set ana '11111111-1111-1111-1111-111111111111'
+\set bruno '22222222-2222-2222-2222-222222222222'
 
 set role authenticated;
 
@@ -458,6 +459,242 @@ begin
          'responsável não tem agenda de parceiro';
   assert (select count(*) from partner_statement(6)) = 0,
          'responsável não vê extrato de repasse';
+end $$;
+
+-- ========================================================================
+-- A capa passa por análise antes de ir ao ar.
+--
+-- O bucket `atividades` é PÚBLICO e a capa aparece no cartão que toda família
+-- vê. Até a 000028 o parceiro trocava e a imagem estava no ar no mesmo
+-- segundo, sem ninguém olhar — num app para criança.
+--
+-- A guarda que importa NÃO é a tela: `partner_writes_activities` é `for all`
+-- e o grant da 000004 deu a tabela inteira, então o parceiro escrevia
+-- `image_url` por um PATCH. Uma fila só no painel seria teatro.
+-- ========================================================================
+\set capa 'dddddddd-0000-0000-0000-00000000000a'
+\set kadmin '99999999-9999-9999-9999-999999999999'
+
+reset role;
+insert into auth.users (id, email) values (:'kadmin', 'kidoo@exemplo.com') on conflict do nothing;
+insert into kidoo_admins (user_id) values (:'kadmin') on conflict do nothing;
+update activities set image_url = 'https://exemplo/atual.jpg',
+                      pending_image_url = null, pending_image_reason = null
+ where id = :'capa';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'arena', false);
+
+-- ---- o parceiro não publica sozinho -------------------------------------
+do $$ begin
+  begin
+    update activities set image_url = 'https://exemplo/PIRATA.jpg'
+     where id = 'dddddddd-0000-0000-0000-00000000000a';
+  exception when insufficient_privilege then null;
+  end;
+  assert (select image_url from activities where id = 'dddddddd-0000-0000-0000-00000000000a')
+         = 'https://exemplo/atual.jpg',
+         'o parceiro NÃO pode escrever image_url direto: a fila seria teatro';
+end $$;
+
+-- ---- mas manda para a fila ----------------------------------------------
+do $$ begin
+  perform submit_cover('dddddddd-0000-0000-0000-00000000000a', 'https://exemplo/nova.jpg');
+  assert (select pending_image_url from activities
+           where id = 'dddddddd-0000-0000-0000-00000000000a') = 'https://exemplo/nova.jpg',
+         'a capa enviada fica pendente';
+  -- E a que está no ar NÃO se mexe. Uma fila que apagasse a capa atual
+  -- protegeria o catálogo da imagem nova e o deixaria sem imagem nenhuma.
+  assert (select image_url from activities where id = 'dddddddd-0000-0000-0000-00000000000a')
+         = 'https://exemplo/atual.jpg',
+         'enquanto espera, a família continua vendo a capa anterior';
+end $$;
+
+-- ---- e não decide a própria capa ----------------------------------------
+do $$ begin
+  begin
+    perform approve_cover('dddddddd-0000-0000-0000-00000000000a');
+    assert false, 'parceiro não publica a própria capa';
+  exception when others then
+    assert sqlerrm = 'not_admin', 'esperado not_admin, veio: ' || sqlerrm;
+  end;
+  assert (select count(*) from pending_covers()) = 0,
+         'nem enxerga a fila de quem analisa';
+end $$;
+
+-- ---- nem manda capa para a atividade de outro ---------------------------
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$ begin
+  begin
+    perform submit_cover('dddddddd-0000-0000-0000-00000000000a', 'https://exemplo/da-ana.jpg');
+    assert false, 'quem não é do estabelecimento não manda capa para ele';
+  exception when others then
+    assert sqlerrm = 'not_this_partner', 'esperado not_this_partner, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- ---- quem é do Kidoo vê a fila, recusa com motivo e publica -------------
+select set_config('request.jwt.claim.sub', :'kadmin', false);
+do $$
+declare v_linha record;
+begin
+  assert (select count(*) from pending_covers()) = 1, 'a capa está na fila de análise';
+  select * into v_linha from pending_covers() limit 1;
+  assert v_linha.current_url = 'https://exemplo/atual.jpg' and
+         v_linha.pending_url = 'https://exemplo/nova.jpg',
+         'a fila mostra as duas: julgar a nova sem ver a atual é julgar metade';
+
+  begin
+    perform reject_cover('dddddddd-0000-0000-0000-00000000000a', '   ');
+    assert false, 'recusa sem motivo deveria falhar';
+  exception when others then
+    assert sqlerrm = 'reason_required', 'esperado reason_required, veio: ' || sqlerrm;
+  end;
+
+  perform reject_cover('dddddddd-0000-0000-0000-00000000000a', 'A imagem não mostra o espaço.');
+  assert (select pending_image_url from activities
+           where id = 'dddddddd-0000-0000-0000-00000000000a') is null,
+         'recusar tira da fila';
+  assert (select image_url from activities where id = 'dddddddd-0000-0000-0000-00000000000a')
+         = 'https://exemplo/atual.jpg',
+         'e NÃO publica: era esse o ponto';
+  assert (select pending_image_reason from activities
+           where id = 'dddddddd-0000-0000-0000-00000000000a') = 'A imagem não mostra o espaço.',
+         'o motivo fica guardado para o parceiro ler';
+end $$;
+
+-- ---- e o caminho feliz --------------------------------------------------
+select set_config('request.jwt.claim.sub', :'arena', false);
+do $$ begin
+  perform submit_cover('dddddddd-0000-0000-0000-00000000000a', 'https://exemplo/boa.jpg');
+  -- Mandar de novo limpa o motivo antigo: ele era sobre a imagem recusada.
+  assert (select pending_image_reason from activities
+           where id = 'dddddddd-0000-0000-0000-00000000000a') is null,
+         'enviar outra imagem apaga o motivo da recusa anterior';
+end $$;
+
+select set_config('request.jwt.claim.sub', :'kadmin', false);
+do $$ begin
+  perform approve_cover('dddddddd-0000-0000-0000-00000000000a');
+  assert (select image_url from activities where id = 'dddddddd-0000-0000-0000-00000000000a')
+         = 'https://exemplo/boa.jpg',
+         'aprovar publica a capa para as famílias';
+  assert (select pending_image_url from activities
+           where id = 'dddddddd-0000-0000-0000-00000000000a') is null,
+         'e esvazia a fila';
+
+  begin
+    perform approve_cover('dddddddd-0000-0000-0000-00000000000a');
+    assert false, 'aprovar sem nada pendente deveria falhar';
+  exception when others then
+    assert sqlerrm = 'no_pending_cover', 'esperado no_pending_cover, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- ========================================================================
+-- A denúncia tira a capa do ar, e dá para desfazer.
+--
+-- Cobre o que escapa da fila da 000028: a capa publicada antes de ela existir,
+-- e o julgamento que erra.
+--
+-- UMA denúncia basta, e é decisão, não descuido: capa escondida por engano
+-- vira a foto genérica por alguns minutos; imagem imprópria no ar está num app
+-- de criança. A conta é assimétrica, e o desfazer é o que torna isso aceitável.
+-- ========================================================================
+reset role;
+update activities set image_url = 'https://exemplo/boa.jpg' where id = :'capa';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+
+do $$ begin
+  perform report_activity('dddddddd-0000-0000-0000-00000000000a', 'imagem', 'Não é criança.');
+end $$;
+
+reset role;
+do $$
+declare v_rep reports%rowtype;
+begin
+  assert (select image_url from activities where id = 'dddddddd-0000-0000-0000-00000000000a') is null,
+         'denunciar a imagem tira a capa do ar NA HORA';
+
+  select * into v_rep from reports limit 1;
+  assert v_rep.hidden_url = 'https://exemplo/boa.jpg',
+         'e guarda qual era, senão não há como desfazer (veio: ' ||
+         coalesce(v_rep.hidden_url, '(nulo)') || ')';
+  assert v_rep.detail = 'Não é criança.', 'o que a família escreveu chega a quem analisa';
+end $$;
+
+-- ---- a mesma família não denuncia duas vezes ----------------------------
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'ana', false);
+do $$ begin
+  begin
+    perform report_activity('dddddddd-0000-0000-0000-00000000000a', 'imagem');
+    assert false, 'uma conta sozinha não derruba a mesma capa repetidamente';
+  exception when others then
+    assert sqlerrm = 'already_reported', 'esperado already_reported, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- ---- e não escreve na tabela por fora -----------------------------------
+do $$
+declare v_antes int := (select count(*) from reports);
+begin
+  begin
+    insert into reports (guardian_id, activity_id, reason)
+    values (auth.uid(), 'dddddddd-0000-0000-0000-00000000000b', 'outro');
+  exception when others then null;
+  end;
+  assert (select count(*) from reports) = v_antes,
+         'a denúncia entra por função: é ela que esconde a capa junto';
+end $$;
+
+-- ---- nem enxerga a fila, nem resolve ------------------------------------
+do $$ begin
+  assert (select count(*) from pending_reports()) = 0, 'a família não vê a fila de denúncias';
+  begin
+    perform resolve_report((select id from reports limit 1), true);
+    assert false, 'a família não resolve a própria denúncia';
+  exception when others then
+    assert sqlerrm = 'not_admin', 'esperado not_admin, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- ---- quem é do Kidoo vê, e restaura -------------------------------------
+select set_config('request.jwt.claim.sub', :'kadmin', false);
+do $$
+declare v_id uuid;
+begin
+  assert (select count(*) from pending_reports()) = 1, 'a denúncia está na fila';
+  select id into v_id from pending_reports() limit 1;
+
+  perform resolve_report(v_id, true, 'Imagem está adequada.');
+  assert (select image_url from activities where id = 'dddddddd-0000-0000-0000-00000000000a')
+         = 'https://exemplo/boa.jpg',
+         'restaurar devolve a capa que estava no ar';
+  assert (select count(*) from pending_reports()) = 0, 'e sai da fila';
+
+  begin
+    perform resolve_report(v_id, true);
+    assert false, 'resolver duas vezes deveria falhar';
+  exception when others then
+    assert sqlerrm = 'already_resolved', 'esperado already_resolved, veio: ' || sqlerrm;
+  end;
+end $$;
+
+-- ---- manter fora do ar também é uma decisão -----------------------------
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'bruno', false);
+do $$ begin
+  perform report_activity('dddddddd-0000-0000-0000-00000000000a', 'imagem');
+end $$;
+
+select set_config('request.jwt.claim.sub', :'kadmin', false);
+do $$ begin
+  perform resolve_report((select id from pending_reports() limit 1), false, 'Imprópria.');
+  assert (select image_url from activities where id = 'dddddddd-0000-0000-0000-00000000000a') is null,
+         'recusar mantém a capa fora: o parceiro manda outra, que passa pela fila';
 end $$;
 
 reset role;

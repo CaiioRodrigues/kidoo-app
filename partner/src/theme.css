@@ -76,42 +76,85 @@
   }
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 /* As formas da vitrine têm a largura da janela e sangram além dela de
    propósito — é o que as faz parecer maiores que a tela. O corte precisa
    acontecer aqui, na raiz: posto na coluna de 980px, ele aparava o desenho
    numa borda vertical reta no meio do monitor.
    `clip` e não `hidden`: `hidden` criaria um contêiner de rolagem. */
-#root { overflow-x: clip; }
+#root {
+  overflow-x: clip;
+}
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: Poppins, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    Poppins,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 { margin: 0; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; }
-h1 { font-size: 26px; font-weight: 800; }
-h2 { font-size: 19px; }
-h3 { font-size: 16px; }
-p  { margin: 0; }
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+h1 {
+  font-size: 26px;
+  font-weight: 800;
+}
+h2 {
+  font-size: 19px;
+}
+h3 {
+  font-size: 16px;
+}
+p {
+  margin: 0;
+}
 
-button { font: inherit; cursor: pointer; }
-button:disabled { cursor: not-allowed; opacity: 0.5; }
-input, select { font: inherit; color: inherit; }
+button {
+  font: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
 
 /* Foco visível é acessibilidade, não enfeite: quem opera de teclado num balcão
    precisa saber onde está. */
-:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
 
 /* ------------------------------------------------------------------ layout */
 
-.shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+.shell {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  min-height: 100vh;
+}
 
 .sidebar {
   background: var(--card);
@@ -124,28 +167,77 @@ input, select { font: inherit; color: inherit; }
 
 /* Coluna, e não linha: o logotipo é uma palavra deitada, e o papel embaixo
    dele lê como legenda. Lado a lado, os dois competiam pela mesma altura. */
-.brand { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 0 8px 22px; }
-.brand-logo { height: 30px; width: auto; display: block; }
-.brand-role { font-size: 12px; color: var(--text-faint); }
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 0 8px 22px;
+}
+.brand-logo {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+.brand-role {
+  font-size: 12px;
+  color: var(--text-faint);
+}
 
 .nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border: 0; border-radius: 10px;
-  background: transparent; color: var(--text-muted);
-  text-align: left; width: 100%; font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  text-align: left;
+  width: 100%;
+  font-weight: 500;
 }
-.nav-item:hover { background: var(--card-muted); color: var(--text); }
-.nav-item[aria-current='page'] { background: var(--purple-soft); color: var(--purple); font-weight: 600; }
+.nav-item:hover {
+  background: var(--card-muted);
+  color: var(--text);
+}
+.nav-item[aria-current='page'] {
+  background: var(--purple-soft);
+  color: var(--purple);
+  font-weight: 600;
+}
 
-.sidebar-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
-.sidebar-who { font-size: 12px; color: var(--text-faint); padding: 0 12px 10px; }
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.sidebar-who {
+  font-size: 12px;
+  color: var(--text-faint);
+  padding: 0 12px 10px;
+}
 
 /* `min-width: 0` não é enfeite: sem ele, a coluna `1fr` do grid cresce para
    caber o filho mais largo — a grade da semana — e a PÁGINA INTEIRA ganha
    barra horizontal, em vez de a grade rolar dentro do próprio cartão. */
-.main { padding: 30px 34px 60px; max-width: 1060px; min-width: 0; }
-.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 26px; }
-.page-sub { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+.main {
+  padding: 30px 34px 60px;
+  max-width: 1060px;
+  min-width: 0;
+}
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+.page-sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-top: 4px;
+}
 
 /* ------------------------------------------------------------------- peças */
 
@@ -155,92 +247,191 @@ input, select { font: inherit; color: inherit; }
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
-.card + .card { margin-top: 18px; }
-.card-pad { padding: 20px 24px; }
+.card + .card {
+  margin-top: 18px;
+}
+.card-pad {
+  padding: 20px 24px;
+}
 
-.row { display: flex; align-items: center; gap: 14px; }
-.grow { flex: 1; min-width: 0; }
-.stack { display: flex; flex-direction: column; gap: 18px; }
-.muted { color: var(--text-muted); }
-.faint { color: var(--text-faint); font-size: 13px; }
-.mono { font-variant-numeric: tabular-nums; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.muted {
+  color: var(--text-muted);
+}
+.faint {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+.mono {
+  font-variant-numeric: tabular-nums;
+}
 
 .badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 2px 9px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
-.badge-ociosa  { background: var(--teal-soft); color: var(--teal); }
-.badge-cheia   { background: var(--purple-soft); color: var(--purple); }
-.badge-ok      { background: var(--success-soft); color: var(--success); }
-.badge-espera  { background: var(--warning-soft); color: var(--warning); }
-.badge-neutro  { background: var(--card-muted); color: var(--text-muted); }
+.badge-ociosa {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+.badge-cheia {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+.badge-ok {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.badge-espera {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.badge-neutro {
+  background: var(--card-muted);
+  color: var(--text-muted);
+}
 
 .btn {
-  border: 1px solid transparent; border-radius: 10px;
-  padding: 9px 16px; font-weight: 600;
-  background: var(--purple); color: var(--on-purple);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-weight: 600;
+  background: var(--purple);
+  color: var(--on-purple);
 }
-.btn:hover:not(:disabled) { background: var(--purple-dark); }
-.btn-ghost { background: transparent; color: var(--text); border-color: var(--border-strong); }
-.btn-ghost:hover:not(:disabled) { background: var(--card-muted); }
-.btn-sm { padding: 5px 11px; font-size: 13px; border-radius: 8px; }
+.btn:hover:not(:disabled) {
+  background: var(--purple-dark);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--card-muted);
+}
+.btn-sm {
+  padding: 5px 11px;
+  font-size: 13px;
+  border-radius: 8px;
+}
 /* `btn-secundario` já era usado nas capas das atividades e não existia: o
    botão caía no roxo cheio do `.btn` e competia com a ação principal da tela. */
 .btn-secundario {
-  background: var(--purple-soft); color: var(--purple); border-color: transparent;
+  background: var(--purple-soft);
+  color: var(--purple);
+  border-color: transparent;
 }
-.btn-secundario:hover:not(:disabled) { background: var(--purple-tint); }
-.btn-perigo { background: var(--danger); color: #fff; }
-.btn-perigo:hover:not(:disabled) { filter: brightness(0.92); }
+.btn-secundario:hover:not(:disabled) {
+  background: var(--purple-tint);
+}
+.btn-perigo {
+  background: var(--danger);
+  color: #fff;
+}
+.btn-perigo:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
 
 /* ------------------------------------------------------ cadastro do espaço */
 
 .cadastro-grade {
-  display: grid; gap: 14px;
+  display: grid;
+  gap: 14px;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 /* Nome e endereço ocupam a linha: cortados em 190px, o texto some pela
    esquerda enquanto se digita, que é onde o erro de digitação nasce. */
-.cadastro-grade .span-2 { grid-column: 1 / -1; }
+.cadastro-grade .span-2 {
+  grid-column: 1 / -1;
+}
 
-.cadastro-secao { border-top: 1px solid var(--border); margin-top: 22px; padding-top: 18px; }
+.cadastro-secao {
+  border-top: 1px solid var(--border);
+  margin-top: 22px;
+  padding-top: 18px;
+}
 
 /* Alto o bastante para enxergar a quadra e a rua ao lado — abaixo disso o
    parceiro não consegue conferir se o alfinete caiu na porta certa. */
 .mapa {
-  height: 320px; border-radius: 12px; overflow: hidden;
-  border: 1px solid var(--border-strong); z-index: 0;
+  height: 320px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  z-index: 0;
 }
 /* Mesma altura enquanto o mapa não chegou: sem isto a página pula quando ele
    carrega, e o toque de quem já estava mirando cai em outro lugar. */
 .mapa-carregando {
-  display: grid; place-items: center;
-  background: var(--card-muted); color: var(--text-faint);
+  display: grid;
+  place-items: center;
+  background: var(--card-muted);
+  color: var(--text-faint);
 }
 /* O Leaflet desenha os créditos em branco fixo; no tema escuro some. */
-.leaflet-container { background: var(--card-muted); font: inherit; }
-.leaflet-control-attribution {
-  background: var(--card) !important; color: var(--text-faint) !important; font-size: 11px;
+.leaflet-container {
+  background: var(--card-muted);
+  font: inherit;
 }
-.leaflet-control-attribution a { color: var(--text-muted) !important; }
+.leaflet-control-attribution {
+  background: var(--card) !important;
+  color: var(--text-faint) !important;
+  font-size: 11px;
+}
+.leaflet-control-attribution a {
+  color: var(--text-muted) !important;
+}
 
 .chip-modalidade {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 14px; border-radius: 999px;
-  border: 1px solid var(--border-strong); background: var(--card);
-  font-size: 14px; font-weight: 600; color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--card);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
 }
-.chip-modalidade:hover:not(:disabled) { border-color: var(--purple); }
+.chip-modalidade:hover:not(:disabled) {
+  border-color: var(--purple);
+}
 .chip-modalidade[aria-pressed='true'] {
-  background: var(--purple); border-color: var(--purple); color: var(--on-purple);
+  background: var(--purple);
+  border-color: var(--purple);
+  color: var(--on-purple);
 }
 
 /* O formulário de publicar turma, em três linhas de significado: o quê,
    quando, e quanta gente. A faixa de colunas iguais que havia antes não dizia
    nada sobre o que se relaciona com o quê — e estourava quando um campo
    ganhava explicação. */
-.turma-grade { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.turma-grade {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
 .turma-lotacao {
   grid-column: 1 / -1;
   display: grid;
@@ -251,49 +442,115 @@ input, select { font: inherit; color: inherit; }
   align-items: start;
 }
 
-.field { display: flex; flex-direction: column; gap: 6px; }
-/* Menor que o label de propósito: explica sem competir com ele. */
-.hint { color: var(--text-faint); font-size: 12px; line-height: 1.45; }
-.field label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
-.input {
-  background: var(--card); border: 1px solid var(--border-strong);
-  border-radius: 10px; padding: 10px 12px; width: 100%;
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.input:focus { border-color: var(--purple); }
+/* Menor que o label de propósito: explica sem competir com ele. */
+.hint {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.input {
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 10px 12px;
+  width: 100%;
+}
+.input:focus {
+  border-color: var(--purple);
+}
+/* Um `<textarea class="input">` nasce com a fonte monoespaçada do navegador e
+   um tamanho menor — do lado de um `<input>` irmão, lê como outro widget. */
+textarea.input {
+  font: inherit;
+  resize: vertical;
+}
 
-.alert { border-radius: 10px; padding: 11px 14px; font-size: 14px; }
-.alert-erro { background: var(--danger-soft); color: var(--danger); }
-.alert-ok { background: var(--success-soft); color: var(--success); }
+.alert {
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 14px;
+}
+.alert-erro {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.alert-ok {
+  background: var(--success-soft);
+  color: var(--success);
+}
 
-.empty { padding: 44px 20px; text-align: center; color: var(--text-muted); }
-.empty-mark { font-size: 30px; margin-bottom: 8px; }
+.empty {
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.empty-mark {
+  font-size: 30px;
+  margin-bottom: 8px;
+}
 
 /* ------------------------------------------------------- cabeçalho da turma */
 
 /* No desktop é uma linha só; no celular os contadores viram uma faixa própria.
    Sem isto a linha não quebrava e "Confirmados" e o botão saíam pela direita —
    justamente na tela em que alguém confirma presença com a criança na porta. */
-.turma-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.turma-id { flex: 1 1 240px; min-width: 0; }
-.turma-nums { display: flex; gap: 6px; }
+.turma-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.turma-id {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.turma-nums {
+  display: flex;
+  gap: 6px;
+}
 
 @media (max-width: 760px) {
-  .turma-nums { width: 100%; justify-content: space-between; }
-  .turma-head > .btn { width: 100%; }
+  .turma-nums {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .turma-head > .btn {
+    width: 100%;
+  }
 }
 
 /* ------------------------------------------------------- alternar dia/semana */
 
 .alternador {
-  display: inline-flex; padding: 3px; gap: 3px;
-  background: var(--card-muted); border-radius: 10px;
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  background: var(--card-muted);
+  border-radius: 10px;
 }
 .alternador-opcao {
-  border: 0; background: transparent; color: var(--text-muted);
-  padding: 5px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
 }
 .alternador-opcao[aria-pressed='true'] {
-  background: var(--card); color: var(--text); box-shadow: var(--shadow);
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow);
 }
 
 /* ------------------------------------------------------------ grade da semana */
@@ -304,107 +561,224 @@ input, select { font: inherit; color: inherit; }
 /* `position: relative` para as colunas medirem a posição delas DENTRO da
    caixa que rola — é o que a grade usa para trazer o dia de hoje para a vista
    quando ele não cabe. */
-.grade-rolagem { overflow-x: auto; padding: 6px; position: relative; }
+.grade-rolagem {
+  overflow-x: auto;
+  padding: 6px;
+  position: relative;
+}
 .grade-semana {
   /* 130px é a menor coluna em que "Judô para Pequenos" ainda cabe em duas
      linhas — e é o que faz a semana inteira caber num monitor de 1280 sem
      rolar. Abaixo disso o nome quebraria em quatro linhas; acima, sábado
      ficaria fora da tela, que é justamente o dia que ele veio conferir. */
-  display: grid; grid-template-columns: repeat(7, minmax(130px, 1fr)); gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(130px, 1fr));
+  gap: 8px;
 }
 .grade-coluna {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 10px 8px; border-radius: 12px; background: var(--card-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  background: var(--card-muted);
 }
-.grade-cabeca { display: flex; align-items: baseline; gap: 6px; padding: 0 4px 2px; }
+.grade-cabeca {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 4px 2px;
+}
 .grade-dia {
-  font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
-.grade-numero { font-size: 15px; font-weight: 700; }
+.grade-numero {
+  font-size: 15px;
+  font-weight: 700;
+}
 .grade-numero-hoje {
-  background: var(--purple); color: var(--on-purple);
-  border-radius: 999px; padding: 1px 8px; font-size: 13px;
+  background: var(--purple);
+  color: var(--on-purple);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 13px;
 }
-.grade-vazio { color: var(--text-faint); font-size: 13px; padding: 6px 4px; margin: 0; }
+.grade-vazio {
+  color: var(--text-faint);
+  font-size: 13px;
+  padding: 6px 4px;
+  margin: 0;
+}
 
 .grade-turma {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
-  width: 100%; text-align: left;
-  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
   padding: 9px 10px;
 }
-.grade-turma:hover { border-color: var(--purple); }
-.grade-hora { font-size: 13px; font-weight: 700; color: var(--purple); }
+.grade-turma:hover {
+  border-color: var(--purple);
+}
+.grade-hora {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--purple);
+}
 /* Nome de turma é longo ("Ginástica Divertida"), a coluna é estreita, e cortar
    com reticências esconderia justamente o que diferencia duas turmas. */
-.grade-titulo { font-size: 13px; font-weight: 600; line-height: 1.25; }
-.grade-vagas { font-size: 12px; color: var(--text-faint); }
+.grade-titulo {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.grade-vagas {
+  font-size: 12px;
+  color: var(--text-faint);
+}
 /* Só aparece quando a conta administra mais de um lugar. Com um só, repetir o
    nome dele em cada cartão seria ruído em coluna de 130px. */
 .grade-onde {
-  font-size: 11px; font-weight: 600; color: var(--purple);
-  background: var(--purple-soft); border-radius: 6px; padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--purple);
+  background: var(--purple-soft);
+  border-radius: 6px;
+  padding: 1px 6px;
 }
 
 /* --------------------------------------------------- dias da semana (série) */
 
-.dias { display: flex; gap: 6px; flex-wrap: wrap; }
-.dia-chip {
-  width: 46px; height: 42px; border-radius: 10px;
-  border: 1px solid var(--border-strong); background: var(--card);
-  font-size: 13px; font-weight: 700; color: var(--text-muted);
+.dias {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
-.dia-chip:hover:not(:disabled) { border-color: var(--purple); }
+.dia-chip {
+  width: 46px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--card);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.dia-chip:hover:not(:disabled) {
+  border-color: var(--purple);
+}
 /* `aria-pressed` é o estado de verdade do botão, então é ele que pinta: assim
    não há como a cor dizer uma coisa e o leitor de tela dizer outra. */
 .dia-chip[aria-pressed='true'] {
-  background: var(--purple); border-color: var(--purple); color: var(--on-purple);
+  background: var(--purple);
+  border-color: var(--purple);
+  color: var(--on-purple);
 }
 
 /* ------------------------------------------------------------------ tabela */
 
-.table { width: 100%; border-collapse: collapse; }
-.table th {
-  text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.03em;
-  text-transform: uppercase; color: var(--text-faint);
-  padding: 0 14px 9px; border-bottom: 1px solid var(--border);
+.table {
+  width: 100%;
+  border-collapse: collapse;
 }
-.table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.table tr:last-child td { border-bottom: 0; }
-.table-scroll { overflow-x: auto; }
+.table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0 14px 9px;
+  border-bottom: 1px solid var(--border);
+}
+.table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.table tr:last-child td {
+  border-bottom: 0;
+}
+.table-scroll {
+  overflow-x: auto;
+}
 
 /* --------------------------------------------------------------- entrar */
 
 /* A página do cadastro não usa a casca do painel: quem está aqui ainda não
    tem agenda, turma nem repasse, e um menu com três itens mortos ao lado do
    formulário só diria "você não pode usar nada disto". */
-.cadastro-pagina { max-width: 820px; margin: 0 auto; padding: 28px 20px 60px; }
-.cadastro-cabeca {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 22px;
+.cadastro-pagina {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
 }
-.cadastro-cabeca > button { margin-left: auto; }
+.cadastro-cabeca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.cadastro-cabeca > button {
+  margin-left: auto;
+}
 
-.login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-.login-card { width: 100%; max-width: 380px; }
+.login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.login-card {
+  width: 100%;
+  max-width: 380px;
+}
 
 /* ------------------------------------------------------------ responsivo */
 
 @media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; }
+  .shell {
+    grid-template-columns: 1fr;
+  }
   .sidebar {
-    flex-direction: row; align-items: center; gap: 6px;
-    border-right: 0; border-bottom: 1px solid var(--border);
-    padding: 10px 12px; overflow-x: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
+    overflow-x: auto;
   }
   /* Escopadas na barra lateral: fora dela, a vitrine e o login também usam a
      marca, e esconder o papel ("Para estabelecimentos") justamente no celular
      tirava a única palavra que diz a quem a página se dirige. */
-  .sidebar .brand { padding: 0 10px 0 4px; }
-  .sidebar .brand-role, .sidebar-foot { display: none; }
-  .nav-item { width: auto; white-space: nowrap; }
-  .main { padding: 20px 16px 50px; }
-  .page-head { flex-direction: column; align-items: flex-start; }
+  .sidebar .brand {
+    padding: 0 10px 0 4px;
+  }
+  .sidebar .brand-role,
+  .sidebar-foot {
+    display: none;
+  }
+  .nav-item {
+    width: auto;
+    white-space: nowrap;
+  }
+  .main {
+    padding: 20px 16px 50px;
+  }
+  .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 /* ------------------------------------------------------------- vitrine ---
@@ -428,15 +802,29 @@ input, select { font: inherit; color: inherit; }
   position: relative;
 }
 /* É aqui que o ritmo acontece de verdade. */
-.vitrine > main { display: flex; flex-direction: column; gap: var(--vao); }
-@media (max-width: 720px) { .vitrine { --vao: 40px; } }
+.vitrine > main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vao);
+}
+@media (max-width: 720px) {
+  .vitrine {
+    --vao: 40px;
+  }
+}
 .vitrine-topo {
-  position: relative; z-index: 1;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 /* O botão do topo fica por cima das formas, e a borda clara do ghost some
    contra o lilás. Fundo de cartão devolve o contorno sem mudar a hierarquia. */
-.vitrine-topo .btn-ghost { background: var(--card); }
+.vitrine-topo .btn-ghost {
+  background: var(--card);
+}
 
 /* O herói é o único bloco com as formas da marca por trás. Repetidas em cada
    seção elas virariam textura de fundo e parariam de significar alguma coisa. */
@@ -461,16 +849,37 @@ input, select { font: inherit; color: inherit; }
   pointer-events: none;
   z-index: 0;
 }
-@media (prefers-color-scheme: dark) { .blobs { opacity: 0.16; } }
+@media (prefers-color-scheme: dark) {
+  .blobs {
+    opacity: 0.16;
+  }
+}
 
 /* Acima das formas, senão o texto disputa leitura com elas. */
-.vitrine-fala { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 16px; }
+.vitrine-fala {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 /* Exibido na metade do arquivo: é isso que dá nitidez em tela retina, onde
    cada pixel de CSS vale dois de imagem. Sem limite, o navegador mostrava o
    arquivo no tamanho natural e o desenho saía macio. */
-.vitrine-mascote { position: relative; z-index: 1; line-height: 0; }
-.vitrine-mascote img { height: 350px; width: auto; }
-@media (max-width: 720px) { .vitrine-mascote img { height: 230px; } }
+.vitrine-mascote {
+  position: relative;
+  z-index: 1;
+  line-height: 0;
+}
+.vitrine-mascote img {
+  height: 350px;
+  width: auto;
+}
+@media (max-width: 720px) {
+  .vitrine-mascote img {
+    height: 230px;
+  }
+}
 
 .vitrine-titulo {
   font-size: clamp(29px, 5.4vw, 46px);
@@ -478,16 +887,44 @@ input, select { font: inherit; color: inherit; }
   letter-spacing: -0.02em;
   margin: 0;
 }
-.vitrine-destaque { color: var(--purple); }
+.vitrine-destaque {
+  color: var(--purple);
+}
 /* Medida de leitura: linha longa demais cansa antes do segundo parágrafo. */
-.vitrine-linha { font-size: 17px; line-height: 1.55; color: var(--text-muted); max-width: 52ch; margin: 0; }
-.vitrine-acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
-.vitrine-acoes .btn { padding: 11px 20px; font-size: 15px; }
+.vitrine-linha {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 52ch;
+  margin: 0;
+}
+.vitrine-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+.vitrine-acoes .btn {
+  padding: 11px 20px;
+  font-size: 15px;
+}
 
 /* Cor de texto normal, não `faint`: logo acima dele fica a linha de Belo
    Horizonte, que é faint, e dois cinzas seguidos leem como um parágrafo só. */
-.vitrine-subtitulo { font-size: 15px; color: var(--text); margin: 0 0 12px; font-weight: 700; }
-.vitrine-chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.vitrine-subtitulo {
+  font-size: 15px;
+  color: var(--text);
+  margin: 0 0 12px;
+  font-weight: 700;
+}
+.vitrine-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 /* A cor vem do elemento porque é dado (a modalidade), não estilo — mas chega
    como variável, para o tema escuro poder trocar o par. */
 .chip-modalidade-cor {
@@ -499,10 +936,17 @@ input, select { font: inherit; color: inherit; }
   color: var(--m-cor);
 }
 @media (prefers-color-scheme: dark) {
-  .chip-modalidade-cor { background: var(--m-fundo-escuro); color: var(--m-cor-escura); }
+  .chip-modalidade-cor {
+    background: var(--m-fundo-escuro);
+    color: var(--m-cor-escura);
+  }
 }
 
-.vitrine-passos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.vitrine-passos {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
 .vitrine-passo {
   background: var(--card);
   border: 1px solid var(--border);
@@ -513,17 +957,30 @@ input, select { font: inherit; color: inherit; }
   padding: 18px 20px 20px;
   box-shadow: var(--shadow);
 }
-.vitrine-passo h3 { margin: 12px 0 6px; font-size: 16px; }
-.vitrine-passo p { margin: 0; font-size: 14px; line-height: 1.5; }
+.vitrine-passo h3 {
+  margin: 12px 0 6px;
+  font-size: 16px;
+}
+.vitrine-passo p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
 .vitrine-numero {
-  display: grid; place-items: center;
-  width: 30px; height: 30px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-blob);
-  background: var(--purple-soft); color: var(--purple);
-  font-weight: 700; font-size: 15px;
+  background: var(--purple-soft);
+  color: var(--purple);
+  font-weight: 700;
+  font-size: 15px;
 }
 
-.vitrine-requisitos { border-radius: var(--radius-blob); }
+.vitrine-requisitos {
+  border-radius: var(--radius-blob);
+}
 /* Duas colunas na largura cheia: com `max-width` o cartão deixava metade da
    página vazia à direita, e a lista tem texto curto demais para sustentar
    uma linha inteira. */
@@ -534,9 +991,21 @@ input, select { font: inherit; color: inherit; }
   align-items: start;
   padding: 22px 24px 24px;
 }
-.vitrine-requisitos h2 { grid-column: 1 / -1; }
-.vitrine-lista { margin: 0; padding-left: 20px; color: var(--text-muted); line-height: 1.7; }
-.vitrine-fecho { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.vitrine-requisitos h2 {
+  grid-column: 1 / -1;
+}
+.vitrine-lista {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.vitrine-fecho {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
 
 /* ------------------------------------------------------------- rodapé ---
  *
@@ -552,7 +1021,10 @@ input, select { font: inherit; color: inherit; }
   gap: 18px 28px;
   align-items: start;
 }
-.rodape-marca { display: flex; align-items: flex-start; }
+.rodape-marca {
+  display: flex;
+  align-items: flex-start;
+}
 .rodape-frase {
   margin: 4px 0 0;
   font-size: 13px;
@@ -560,29 +1032,61 @@ input, select { font: inherit; color: inherit; }
   color: var(--text-muted);
   max-width: 46ch;
 }
-.rodape-acoes { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-.rodape-fim { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 14px; }
+.rodape-acoes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+.rodape-fim {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
 /* Dentro do painel o rodapé fecha a coluna de trabalho: mais discreto, e
    afastado do conteúdo para não parecer parte da última tabela. */
-.main .rodape { margin-top: 56px; }
+.main .rodape {
+  margin-top: 56px;
+}
 
 /* Botão que se comporta como link: usado onde a ação é secundária e o peso de
    um botão de verdade competiria com a chamada principal. */
 .btn-link {
-  background: none; border: none; padding: 0;
-  color: var(--purple); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--purple);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
-.btn-link:hover { text-decoration: underline; }
+.btn-link:hover {
+  text-decoration: underline;
+}
 
 /* No celular o mascote e o texto param de dividir a linha, e o rodapé deixa de
    empurrar as ações para a direita — numa coluna só, alinhar à direita separa
    sem motivo. */
 @media (max-width: 720px) {
-  .vitrine-hero { grid-template-columns: 1fr; gap: 8px; }
-  .vitrine-requisitos .card-pad { grid-template-columns: 1fr; gap: 16px; }
-  .vitrine-mascote { order: -1; }
-  .rodape { grid-template-columns: 1fr; }
-  .rodape-acoes { flex-direction: row; align-items: center; }
+  .vitrine-hero {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .vitrine-requisitos .card-pad {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .vitrine-mascote {
+    order: -1;
+  }
+  .rodape {
+    grid-template-columns: 1fr;
+  }
+  .rodape-acoes {
+    flex-direction: row;
+    align-items: center;
+  }
 }
 
 /* ------------------------------------------------ documentos públicos ----- */
@@ -639,4 +1143,258 @@ input, select { font: inherit; color: inherit; }
   margin: 40px 0 20px;
   border: none;
   border-top: 1px solid var(--border);
+}
+
+/* ===================================================== votação pública ==== */
+/*
+  Halloween mora AQUI, e só aqui.
+
+  O banco fala de "votação", "categoria" e "inscrito"; a página fala de abóbora
+  e teia. É essa fronteira que permite a próxima votação ser "melhor parceiro
+  do ano" trocando só esta folha de estilo e os rótulos que alguém digitou.
+
+  Tema escuro fixo, e não o do painel: a votação abre no celular de gente numa
+  festa à noite, e o roxo claro do painel de trabalho não tem nada a ver com
+  isso.
+*/
+.hw {
+  --laranja: #ff7a18;
+  --roxo: #2a1246;
+  --lilas: #b98cff;
+  --osso: #f5ecdd;
+
+  position: relative;
+  /* Grade de uma célula em vez de bloco: a porta tem quatro linhas de texto e
+     dois botões, e alinhada ao topo ela deixava metade da tela vazia num
+     celular. Centralizada, o conteúdo fica onde o polegar está — e as telas
+     longas (a cédula) continuam crescendo para baixo, porque `min-height`
+     é mínimo, não altura. */
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 100vh;
+  /* A dinâmica, onde existe: no Safari do iPhone, `100vh` conta a barra de
+     endereço que some ao rolar, e o rodapé fica escondido atrás dela. */
+  min-height: 100dvh;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 0%, #3d1a63 0%, #170b2b 55%, #0b0616 100%);
+  color: var(--osso);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  padding: 40px 18px 56px;
+}
+.hw-teia {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150px;
+  height: 150px;
+  color: rgba(185, 140, 255, 0.38);
+  pointer-events: none;
+}
+/* A segunda, no canto oposto e de cabeça para baixo: uma teia só puxava a
+   página inteira para a esquerda. */
+.hw-teia-2 {
+  top: auto;
+  left: auto;
+  right: 0;
+  bottom: 0;
+  transform: rotate(180deg);
+  opacity: 0.55;
+}
+.hw-palco {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+}
+.hw-titulo {
+  margin: 0 0 6px;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  /* O brilho é do texto, não de uma caixa atrás: caixa acesa num fundo escuro
+     vira retângulo flutuando, e o título deixa de ser título. */
+  text-shadow: 0 0 22px rgba(255, 122, 24, 0.55);
+}
+.hw-sub {
+  margin: 0 0 28px;
+  color: rgba(245, 236, 221, 0.7);
+}
+.hw-espera,
+.hw-nota {
+  color: rgba(245, 236, 221, 0.6);
+  font-size: 14px;
+  margin: 8px 0 22px;
+}
+.hw-erro {
+  color: #ff9c9c;
+  margin: 10px 0;
+}
+
+.hw-botao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 20px 24px;
+  border: none;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ff9a3c 0%, var(--laranja) 100%);
+  color: #2a1003;
+  font-size: 19px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow:
+    0 10px 30px rgba(255, 122, 24, 0.35),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.hw-botao:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px rgba(255, 122, 24, 0.45);
+}
+.hw-botao:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.hw-botao:disabled {
+  /* Apagado, não invisível: some quando a pessoa precisa entender POR QUE ele
+     não serve ainda — e a nota logo abaixo diz. */
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.hw-botao-2 {
+  background: linear-gradient(180deg, #c49bff 0%, #8b5cf6 100%);
+  color: #17082e;
+  box-shadow:
+    0 10px 30px rgba(139, 92, 246, 0.35),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+}
+.hw-botao-2:hover:not(:disabled) {
+  box-shadow: 0 14px 36px rgba(139, 92, 246, 0.45);
+}
+.hw-abobora {
+  font-size: 24px;
+  line-height: 1;
+}
+.hw-voltar {
+  margin-top: 26px;
+  background: none;
+  border: none;
+  color: rgba(245, 236, 221, 0.6);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 10px;
+}
+
+.hw-caixa {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(185, 140, 255, 0.22);
+  border-radius: 20px;
+  padding: 20px;
+}
+.hw-h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  color: var(--laranja);
+}
+.hw-categoria + .hw-categoria {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(185, 140, 255, 0.18);
+}
+
+.hw-foto {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 2px dashed rgba(185, 140, 255, 0.5);
+  border-radius: 16px;
+  cursor: pointer;
+  text-align: center;
+  color: rgba(245, 236, 221, 0.65);
+  overflow: hidden;
+}
+.hw-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hw-foto input {
+  display: none;
+}
+.hw-input {
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(185, 140, 255, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--osso);
+  font-size: 16px; /* 16px evita o zoom automático do Safari ao focar */
+  box-sizing: border-box;
+}
+.hw-caixa .hw-botao {
+  margin-top: 18px;
+}
+
+.hw-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+.hw-card {
+  display: block;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--osso);
+  cursor: pointer;
+  overflow: hidden;
+  text-align: center;
+}
+.hw-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+.hw-card span {
+  display: block;
+  padding: 8px 6px;
+  font-size: 13px;
+  line-height: 1.25;
+}
+.hw-card-on {
+  border-color: var(--laranja);
+  box-shadow: 0 0 0 4px rgba(255, 122, 24, 0.2);
+}
+
+.hw-podio {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+}
+.hw-podio img {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex: none;
+}
+.hw-medalha {
+  font-size: 26px;
+  flex: none;
+}
+.hw-votos {
+  margin: 2px 0 0;
+  color: rgba(245, 236, 221, 0.6);
+  font-size: 13px;
 }

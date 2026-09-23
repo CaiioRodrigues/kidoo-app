@@ -8,6 +8,7 @@ import { CategoryIcon } from '@/components/CategoryIcon';
 import { DayStrip, SessionPicker } from '@/features/activities';
 import { HintBubble, useOneTimeHint } from '@/features/tutorial';
 import { HeaderBar } from '@/components/navigation';
+import { Denunciar } from '@/features/report';
 import { Badge, CoinBadge, Divider, Screen, Text } from '@/components/ui';
 import { RatingSummaryCard, ReviewCard, StarRating } from '@/features/reviews';
 import { formatPlace } from '@/lib/format';
@@ -352,6 +353,11 @@ export default function ActivityDetailScreen() {
             ) : null}
           </View>
         )}
+
+        {/* No fim da tela, discreto e depois de tudo: é a saída de quem viu
+            um problema, não uma ação que se oferece a quem está escolhendo
+            uma aula. */}
+        <Denunciar activityId={activity.id} titulo={activity.title} />
 
         <View style={styles.footer}>
           <CoinBadge amount={activity.coinCost} />

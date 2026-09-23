@@ -289,6 +289,32 @@ favor de quem está chegando — é o desenho, não defeito.
 
 Apagar depois: `delete from partners where name like 'Teste GPS%';`
 
+## Uma votação
+
+Serve a qualquer disputa com foto e categorias — a primeira é de fantasia numa
+festa, e o schema não sabe disso: ele fala de "votação", "categoria" e
+"inscrito". Cole [`33-votacao.sql`](33-votacao.sql) uma vez e ela existe.
+
+No dia:
+
+1. **Painel → Votações → Criar votação.** Nome, categorias (uma por linha) e,
+   se quiser, a senha da festa. Ela nasce recebendo inscrições.
+2. **Divulgue `sejakidoo.com.br/votacao`.** Quem abre tira a foto pelo próprio
+   celular e escolhe um nome. Sem conta, sem login.
+3. **Liberar a votação** quando todo mundo estiver inscrito. Isso FECHA as
+   inscrições — quem chegar depois só vota.
+4. **Contar os votos** encerra a urna e publica o pódio de três por categoria.
+
+Os três botões são só seus: o banco recusa qualquer um deles vindo de quem não
+está em `kidoo_admins`, e a página pública não tem comando nenhum. A senha da
+festa é pedida na hora de votar, não na de se inscrever — ela existe porque o
+link circula em grupo de WhatsApp e chega a quem não está lá.
+
+Um voto por categoria por aparelho, garantido por índice único no banco. Quem
+abrir uma janela anônima de propósito vota de novo; contra isso só entregando
+um código na mão de cada pessoa, e o schema já aceita isso sem mudar — a chave
+do votante é texto livre.
+
 ## Depois desta primeira vez
 
 O banco passa a mudar por **migrations novas** em `supabase/migrations/`, nunca

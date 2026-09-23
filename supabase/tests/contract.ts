@@ -30,11 +30,17 @@ function sql(query: string): string[] {
 }
 
 /**
- * Os dois clientes do banco: o app das famílias e o painel do parceiro. O
- * painel chama seis funções que o app não chama — deixá-lo de fora seria
- * conferir metade do contrato.
+ * Os três clientes do banco: o app das famílias, o painel do parceiro e a
+ * página pública de votação. O painel chama funções que o app não chama —
+ * deixá-lo de fora seria conferir metade do contrato. E a votação é o único
+ * cliente que fala como `anon`, sem sessão: as funções dela são justamente as
+ * que ninguém mais exercita.
  */
-const adapter = ['../../src/services/supabase/index.ts', '../../partner/src/api/supabase.ts']
+const adapter = [
+  '../../src/services/supabase/index.ts',
+  '../../partner/src/api/supabase.ts',
+  '../../partner/src/votacao/api.ts',
+]
   .map((caminho) => readFileSync(join(HERE, caminho), 'utf8'))
   .join('\n');
 const mappers = readFileSync(join(HERE, '../../src/services/supabase/mappers.ts'), 'utf8');
