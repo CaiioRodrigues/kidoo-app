@@ -17,6 +17,7 @@ import type {
   StatusDaVotacao,
   VotacaoAdmin,
   Papel,
+  LinhaDoPodio,
 } from './types';
 import type { SlotKind } from '@app/types/domain';
 
@@ -602,6 +603,10 @@ export const demoApi: PainelApi = {
 
   async papeisDaVotacao() {
     return espera<Papel[]>([]);
+  },
+
+  async resultadoDaVotacao() {
+    return espera<LinhaDoPodio[]>([]);
   },
 
   async recusarCapa() {

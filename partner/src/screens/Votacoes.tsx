@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { api, type Papel, type StatusDaVotacao, type VotacaoAdmin } from '@/api';
+import { api, type LinhaDoPodio, type Papel, type StatusDaVotacao, type VotacaoAdmin } from '@/api';
 import { Card, Erro, Vazio, useDados } from '@/components/ui';
 
 /**
@@ -99,6 +99,7 @@ function CartaoDaVotacao({ votacao, aoAvancar }: { votacao: VotacaoAdmin; aoAvan
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [folha, setFolha] = useState(false);
+  const [podio, setPodio] = useState(false);
   const proximo = PROXIMO[votacao.status];
 
   const avancar = async () => {
@@ -155,6 +156,20 @@ function CartaoDaVotacao({ votacao, aoAvancar }: { votacao: VotacaoAdmin; aoAvan
           <div style={{ marginTop: 12 }}>
             <Erro>{erro}</Erro>
           </div>
+        )}
+
+        {/* A página pública só mostra a votação mais recente: criar a próxima
+            tira o pódio desta do ar. Aqui ele continua ao alcance de um
+            clique, que é o que "quem ganhou naquela festa?" precisa. */}
+        {votacao.status === 'apurada' && (
+          <>
+            <div className="row" style={{ marginTop: 14 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setPodio((v) => !v)}>
+                {podio ? 'Esconder o resultado' : 'Ver o resultado'}
+              </button>
+            </div>
+            {podio && <Podio id={votacao.id} />}
+          </>
         )}
 
         {proximo && (
@@ -330,6 +345,55 @@ function Formulario({ aoCriar, aoCancelar }: { aoCriar: () => void; aoCancelar: 
         </button>
       </div>
     </Card>
+  );
+}
+
+/**
+ * O pódio de uma festa já apurada.
+ *
+ * Os mesmos números que a página pública mostrou na noite — e `poll_results`
+ * é quem decide se pode mostrar: enquanto a urna não fecha, ele devolve vazio.
+ */
+function Podio({ id }: { id: string }) {
+  const {
+    dado: linhas,
+    carregando,
+    erro,
+  } = useDados<LinhaDoPodio[]>(() => api.resultadoDaVotacao(id), [id]);
+
+  if (erro) return <Erro>{erro}</Erro>;
+  if (carregando || !linhas) return <p className="muted">Contando…</p>;
+  if (linhas.length === 0) return <p className="muted">Ninguém recebeu voto nesta votação.</p>;
+
+  const MEDALHA = ['🥇', '🥈', '🥉'];
+  // As categorias na ordem em que vieram, sem repetir: o banco já devolve
+  // agrupado e ordenado, e reordenar aqui seria inventar outra ordem.
+  const categorias = [...new Map(linhas.map((l) => [l.categoryId, l.category])).entries()];
+
+  return (
+    <div className="podio">
+      {categorias.map(([catId, rotulo]) => (
+        <section key={catId} className="podio-grupo">
+          <h4>{rotulo}</h4>
+          {linhas
+            .filter((l) => l.categoryId === catId && l.place <= 3)
+            .map((l) => (
+              <div key={l.entryId} className="podio-linha">
+                <span className="podio-medalha" aria-label={`${l.place}º lugar`}>
+                  {MEDALHA[l.place - 1] ?? `${l.place}º`}
+                </span>
+                <img src={l.photoUrl} alt={l.entry} />
+                <div>
+                  <strong>{l.entry}</strong>
+                  <p className="faint" style={{ margin: 0 }}>
+                    {l.votes} {l.votes === 1 ? 'voto' : 'votos'}
+                  </p>
+                </div>
+              </div>
+            ))}
+        </section>
+      ))}
+    </div>
   );
 }
 

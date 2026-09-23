@@ -37,4 +37,5 @@ export type {
   StatusDaVotacao,
   VotacaoAdmin,
   Papel,
+  LinhaDoPodio,
 } from './types';

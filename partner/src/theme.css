@@ -1609,3 +1609,35 @@ textarea.input {
     opacity: 1;
   }
 }
+
+/* O pódio de uma votação apurada, no painel. */
+.podio {
+  margin-top: 14px;
+  border-top: 1px solid var(--border-strong);
+  padding-top: 8px;
+}
+.podio-grupo + .podio-grupo {
+  margin-top: 14px;
+}
+.podio-grupo h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.podio-linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+.podio-medalha {
+  font-size: 22px;
+  flex: none;
+}
+.podio-linha img {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: none;
+}
