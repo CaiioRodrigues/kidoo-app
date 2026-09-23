@@ -301,11 +301,14 @@ No dia:
    quantos **papéis numerados** você vai entregar e, se quiser, a senha da
    festa. Ela nasce recebendo inscrições.
 
-   Os papéis são o jeito de saber quem votou: entregue um a cada convidado,
-   numerado de 1 até a quantidade escolhida, e é esse número que a pessoa
-   digita na hora de votar. O voto passa a ser único **por papel**, não por
-   aparelho — então um celular só serve a festa inteira, e o painel mostra
-   quais números já votaram.
+   Os papéis são o jeito de saber quem votou. Cada um recebe um código
+   sorteado — `MORCEGO 84` —, e é ele que a pessoa digita na hora de votar. O
+   voto passa a ser único **por papel**, não por aparelho: um celular só serve
+   a festa inteira, e o painel mostra quais já votaram.
+
+   Depois de criar, **Ver e imprimir os papéis** abre a folha pronta para
+   recortar. O número pequeno em cada pedacinho é para você anotar quem levou
+   qual, se quiser saber de quem é o voto que falta.
 
    Em branco, vale o jeito antigo: um voto por aparelho, que é o que uma
    votação sem porta física precisa.
@@ -326,10 +329,16 @@ link circula em grupo de WhatsApp e chega a quem não está lá.
 Um voto por categoria por votante, garantido por índice único no banco — o
 votante sendo o papel, onde há papel, e o aparelho onde não há.
 
-E uma coisa que o papel numerado **não** resolve: número sequencial não é
-segredo. Quem tem o link e sabe que a festa tem 60 convidados pode digitar 37 e
-votar no lugar de quem ainda não votou. A senha da festa é o que fecha essa
-porta — com papéis, vale a pena usar as duas.
+O código é sorteado justamente porque número sequencial não é segredo: numa
+festa de 60, quem tivesse o link digitaria 37 e votaria no lugar de quem ainda
+não votou. Com `MORCEGO 84` são 160 palavras vezes 90 duplas de dígitos, e só
+os papéis entregues valem. A senha da festa continua valendo a pena por cima
+disso.
+
+Sem acento e sem espaço no que se compara: o papel mostra `ABÓBORA 12` e quem
+digitar "abobora12" ou "ABOBORA-12" entra do mesmo jeito. Num teclado de
+celular, às duas da manhã, essa diferença é o suporte técnico da festa
+inteira.
 
 ## Depois desta primeira vez
 

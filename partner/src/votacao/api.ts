@@ -30,6 +30,13 @@ export type Votacao = {
    * celular serve a festa inteira, e quem organiza sabe quais papéis votaram.
    */
   numeros: number | null;
+  /**
+   * Se o papel traz um código sorteado (`MORCEGO 84`) em vez do número puro.
+   *
+   * Decide o que a tela pede. As votações criadas antes disso continuam
+   * pedindo o número — papel entregue não se recolhe.
+   */
+  palavras: boolean;
   categories: Categoria[];
   entries: Inscrito[];
 };
@@ -85,6 +92,7 @@ function erro(mensagem: string, causa?: { message?: string }): Error {
     voter_required: 'Digite o número do seu papel.',
     invalid_number: 'Digite só o número do papel, sem letras.',
     number_out_of_range: 'Não existe papel com esse número nesta festa.',
+    invalid_ticket: 'Esse código não é de nenhum papel desta festa. Confira o papel.',
   };
   const conhecido = causa?.message ? CONHECIDOS[causa.message] : undefined;
   return new Error(conhecido ?? mensagem);
@@ -151,7 +159,7 @@ export async function votar(
     // em português. A frase certa importa: "erro desconhecido" faria a pessoa
     // tentar de novo a noite inteira.
     if (error.code === '23505') {
-      throw new Error(numero ? `O papel ${numero} já votou.` : 'Este aparelho já votou.');
+      throw new Error(numero ? 'Este papel já votou.' : 'Este aparelho já votou.');
     }
     throw erro('Não foi possível registrar seu voto.', error);
   }

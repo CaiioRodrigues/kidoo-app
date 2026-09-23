@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { api, type StatusDaVotacao, type VotacaoAdmin } from '@/api';
+import { api, type Papel, type StatusDaVotacao, type VotacaoAdmin } from '@/api';
 import { Card, Erro, Vazio, useDados } from '@/components/ui';
 
 /**
@@ -98,6 +98,7 @@ export function Votacoes() {
 function CartaoDaVotacao({ votacao, aoAvancar }: { votacao: VotacaoAdmin; aoAvancar: () => void }) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [folha, setFolha] = useState(false);
   const proximo = PROXIMO[votacao.status];
 
   const avancar = async () => {
@@ -133,7 +134,17 @@ function CartaoDaVotacao({ votacao, aoAvancar }: { votacao: VotacaoAdmin; aoAvan
         </p>
 
         {votacao.voterNumbers && (
-          <Papeis total={votacao.voterNumbers} votaram={votacao.votedNumbers ?? []} />
+          <>
+            <Papeis total={votacao.voterNumbers} votaram={votacao.votedNumbers ?? []} />
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ marginTop: 10 }}
+              onClick={() => setFolha((v) => !v)}
+            >
+              {folha ? 'Esconder os papéis' : 'Ver e imprimir os papéis'}
+            </button>
+            {folha && <Folha id={votacao.id} titulo={votacao.title} />}
+          </>
         )}
 
         <p className="muted" style={{ marginTop: 12 }}>
@@ -319,6 +330,47 @@ function Formulario({ aoCriar, aoCancelar }: { aoCriar: () => void; aoCancelar: 
         </button>
       </div>
     </Card>
+  );
+}
+
+/**
+ * A folha para imprimir e recortar.
+ *
+ * Existe porque o código é sorteado: quem organiza não tem como escrever
+ * `MORCEGO 84` de cabeça em sessenta papéis. O número vem junto e pequeno —
+ * é por ele que você anota quem levou qual, se quiser saber de quem é o voto
+ * que falta.
+ *
+ * Só aparece sob um clique, e some ao imprimir tudo o que não é ela: uma
+ * lista de sessenta códigos aberta na tela do balcão é a chave da festa
+ * inteira exposta a quem passar por trás.
+ */
+function Folha({ id, titulo }: { id: string; titulo: string }) {
+  const { dado: papeis, carregando, erro } = useDados<Papel[]>(() => api.papeisDaVotacao(id), [id]);
+
+  if (erro) return <Erro>{erro}</Erro>;
+  if (carregando || !papeis) return <p className="muted">Carregando os papéis…</p>;
+
+  return (
+    <div className="folha">
+      <div className="folha-topo">
+        <h4>{titulo} — papéis para recortar</h4>
+        <button className="btn btn-sm" onClick={() => window.print()}>
+          Imprimir
+        </button>
+      </div>
+      <p className="faint folha-aviso">
+        Recorte e entregue um a cada convidado. Quem já votou aparece riscado.
+      </p>
+      <div className="folha-grade">
+        {papeis.map((t) => (
+          <div key={t.number} className={t.voted ? 'papelzinho papelzinho-usado' : 'papelzinho'}>
+            <span className="papelzinho-n">#{t.number}</span>
+            <strong>{t.label}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

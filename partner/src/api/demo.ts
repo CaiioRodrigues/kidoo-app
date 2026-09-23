@@ -16,6 +16,7 @@ import type {
   StatementRow,
   StatusDaVotacao,
   VotacaoAdmin,
+  Papel,
 } from './types';
 import type { SlotKind } from '@app/types/domain';
 
@@ -597,6 +598,10 @@ export const demoApi: PainelApi = {
 
   async avancarVotacao(): Promise<StatusDaVotacao> {
     throw new PainelError('Sua conta não organiza votações.');
+  },
+
+  async papeisDaVotacao() {
+    return espera<Papel[]>([]);
   },
 
   async recusarCapa() {

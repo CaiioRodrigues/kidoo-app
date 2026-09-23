@@ -36,4 +36,5 @@ export type {
   NovaVotacao,
   StatusDaVotacao,
   VotacaoAdmin,
+  Papel,
 } from './types';

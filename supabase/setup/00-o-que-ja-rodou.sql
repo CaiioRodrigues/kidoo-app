@@ -89,6 +89,9 @@ union all select '34-numero-do-votante',
        exists (select 1 from information_schema.columns
                 where table_name = 'polls' and column_name = 'voter_numbers')
 
+union all select '35-palavra-no-papel',
+       to_regclass('public.poll_tickets') is not null
+
 order by arquivo;
 
 -- ---------------------------------------------------------------------
