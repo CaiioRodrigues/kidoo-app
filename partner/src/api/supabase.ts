@@ -23,6 +23,7 @@ import type {
   NovaVotacao,
   StatusDaVotacao,
   VotacaoAdmin,
+  Papel,
 } from './types';
 import type { ActivityCategoryId, SlotKind } from '@app/types/domain';
 
@@ -61,6 +62,7 @@ const MENSAGENS: Record<string, string> = {
   poll_not_found: 'Votação não encontrada.',
   already_counted: 'Esta votação já foi apurada. Não há passo depois de contar os votos.',
   invalid_range: 'A quantidade de papéis tem de ficar entre 2 e 999.',
+  invalid_ticket: 'Este código não é de nenhum papel desta votação.',
 };
 
 function traduz(erro: { message: string } | null, padrao: string): never {
@@ -625,6 +627,14 @@ async function criarVotacao(entrada: NovaVotacao): Promise<string> {
   return data as string;
 }
 
+async function papeisDaVotacao(id: string): Promise<Papel[]> {
+  return linhasDe<Papel>(
+    'poll_tickets_admin',
+    { p_poll_id: id },
+    'Não foi possível carregar os papéis.',
+  );
+}
+
 async function avancarVotacao(id: string): Promise<StatusDaVotacao> {
   const { data, error } = await supabase().rpc('advance_poll', { p_poll_id: id });
   if (error) traduz(error, 'Não foi possível avançar a votação.');
@@ -1018,4 +1028,5 @@ export const supabaseApi: PainelApi = {
   votacoesAdmin,
   criarVotacao,
   avancarVotacao,
+  papeisDaVotacao,
 };

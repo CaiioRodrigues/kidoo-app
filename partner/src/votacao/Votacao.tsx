@@ -283,7 +283,7 @@ function Cedula({ votacao, aoTerminar }: { votacao: VotacaoAtiva; aoTerminar: ()
     if (numero === '') return;
     setErro(null);
     try {
-      if (await jaVotei(votacao.id, numero)) setErro(`O papel ${Number(numero)} já votou.`);
+      if (await jaVotei(votacao.id, numero)) setErro('Este papel já votou.');
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não deu para conferir o número.');
     }
@@ -323,12 +323,21 @@ function Cedula({ votacao, aoTerminar }: { votacao: VotacaoAtiva; aoTerminar: ()
             /* Teclado numérico no celular, sem as setinhas de incremento de um
                `type="number"` — ninguém escolhe o próprio papel subindo de um
                em um. */
-            inputMode="numeric"
+            /* Com código sorteado o teclado é o normal — `MORCEGO 84` tem
+               letras. Só a festa numerada antiga ganha o teclado de números. */
+            inputMode={votacao.palavras ? 'text' : 'numeric'}
             autoComplete="off"
-            maxLength={3}
-            placeholder={`Número do seu papel (1 a ${votacao.numeros})`}
+            autoCapitalize="none"
+            maxLength={votacao.palavras ? 24 : 3}
+            placeholder={
+              votacao.palavras
+                ? 'O código do seu papel (ex.: MORCEGO 84)'
+                : `Número do seu papel (1 a ${votacao.numeros})`
+            }
             value={numero}
-            onChange={(e) => setNumero(e.target.value.replace(/\D/g, ''))}
+            onChange={(e) =>
+              setNumero(votacao.palavras ? e.target.value : e.target.value.replace(/\D/g, ''))
+            }
             onBlur={() => void conferirNumero()}
           />
         ) : null}

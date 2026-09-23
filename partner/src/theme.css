@@ -1522,3 +1522,90 @@ textarea.input {
   color: #fff;
   font-weight: 600;
 }
+
+/*
+  A folha de papéis para recortar.
+
+  `page-break-inside: avoid` em cada pedacinho porque a impressora corta onde
+  quiser: sem isso, o código de alguém sai metade numa folha e metade na
+  outra — e esse convidado não vota.
+*/
+.folha {
+  margin-top: 14px;
+  border-top: 1px solid var(--border-strong);
+  padding-top: 14px;
+}
+.folha-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.folha-topo h4 {
+  margin: 0;
+  font-size: 15px;
+}
+.folha-aviso {
+  margin: 6px 0 12px;
+}
+.folha-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.papelzinho {
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  padding: 10px 12px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.papelzinho-n {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.papelzinho strong {
+  font-size: 17px;
+  letter-spacing: 0.5px;
+}
+.papelzinho-usado {
+  opacity: 0.45;
+}
+.papelzinho-usado strong {
+  text-decoration: line-through;
+}
+
+/*
+  Imprimir manda só a folha para o papel.
+
+  Sem isto sai o menu, o cabeçalho e o rodapé do painel junto — três páginas
+  de enfeite antes dos códigos.
+*/
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .folha,
+  .folha * {
+    visibility: visible;
+  }
+  .folha {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: none;
+    padding: 0;
+  }
+  .folha-topo .btn,
+  .folha-aviso {
+    display: none;
+  }
+  .papelzinho {
+    border-color: #999;
+  }
+  .papelzinho-usado {
+    opacity: 1;
+  }
+}

@@ -242,6 +242,15 @@ export type VotacaoAdmin = {
   createdAt: string;
 };
 
+/** Um papel sorteado, como ele sai na folha de impressão. */
+export type Papel = {
+  /** O número, que é a identidade por baixo. Serve para você controlar a entrega. */
+  number: number;
+  /** O que sai impresso: `MORCEGO 84`. */
+  label: string;
+  voted: boolean;
+};
+
 /** Os quatro estados, na ordem em que acontecem. */
 export type StatusDaVotacao = 'rascunho' | 'inscricoes' | 'votacao' | 'apurada';
 
@@ -460,4 +469,11 @@ export type PainelApi = {
    * uma urna já contada — o banco recusa as duas.
    */
   avancarVotacao(id: string): Promise<StatusDaVotacao>;
+  /**
+   * Os papéis de uma votação, para imprimir e recortar.
+   *
+   * A tabela é fechada até para o painel: a lista de códigos é a chave de
+   * todo mundo, e ela só sai por esta função, para quem é do Kidoo.
+   */
+  papeisDaVotacao(id: string): Promise<Papel[]>;
 };

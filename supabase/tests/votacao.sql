@@ -260,11 +260,11 @@ begin
 end $$;
 
 -- ======================================================================
--- Segunda votação: com papel numerado na porta.
+-- Segunda votação: com papel sorteado na porta.
 --
--- Aqui a chave do votante deixa de ser o aparelho e passa a ser o papel. É o
--- que permite o mesmo celular servir a festa inteira, e é o que faz "quem já
--- votou?" ter resposta.
+-- O papel diz `MORCEGO 84`, e é isso que a pessoa digita. O número dele
+-- continua sendo a identidade por baixo — é o que mantém o índice único, a
+-- grade de quem organiza e a apuração intactos.
 -- ======================================================================
 reset role;
 set role authenticated;
@@ -273,8 +273,6 @@ select set_config('request.jwt.claim.sub', :'admin', false);
 do $$
 declare v_poll uuid;
 begin
-  -- A faixa é conferida na criação: um dedo escorregado não vira grade
-  -- impossível na tela de quem organiza.
   begin
     perform create_poll('Festa numerada', null, array['Melhor'], 'senha', 1);
     assert false, 'faixa de um papel não é faixa';
@@ -282,85 +280,110 @@ begin
     assert sqlerrm = 'invalid_range', 'esperado invalid_range, veio: ' || sqlerrm;
   end;
 
-  v_poll := create_poll('Festa numerada', 'dez convidados',
+  v_poll := create_poll('Festa com papel', 'dez convidados',
                         array['Melhor fantasia'], 'abobora', 10);
   perform set_config('kidoo.poll2', v_poll::text, false);
-  assert (select voter_numbers from polls where id = v_poll) = 10,
-         'a faixa fica guardada na votação';
+end $$;
+
+-- A tabela dos papéis é fechada até para quem organiza — ele chega por
+-- função. Estas conferências são sobre o SORTEIO, então rodam como dono.
+reset role;
+do $$
+declare v_poll uuid := current_setting('kidoo.poll2')::uuid;
+begin
+  assert (select count(*) from poll_tickets where poll_id = v_poll) = 10,
+         'dez papéis, um por convidado';
+  -- Código repetido seriam duas pessoas com a mesma chave. O índice único
+  -- garante, e isto confere que o sorteio não depende da sorte para isso.
+  assert (select count(distinct word) from poll_tickets where poll_id = v_poll) = 10,
+         'e os dez códigos são diferentes';
+  assert (select count(*) from poll_tickets
+           where poll_id = v_poll and label ~ '^[A-ZÁÂÃÉÊÍÓÔÕÚÇ]+ [0-9]{2}$') = 10,
+         'o papel sai no formato PALAVRA 00';
+
+  -- Os dois códigos que o teste de quem vota vai usar.
+  perform set_config('kidoo.papel1',
+    (select label from poll_tickets where poll_id = v_poll and number = 3), false);
+  perform set_config('kidoo.papel2',
+    (select label from poll_tickets where poll_id = v_poll and number = 7), false);
 end $$;
 
 -- ---- inscrever e liberar ---------------------------------------------
 reset role;
 set role anon;
 do $$
-declare
-  v_poll uuid := current_setting('kidoo.poll2')::uuid;
-  v_e1   uuid;
+declare v_e1 uuid;
 begin
-  v_e1 := submit_entry(v_poll, 'Múmia do João', 'votacao/m.jpg');
+  v_e1 := submit_entry(current_setting('kidoo.poll2')::uuid, 'Múmia do João', 'votacao/m.jpg');
   perform set_config('kidoo.ent2', v_e1::text, false);
 end $$;
 
 reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub', :'admin', false);
-do $$ begin
+do $$
+declare v_linha record;
+begin
   perform advance_poll(current_setting('kidoo.poll2')::uuid);
+
+  -- Quem organiza vê os papéis para imprimir, e nenhum votou ainda.
+  select count(*) filter (where not voted) as faltam, count(*) as total
+    into v_linha from poll_tickets_admin(current_setting('kidoo.poll2')::uuid);
+  assert v_linha.total = 10 and v_linha.faltam = 10, 'dez papéis, nenhum usado';
 end $$;
 
--- ---- o número é a identidade ------------------------------------------
+-- ---- o código é a identidade ------------------------------------------
 reset role;
 set role anon;
 do $$
 declare
-  v_poll uuid := current_setting('kidoo.poll2')::uuid;
-  v_ent  uuid := current_setting('kidoo.ent2')::uuid;
-  v_cat  uuid := (select id from poll_categories where poll_id = v_poll);
-  v_ced  jsonb;
+  v_poll  uuid := current_setting('kidoo.poll2')::uuid;
+  v_ent   uuid := current_setting('kidoo.ent2')::uuid;
+  v_cat   uuid := (select id from poll_categories where poll_id = v_poll);
+  v_ced   jsonb;
+  v_papel text := current_setting('kidoo.papel1');
 begin
   v_ced := jsonb_build_object(v_cat::text, v_ent::text);
 
-  -- O id de navegador, que valia na votação sem papel, aqui não é número.
+  -- Quem vota não lê a lista de códigos. Se lesse, teria os papéis de todos.
   begin
-    perform cast_ballot(v_poll, 'aparelho-1', v_ced, 'abobora');
-    assert false, 'com papel na porta, o aparelho não é identidade';
-  exception when others then
-    assert sqlerrm = 'invalid_number', 'esperado invalid_number, veio: ' || sqlerrm;
+    perform count(*) from poll_tickets;
+    raise exception 'anon leu os papéis: teria a chave de todo mundo';
+  exception when insufficient_privilege then
+    null;
   end;
 
-  -- E um número que ninguém recebeu também não.
+  -- Adivinhar deixou de ser contar até dez.
   begin
-    perform cast_ballot(v_poll, '11', v_ced, 'abobora');
-    assert false, 'papel 11 não foi entregue numa festa de 10';
+    perform cast_ballot(v_poll, '7', v_ced, 'abobora');
+    assert false, 'o número sozinho não abre mais a urna';
   exception when others then
-    assert sqlerrm = 'number_out_of_range', 'esperado number_out_of_range, veio: ' || sqlerrm;
+    assert sqlerrm = 'invalid_ticket', 'esperado invalid_ticket, veio: ' || sqlerrm;
   end;
   begin
-    perform cast_ballot(v_poll, '0', v_ced, 'abobora');
-    assert false, 'não existe papel zero';
+    perform cast_ballot(v_poll, 'palavra que ninguem sorteou', v_ced, 'abobora');
+    assert false, 'código que não existe não vota';
   exception when others then
-    assert sqlerrm = 'number_out_of_range', 'esperado number_out_of_range, veio: ' || sqlerrm;
+    assert sqlerrm = 'invalid_ticket', 'esperado invalid_ticket, veio: ' || sqlerrm;
   end;
 
-  -- O papel 7 vota.
-  perform cast_ballot(v_poll, '7', v_ced, 'abobora');
-  assert has_voted(v_poll, '7'), 'o papel 7 votou';
-  assert not has_voted(v_poll, '8'), 'e o 8 não';
+  -- E digitar do jeito que sai no celular às duas da manhã funciona: sem
+  -- acento, sem espaço, em qualquer caixa.
+  perform cast_ballot(v_poll, '  ' || lower(replace(v_papel, ' ', '-')) || ' ', v_ced, 'abobora');
+  assert has_voted(v_poll, v_papel), 'o papel ' || v_papel || ' votou';
+  assert not has_voted(v_poll, current_setting('kidoo.papel2')), 'e o outro não';
 
-  -- E o MESMO papel não vota de novo mudando a escrita. Sem normalizar, "07"
-  -- entraria como outra chave e o índice único não veria nada de errado.
+  -- O mesmo papel não vota de novo, escrito de outro jeito.
   begin
-    perform cast_ballot(v_poll, '07', v_ced, 'abobora');
-    assert false, '"07" é o mesmo papel que "7"';
+    perform cast_ballot(v_poll, upper(v_papel), v_ced, 'abobora');
+    assert false, 'o mesmo papel não vota duas vezes';
   exception when unique_violation then
     null;
   end;
-  assert has_voted(v_poll, '07'), 'e perguntar por "07" responde pelo 7';
 
-  -- Outro papel, no MESMO aparelho: é a festa toda votando no celular de quem
-  -- tem bateria. Um voto por papel, não por telefone.
-  perform cast_ballot(v_poll, '3', v_ced, 'abobora');
-  assert has_voted(v_poll, '3'), 'o papel 3 votou do mesmo celular';
+  -- Outro papel no MESMO aparelho: a festa toda vota no celular de quem tem
+  -- bateria. Um voto por papel, não por telefone.
+  perform cast_ballot(v_poll, current_setting('kidoo.papel2'), v_ced, 'abobora');
 end $$;
 
 -- ---- quem organiza vê quais papéis votaram ----------------------------
@@ -368,20 +391,52 @@ reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub', :'admin', false);
 do $$
-declare v_linha record;
+declare
+  v_poll  uuid := current_setting('kidoo.poll2')::uuid;
+  v_linha record;
 begin
-  select * into v_linha from admin_polls()
-   where id = current_setting('kidoo.poll2')::uuid;
+  select * into v_linha from admin_polls() where id = v_poll;
   assert v_linha.voter_numbers = 10, 'a faixa aparece para quem organiza';
   assert v_linha.voters = 2, 'dois papéis votaram, veio ' || v_linha.voters;
   assert v_linha.voted_numbers @> array['3', '7'],
          'e são o 3 e o 7, veio ' || array_to_string(v_linha.voted_numbers, ',');
 
-  -- Na votação sem papel a lista não existe: seria uma lista de ids de
-  -- navegador, que não responde pergunta nenhuma.
-  select * into v_linha from admin_polls()
-   where id = current_setting('kidoo.poll')::uuid;
+  -- A folha de impressão marca os mesmos dois.
+  assert (select array_agg(number order by number) from poll_tickets_admin(v_poll) where voted)
+         = array[3, 7], 'a folha de papéis marca quem já votou';
+
+  select * into v_linha from admin_polls() where id = current_setting('kidoo.poll')::uuid;
   assert v_linha.voted_numbers is null, 'sem faixa, sem lista de números';
+end $$;
+
+-- ======================================================================
+-- Terceira votação: a numerada de antes, que já teve papel impresso.
+--
+-- Papel entregue não se recolhe. Uma festa criada antes desta migration
+-- continua valendo pelo número — e é por isso que o caminho antigo fica.
+-- ======================================================================
+reset role;
+do $$
+declare
+  v_poll uuid;
+  v_cat  uuid;
+  v_ent  uuid;
+begin
+  insert into polls (title, status, voter_numbers) values ('Festa antiga', 'votacao', 10)
+  returning id into v_poll;
+  insert into poll_categories (poll_id, label) values (v_poll, 'Melhor') returning id into v_cat;
+  insert into poll_entries (poll_id, name, photo_path) values (v_poll, 'Alguém', 'x.jpg')
+  returning id into v_ent;
+
+  perform cast_ballot(v_poll, '07', jsonb_build_object(v_cat::text, v_ent::text));
+  assert has_voted(v_poll, '7'), 'sem papéis sorteados, o número continua valendo';
+
+  begin
+    perform cast_ballot(v_poll, '11', jsonb_build_object(v_cat::text, v_ent::text));
+    assert false, 'e a faixa continua conferida';
+  exception when others then
+    assert sqlerrm = 'number_out_of_range', 'esperado number_out_of_range, veio: ' || sqlerrm;
+  end;
 end $$;
 
 reset role;
