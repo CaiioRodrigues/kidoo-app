@@ -10,7 +10,9 @@
 --   2. um voto por categoria por votante, garantido pelo BANCO;
 --   3. ninguém lê o placar antes da apuração — nem pela tabela, nem pela
 --      função;
---   4. quem não é do Kidoo não abre nem fecha nada.
+--   4. quem não é do Kidoo não abre nem fecha nada;
+--   5. com papel numerado, a identidade é o NÚMERO: fora da faixa não vota,
+--      "07" e "7" são a mesma pessoa, e quem organiza vê quais já votaram.
 -- ======================================================================
 \set admin '99999999-9999-9999-9999-999999999999'
 \set ana   '11111111-1111-1111-1111-111111111111'
@@ -255,6 +257,131 @@ begin
   -- Quem não recebeu voto nenhum fica de fora: pódio não é lista de chamada.
   assert (select count(*) from poll_results(v_poll) where category_id = v_cats[1]) = 2,
          'só os votados entram no pódio';
+end $$;
+
+-- ======================================================================
+-- Segunda votação: com papel numerado na porta.
+--
+-- Aqui a chave do votante deixa de ser o aparelho e passa a ser o papel. É o
+-- que permite o mesmo celular servir a festa inteira, e é o que faz "quem já
+-- votou?" ter resposta.
+-- ======================================================================
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'admin', false);
+
+do $$
+declare v_poll uuid;
+begin
+  -- A faixa é conferida na criação: um dedo escorregado não vira grade
+  -- impossível na tela de quem organiza.
+  begin
+    perform create_poll('Festa numerada', null, array['Melhor'], 'senha', 1);
+    assert false, 'faixa de um papel não é faixa';
+  exception when others then
+    assert sqlerrm = 'invalid_range', 'esperado invalid_range, veio: ' || sqlerrm;
+  end;
+
+  v_poll := create_poll('Festa numerada', 'dez convidados',
+                        array['Melhor fantasia'], 'abobora', 10);
+  perform set_config('kidoo.poll2', v_poll::text, false);
+  assert (select voter_numbers from polls where id = v_poll) = 10,
+         'a faixa fica guardada na votação';
+end $$;
+
+-- ---- inscrever e liberar ---------------------------------------------
+reset role;
+set role anon;
+do $$
+declare
+  v_poll uuid := current_setting('kidoo.poll2')::uuid;
+  v_e1   uuid;
+begin
+  v_e1 := submit_entry(v_poll, 'Múmia do João', 'votacao/m.jpg');
+  perform set_config('kidoo.ent2', v_e1::text, false);
+end $$;
+
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'admin', false);
+do $$ begin
+  perform advance_poll(current_setting('kidoo.poll2')::uuid);
+end $$;
+
+-- ---- o número é a identidade ------------------------------------------
+reset role;
+set role anon;
+do $$
+declare
+  v_poll uuid := current_setting('kidoo.poll2')::uuid;
+  v_ent  uuid := current_setting('kidoo.ent2')::uuid;
+  v_cat  uuid := (select id from poll_categories where poll_id = v_poll);
+  v_ced  jsonb;
+begin
+  v_ced := jsonb_build_object(v_cat::text, v_ent::text);
+
+  -- O id de navegador, que valia na votação sem papel, aqui não é número.
+  begin
+    perform cast_ballot(v_poll, 'aparelho-1', v_ced, 'abobora');
+    assert false, 'com papel na porta, o aparelho não é identidade';
+  exception when others then
+    assert sqlerrm = 'invalid_number', 'esperado invalid_number, veio: ' || sqlerrm;
+  end;
+
+  -- E um número que ninguém recebeu também não.
+  begin
+    perform cast_ballot(v_poll, '11', v_ced, 'abobora');
+    assert false, 'papel 11 não foi entregue numa festa de 10';
+  exception when others then
+    assert sqlerrm = 'number_out_of_range', 'esperado number_out_of_range, veio: ' || sqlerrm;
+  end;
+  begin
+    perform cast_ballot(v_poll, '0', v_ced, 'abobora');
+    assert false, 'não existe papel zero';
+  exception when others then
+    assert sqlerrm = 'number_out_of_range', 'esperado number_out_of_range, veio: ' || sqlerrm;
+  end;
+
+  -- O papel 7 vota.
+  perform cast_ballot(v_poll, '7', v_ced, 'abobora');
+  assert has_voted(v_poll, '7'), 'o papel 7 votou';
+  assert not has_voted(v_poll, '8'), 'e o 8 não';
+
+  -- E o MESMO papel não vota de novo mudando a escrita. Sem normalizar, "07"
+  -- entraria como outra chave e o índice único não veria nada de errado.
+  begin
+    perform cast_ballot(v_poll, '07', v_ced, 'abobora');
+    assert false, '"07" é o mesmo papel que "7"';
+  exception when unique_violation then
+    null;
+  end;
+  assert has_voted(v_poll, '07'), 'e perguntar por "07" responde pelo 7';
+
+  -- Outro papel, no MESMO aparelho: é a festa toda votando no celular de quem
+  -- tem bateria. Um voto por papel, não por telefone.
+  perform cast_ballot(v_poll, '3', v_ced, 'abobora');
+  assert has_voted(v_poll, '3'), 'o papel 3 votou do mesmo celular';
+end $$;
+
+-- ---- quem organiza vê quais papéis votaram ----------------------------
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', :'admin', false);
+do $$
+declare v_linha record;
+begin
+  select * into v_linha from admin_polls()
+   where id = current_setting('kidoo.poll2')::uuid;
+  assert v_linha.voter_numbers = 10, 'a faixa aparece para quem organiza';
+  assert v_linha.voters = 2, 'dois papéis votaram, veio ' || v_linha.voters;
+  assert v_linha.voted_numbers @> array['3', '7'],
+         'e são o 3 e o 7, veio ' || array_to_string(v_linha.voted_numbers, ',');
+
+  -- Na votação sem papel a lista não existe: seria uma lista de ids de
+  -- navegador, que não responde pergunta nenhuma.
+  select * into v_linha from admin_polls()
+   where id = current_setting('kidoo.poll')::uuid;
+  assert v_linha.voted_numbers is null, 'sem faixa, sem lista de números';
 end $$;
 
 reset role;

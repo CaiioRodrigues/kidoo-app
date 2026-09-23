@@ -60,6 +60,7 @@ const MENSAGENS: Record<string, string> = {
   categories_required: 'Escreva pelo menos uma categoria.',
   poll_not_found: 'Votação não encontrada.',
   already_counted: 'Esta votação já foi apurada. Não há passo depois de contar os votos.',
+  invalid_range: 'A quantidade de papéis tem de ficar entre 2 e 999.',
 };
 
 function traduz(erro: { message: string } | null, padrao: string): never {
@@ -593,6 +594,8 @@ async function votacoesAdmin(): Promise<VotacaoAdmin[]> {
     status: StatusDaVotacao;
     entries: number;
     voters: number;
+    voter_numbers: number | null;
+    voted_numbers: string[] | null;
     created_at: string;
   };
   const linhas = await linhasDe<Linha>('admin_polls', {}, 'Não foi possível carregar as votações.');
@@ -602,6 +605,10 @@ async function votacoesAdmin(): Promise<VotacaoAdmin[]> {
     status: l.status,
     entries: Number(l.entries),
     voters: Number(l.voters),
+    voterNumbers: l.voter_numbers,
+    // O banco devolve texto porque a chave do votante é texto. Aqui vira
+    // número para a tela poder ordenar — em texto, o 10 vem antes do 9.
+    votedNumbers: l.voted_numbers ? l.voted_numbers.map(Number).sort((x, y) => x - y) : null,
     createdAt: l.created_at,
   }));
 }
@@ -612,6 +619,7 @@ async function criarVotacao(entrada: NovaVotacao): Promise<string> {
     p_subtitle: entrada.subtitle,
     p_categories: entrada.categories,
     p_passphrase: entrada.passphrase,
+    p_voter_numbers: entrada.voterNumbers,
   });
   if (error) traduz(error, 'Não foi possível criar a votação.');
   return data as string;

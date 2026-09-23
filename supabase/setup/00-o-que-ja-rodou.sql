@@ -85,6 +85,10 @@ union all select '32-denuncia',
 union all select '33-votacao',
        to_regclass('public.polls') is not null
 
+union all select '34-numero-do-votante',
+       exists (select 1 from information_schema.columns
+                where table_name = 'polls' and column_name = 'voter_numbers')
+
 order by arquivo;
 
 -- ---------------------------------------------------------------------

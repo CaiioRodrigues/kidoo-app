@@ -25,7 +25,7 @@ import {
  * está POR BAIXO não sabe disso: as tabelas falam de "votação", "categoria" e
  * "inscrito", e servem para melhor parceiro do ano sem trocar uma linha.
  */
-type Passo = 'porta' | 'inscrever' | 'votar' | 'resultado';
+type Passo = 'porta' | 'inscrever' | 'numero' | 'votar' | 'resultado';
 
 export function Votacao() {
   const [passo, setPasso] = useState<Passo>('porta');
@@ -34,10 +34,17 @@ export function Votacao() {
   // porta mostraria o botão "Votar" de novo, e o segundo toque só descobriria
   // que o voto já existe depois de preencher a cédula inteira.
   const [votouAgora, setVotouAgora] = useState(false);
+  // O papel que a pessoa digitou na porta. Vazio numa festa sem papel — ali a
+  // identidade continua sendo o aparelho.
+  const [numero, setNumero] = useState('');
 
   const { dado, carregando, erro, recarregar } = useDados(async () => {
     const atual = await votacaoAtual();
-    return { votacao: atual, votou: atual ? await jaVotei(atual.id) : false };
+    // Com papel numerado não há o que perguntar ao abrir a página: quem vota é
+    // o número, e ele só existe depois que a pessoa digitar. Perguntar pelo
+    // aparelho aqui diria "já votou" para quem emprestou o celular.
+    const votou = atual && atual.numeros === null ? await jaVotei(atual.id) : false;
+    return { votacao: atual, votou };
   }, []);
 
   const votacao = dado?.votacao ?? null;
@@ -67,11 +74,21 @@ export function Votacao() {
               recarregar();
             }}
           />
+        ) : passo === 'numero' ? (
+          <Numero
+            votacao={votacao}
+            aoConferir={(n) => {
+              setNumero(n);
+              setPasso('votar');
+            }}
+          />
         ) : passo === 'votar' ? (
           <Cedula
             votacao={votacao}
+            numero={numero}
             aoTerminar={() => {
               setVotouAgora(true);
+              setNumero('');
               setPasso('porta');
             }}
           />
@@ -134,7 +151,7 @@ function Porta({
       <button
         className="hw-botao hw-botao-2"
         disabled={votacao.status !== 'votacao' || votou}
-        onClick={() => aoEscolher('votar')}
+        onClick={() => aoEscolher(votacao.numeros === null ? 'votar' : 'numero')}
       >
         <span className="hw-abobora" aria-hidden>
           🗳️
@@ -144,10 +161,11 @@ function Porta({
       {votacao.status === 'inscricoes' ? (
         <p className="hw-nota">A votação abre quando todo mundo estiver inscrito.</p>
       ) : votou ? (
-        <p className="hw-nota">Um voto por aparelho. O resultado sai no fim da festa.</p>
+        <p className="hw-nota">O resultado sai no fim da festa.</p>
       ) : (
         <p className="hw-nota">
           {votacao.entries.length} na disputa · {votacao.categories.length} categorias
+          {votacao.numeros !== null ? ' · tenha o seu papel em mãos' : null}
         </p>
       )}
     </>
@@ -231,7 +249,81 @@ function Inscricao({ votacao, aoTerminar }: { votacao: VotacaoAtiva; aoTerminar:
   );
 }
 
-function Cedula({ votacao, aoTerminar }: { votacao: VotacaoAtiva; aoTerminar: () => void }) {
+/**
+ * O papel entregue na porta.
+ *
+ * Vem ANTES da cédula de propósito: o número é conferido aqui, contra a faixa
+ * e contra quem já votou. Descobrir na hora de enviar que o papel já votou
+ * seria jogar fora três escolhas e parecer que o sistema comeu o voto.
+ */
+function Numero({
+  votacao,
+  aoConferir,
+}: {
+  votacao: VotacaoAtiva;
+  aoConferir: (numero: string) => void;
+}) {
+  const [numero, setNumero] = useState('');
+  const [conferindo, setConferindo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const conferir = async () => {
+    setConferindo(true);
+    setErro(null);
+    try {
+      if (await jaVotei(votacao.id, numero)) {
+        setErro(`O papel ${Number(numero)} já votou.`);
+        return;
+      }
+      aoConferir(numero);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não deu para conferir.');
+    } finally {
+      setConferindo(false);
+    }
+  };
+
+  return (
+    <div className="hw-caixa">
+      <h2 className="hw-h2">O número do seu papel</h2>
+      <p className="hw-nota" style={{ margin: '0 0 12px' }}>
+        Está no papel que você recebeu na entrada, de 1 a {votacao.numeros}. É ele que garante um
+        voto por pessoa — então o mesmo celular serve para todo mundo.
+      </p>
+      <input
+        className="hw-input"
+        /* `inputMode` numérico abre o teclado de números no celular sem virar
+           um campo com setinhas de incremento, que não fazem sentido aqui. */
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={3}
+        placeholder="Ex.: 7"
+        value={numero}
+        onChange={(e) => setNumero(e.target.value.replace(/\D/g, ''))}
+      />
+
+      {erro ? <p className="hw-erro">{erro}</p> : null}
+
+      <button
+        className="hw-botao"
+        disabled={numero === '' || conferindo}
+        onClick={() => void conferir()}
+      >
+        {conferindo ? 'Conferindo…' : 'Continuar'}
+      </button>
+    </div>
+  );
+}
+
+function Cedula({
+  votacao,
+  numero,
+  aoTerminar,
+}: {
+  votacao: VotacaoAtiva;
+  numero: string;
+  aoTerminar: () => void;
+}) {
   const [escolhas, setEscolhas] = useState<Record<string, string>>({});
   const [senha, setSenha] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -243,7 +335,7 @@ function Cedula({ votacao, aoTerminar }: { votacao: VotacaoAtiva; aoTerminar: ()
     setEnviando(true);
     setErro(null);
     try {
-      await votar(votacao.id, escolhas, senha);
+      await votar(votacao.id, escolhas, senha, numero === '' ? undefined : numero);
       aoTerminar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não deu.');
@@ -258,6 +350,13 @@ function Cedula({ votacao, aoTerminar }: { votacao: VotacaoAtiva; aoTerminar: ()
 
   return (
     <div className="hw-caixa">
+      {/* De quem é esta cédula. Sem isto, quem digitou o número três telas
+          atrás não tem como conferir que acertou antes de enviar. */}
+      {numero !== '' ? (
+        <p className="hw-nota" style={{ margin: '0 0 14px' }}>
+          Papel {Number(numero)}
+        </p>
+      ) : null}
       {votacao.categories.map((cat) => (
         <section key={cat.id} className="hw-categoria">
           <h2 className="hw-h2">{cat.label}</h2>
