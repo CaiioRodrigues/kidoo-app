@@ -20,6 +20,9 @@ import type {
   ResultadoDaSerie,
   RosterRow,
   StatementRow,
+  NovaVotacao,
+  StatusDaVotacao,
+  VotacaoAdmin,
 } from './types';
 import type { ActivityCategoryId, SlotKind } from '@app/types/domain';
 
@@ -53,6 +56,10 @@ const MENSAGENS: Record<string, string> = {
   no_check_in: 'Esta família ainda não fez o check-in no aplicativo.',
   wrong_code: 'Código inválido para esta reserva.',
   code_expired: 'O código expirou. Peça para a família gerar um novo no app.',
+  title_required: 'A votação precisa de um nome.',
+  categories_required: 'Escreva pelo menos uma categoria.',
+  poll_not_found: 'Votação não encontrada.',
+  already_counted: 'Esta votação já foi apurada. Não há passo depois de contar os votos.',
 };
 
 function traduz(erro: { message: string } | null, padrao: string): never {
@@ -577,6 +584,45 @@ async function recusarCapa(activityId: string, motivo: string): Promise<void> {
   if (error) traduz(error, 'Não foi possível recusar esta capa.');
 }
 
+// ----------------------------------------------------------------- votação --
+
+async function votacoesAdmin(): Promise<VotacaoAdmin[]> {
+  type Linha = {
+    id: string;
+    title: string;
+    status: StatusDaVotacao;
+    entries: number;
+    voters: number;
+    created_at: string;
+  };
+  const linhas = await linhasDe<Linha>('admin_polls', {}, 'Não foi possível carregar as votações.');
+  return linhas.map((l) => ({
+    id: l.id,
+    title: l.title,
+    status: l.status,
+    entries: Number(l.entries),
+    voters: Number(l.voters),
+    createdAt: l.created_at,
+  }));
+}
+
+async function criarVotacao(entrada: NovaVotacao): Promise<string> {
+  const { data, error } = await supabase().rpc('create_poll', {
+    p_title: entrada.title,
+    p_subtitle: entrada.subtitle,
+    p_categories: entrada.categories,
+    p_passphrase: entrada.passphrase,
+  });
+  if (error) traduz(error, 'Não foi possível criar a votação.');
+  return data as string;
+}
+
+async function avancarVotacao(id: string): Promise<StatusDaVotacao> {
+  const { data, error } = await supabase().rpc('advance_poll', { p_poll_id: id });
+  if (error) traduz(error, 'Não foi possível avançar a votação.');
+  return data as StatusDaVotacao;
+}
+
 // ----------------------------------------------------------------- repasse --
 
 async function extrato(meses = 6): Promise<StatementRow[]> {
@@ -961,4 +1007,7 @@ export const supabaseApi: PainelApi = {
   pedidosPendentes,
   aprovarPedido,
   recusarPedido,
+  votacoesAdmin,
+  criarVotacao,
+  avancarVotacao,
 };

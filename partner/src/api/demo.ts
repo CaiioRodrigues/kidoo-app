@@ -14,6 +14,8 @@ import type {
   ResultadoDaSerie,
   RosterRow,
   StatementRow,
+  StatusDaVotacao,
+  VotacaoAdmin,
 } from './types';
 import type { SlotKind } from '@app/types/domain';
 
@@ -70,7 +72,13 @@ const ATIVIDADES: ActivityRow[] = [
     imageUrl: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=400&q=70',
   },
   { id: 'a-judo', title: 'Judô para Pequenos', category: 'judo', ...DE_QUEM, imageUrl: null },
-  { id: 'a-ginastica', title: 'Ginástica Divertida', category: 'ginastica', ...DE_QUEM, imageUrl: null },
+  {
+    id: 'a-ginastica',
+    title: 'Ginástica Divertida',
+    category: 'ginastica',
+    ...DE_QUEM,
+    imageUrl: null,
+  },
 ];
 
 /** A mesma regra do banco (`slot_kind_for`): a turma já acontece sozinha? */
@@ -116,35 +124,197 @@ function emDias(dias: number, hora: number): string {
 }
 
 const turmas: Turma[] = [
-  { sessionId: 's1', activityId: 'a-futebol',   startsAt: hoje(9, 30),  capacity: 20, enrolled: 11, slotsOpen: 6, coinCost: 2 },
-  { sessionId: 's2', activityId: 'a-judo',      startsAt: hoje(14, 0),  capacity: 12, enrolled: 8,  slotsOpen: 4, coinCost: 3 },
-  { sessionId: 's3', activityId: 'a-ginastica', startsAt: hoje(17, 0),  capacity: 10, enrolled: 2,  slotsOpen: 5, coinCost: 3 },
-  { sessionId: 's4', activityId: 'a-futebol',   startsAt: emDias(1, 9), capacity: 20, enrolled: 13, slotsOpen: 5, coinCost: 2 },
-  { sessionId: 's5', activityId: 'a-judo',      startsAt: emDias(3, 14),capacity: 12, enrolled: 9,  slotsOpen: 3, coinCost: 3 },
+  {
+    sessionId: 's1',
+    activityId: 'a-futebol',
+    startsAt: hoje(9, 30),
+    capacity: 20,
+    enrolled: 11,
+    slotsOpen: 6,
+    coinCost: 2,
+  },
+  {
+    sessionId: 's2',
+    activityId: 'a-judo',
+    startsAt: hoje(14, 0),
+    capacity: 12,
+    enrolled: 8,
+    slotsOpen: 4,
+    coinCost: 3,
+  },
+  {
+    sessionId: 's3',
+    activityId: 'a-ginastica',
+    startsAt: hoje(17, 0),
+    capacity: 10,
+    enrolled: 2,
+    slotsOpen: 5,
+    coinCost: 3,
+  },
+  {
+    sessionId: 's4',
+    activityId: 'a-futebol',
+    startsAt: emDias(1, 9),
+    capacity: 20,
+    enrolled: 13,
+    slotsOpen: 5,
+    coinCost: 2,
+  },
+  {
+    sessionId: 's5',
+    activityId: 'a-judo',
+    startsAt: emDias(3, 14),
+    capacity: 12,
+    enrolled: 9,
+    slotsOpen: 3,
+    coinCost: 3,
+  },
 ];
 
 const reservas: Reserva[] = [
-  { bookingId: 'b1', sessionId: 's1', firstName: 'João',   age: 8, status: 'completed',  checkedInAt: hoje(9, 22), partnerConfirmedAt: hoje(9, 24), codigo: null, locationVerified: true },
-  { bookingId: 'b2', sessionId: 's1', firstName: 'Alice',  age: 7, status: 'checked_in', checkedInAt: hoje(9, 25), partnerConfirmedAt: null, codigo: '481902', locationVerified: true },
-  { bookingId: 'b3', sessionId: 's1', firstName: 'Miguel', age: 9, status: 'checked_in', checkedInAt: hoje(9, 26), partnerConfirmedAt: null, codigo: '730514', locationVerified: false },
-  { bookingId: 'b4', sessionId: 's1', firstName: 'Cecília',age: 8, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null, locationVerified: null },
-  { bookingId: 'b5', sessionId: 's2', firstName: 'Théo',   age: 6, status: 'checked_in', checkedInAt: hoje(13, 51), partnerConfirmedAt: null, codigo: '206348', locationVerified: true },
-  { bookingId: 'b6', sessionId: 's2', firstName: 'Laura',  age: 7, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null, locationVerified: null },
-  { bookingId: 'b7', sessionId: 's3', firstName: 'Bento',  age: 5, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null, locationVerified: null },
-  { bookingId: 'b8', sessionId: 's4', firstName: 'Helena', age: 9, status: 'confirmed',  checkedInAt: null, partnerConfirmedAt: null, codigo: null, locationVerified: null },
+  {
+    bookingId: 'b1',
+    sessionId: 's1',
+    firstName: 'João',
+    age: 8,
+    status: 'completed',
+    checkedInAt: hoje(9, 22),
+    partnerConfirmedAt: hoje(9, 24),
+    codigo: null,
+    locationVerified: true,
+  },
+  {
+    bookingId: 'b2',
+    sessionId: 's1',
+    firstName: 'Alice',
+    age: 7,
+    status: 'checked_in',
+    checkedInAt: hoje(9, 25),
+    partnerConfirmedAt: null,
+    codigo: '481902',
+    locationVerified: true,
+  },
+  {
+    bookingId: 'b3',
+    sessionId: 's1',
+    firstName: 'Miguel',
+    age: 9,
+    status: 'checked_in',
+    checkedInAt: hoje(9, 26),
+    partnerConfirmedAt: null,
+    codigo: '730514',
+    locationVerified: false,
+  },
+  {
+    bookingId: 'b4',
+    sessionId: 's1',
+    firstName: 'Cecília',
+    age: 8,
+    status: 'confirmed',
+    checkedInAt: null,
+    partnerConfirmedAt: null,
+    codigo: null,
+    locationVerified: null,
+  },
+  {
+    bookingId: 'b5',
+    sessionId: 's2',
+    firstName: 'Théo',
+    age: 6,
+    status: 'checked_in',
+    checkedInAt: hoje(13, 51),
+    partnerConfirmedAt: null,
+    codigo: '206348',
+    locationVerified: true,
+  },
+  {
+    bookingId: 'b6',
+    sessionId: 's2',
+    firstName: 'Laura',
+    age: 7,
+    status: 'confirmed',
+    checkedInAt: null,
+    partnerConfirmedAt: null,
+    codigo: null,
+    locationVerified: null,
+  },
+  {
+    bookingId: 'b7',
+    sessionId: 's3',
+    firstName: 'Bento',
+    age: 5,
+    status: 'confirmed',
+    checkedInAt: null,
+    partnerConfirmedAt: null,
+    codigo: null,
+    locationVerified: null,
+  },
+  {
+    bookingId: 'b8',
+    sessionId: 's4',
+    firstName: 'Helena',
+    age: 9,
+    status: 'confirmed',
+    checkedInAt: null,
+    partnerConfirmedAt: null,
+    codigo: null,
+    locationVerified: null,
+  },
 ];
 
 /** Meses anteriores já fechados, para o extrato não abrir vazio. */
 const HISTORICO: StatementRow[] = [
-  { month: mesAtras(1), kind: 'ociosa', natureza: 'presenca', checkIns: 96, rateCents: 800, totalCents: 76800 },
-  { month: mesAtras(1), kind: 'cheia',  natureza: 'presenca', checkIns: 21, rateCents: 1800, totalCents: 37800 },
+  {
+    month: mesAtras(1),
+    kind: 'ociosa',
+    natureza: 'presenca',
+    checkIns: 96,
+    rateCents: 800,
+    totalCents: 76800,
+  },
+  {
+    month: mesAtras(1),
+    kind: 'cheia',
+    natureza: 'presenca',
+    checkIns: 21,
+    rateCents: 1800,
+    totalCents: 37800,
+  },
   // As faltas pagas aparecem no histórico porque aparecem no extrato de
   // verdade, e em proporção parecida: o lugar segurado é uma parcela pequena
   // mas constante do repasse.
-  { month: mesAtras(1), kind: 'ociosa', natureza: 'falta',    checkIns: 9,  rateCents: 800, totalCents: 7200 },
-  { month: mesAtras(2), kind: 'ociosa', natureza: 'presenca', checkIns: 71, rateCents: 800, totalCents: 56800 },
-  { month: mesAtras(2), kind: 'cheia',  natureza: 'presenca', checkIns: 18, rateCents: 1800, totalCents: 32400 },
-  { month: mesAtras(2), kind: 'cheia',  natureza: 'falta',    checkIns: 2,  rateCents: 1800, totalCents: 3600 },
+  {
+    month: mesAtras(1),
+    kind: 'ociosa',
+    natureza: 'falta',
+    checkIns: 9,
+    rateCents: 800,
+    totalCents: 7200,
+  },
+  {
+    month: mesAtras(2),
+    kind: 'ociosa',
+    natureza: 'presenca',
+    checkIns: 71,
+    rateCents: 800,
+    totalCents: 56800,
+  },
+  {
+    month: mesAtras(2),
+    kind: 'cheia',
+    natureza: 'presenca',
+    checkIns: 18,
+    rateCents: 1800,
+    totalCents: 32400,
+  },
+  {
+    month: mesAtras(2),
+    kind: 'cheia',
+    natureza: 'falta',
+    checkIns: 2,
+    rateCents: 1800,
+    totalCents: 3600,
+  },
 ];
 
 function mesAtras(n: number): string {
@@ -289,7 +459,8 @@ export const demoApi: PainelApi = {
   async confirmarPresenca(bookingId, codigo) {
     const reserva = reservas.find((r) => r.bookingId === bookingId);
     if (!reserva) throw new PainelError('Reserva não encontrada.');
-    if (!reserva.codigo) throw new PainelError('Esta família ainda não fez o check-in no aplicativo.');
+    if (!reserva.codigo)
+      throw new PainelError('Esta família ainda não fez o check-in no aplicativo.');
     if (reserva.codigo !== codigo.replace(/\D/g, '')) {
       throw new PainelError('Código inválido para esta reserva.');
     }
@@ -306,7 +477,9 @@ export const demoApi: PainelApi = {
     if (!turma) throw new PainelError('Turma não encontrada.');
     if (vagas < 0) throw new PainelError('O número de vagas não pode ser negativo.');
     if (vagas < reservasDe(sessionId).length) {
-      throw new PainelError('Já há reservas nestas vagas. Reduza só até o número que já foi reservado.');
+      throw new PainelError(
+        'Já há reservas nestas vagas. Reduza só até o número que já foi reservado.',
+      );
     }
     if (turma.enrolled + vagas > turma.capacity) {
       throw new PainelError('A soma de matriculados e vagas abertas passa da capacidade da turma.');
@@ -412,6 +585,18 @@ export const demoApi: PainelApi = {
 
   async aprovarCapa() {
     throw new PainelError('Sua conta não analisa capas.');
+  },
+
+  async votacoesAdmin() {
+    return espera<VotacaoAdmin[]>([]);
+  },
+
+  async criarVotacao(): Promise<string> {
+    throw new PainelError('Sua conta não organiza votações.');
+  },
+
+  async avancarVotacao(): Promise<StatusDaVotacao> {
+    throw new PainelError('Sua conta não organiza votações.');
   },
 
   async recusarCapa() {

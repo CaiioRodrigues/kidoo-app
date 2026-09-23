@@ -13,6 +13,7 @@ import {
   IconeRepasse,
   IconeSair,
   IconeTurmas,
+  IconeVotacao,
 } from '@/components/icons';
 import { Agenda } from '@/screens/Agenda';
 import { Cadastro } from '@/screens/Cadastro';
@@ -23,12 +24,14 @@ import { Parceiros } from '@/screens/Parceiros';
 import { Pedidos } from '@/screens/Pedidos';
 import { Capas } from '@/screens/Capas';
 import { Denuncias } from '@/screens/Denuncias';
+import { Votacoes } from '@/screens/Votacoes';
 import { Repasse } from '@/screens/Repasse';
 import { MeuLocal } from '@/screens/MeuLocal';
 import { Turmas } from '@/screens/Turmas';
 import { Rodape } from '@/components/Rodape';
 import { Vitrine } from '@/screens/Vitrine';
 import { Documento } from '@/screens/Documento';
+import { Votacao } from '@/votacao/Votacao';
 import type { DocumentoId } from '@shared/documentos';
 import { ehLinkDeRecuperacao, erroDoLink } from '@/recuperacao';
 
@@ -41,7 +44,8 @@ type Aba =
   | 'capas'
   | 'denuncias'
   | 'parceiros'
-  | 'assinaturas';
+  | 'assinaturas'
+  | 'votacoes';
 
 type ItemDeMenu = { id: Aba; rotulo: string; Icone: () => React.ReactElement };
 
@@ -61,6 +65,9 @@ const ABAS_DO_KIDOO: ItemDeMenu[] = [
   { id: 'denuncias', rotulo: 'Denúncias', Icone: IconeDenuncias },
   { id: 'parceiros', rotulo: 'Estabelecimentos', Icone: IconeEstabelecimentos },
   { id: 'assinaturas', rotulo: 'Assinaturas', Icone: IconeAssinaturas },
+  // Não é do negócio de escolinha: é a ferramenta de votação que mora no mesmo
+  // domínio. Por último, por isso.
+  { id: 'votacoes', rotulo: 'Votações', Icone: IconeVotacao },
 ];
 
 const ABAS: ItemDeMenu[] = [
@@ -112,6 +119,9 @@ const ERRO_DA_CHEGADA = erroDoLink(HASH_DA_CHEGADA);
  */
 export function App() {
   if (DOCUMENTO_DA_URL) return <Documento id={DOCUMENTO_DA_URL} />;
+  // A votação é outro produto no mesmo domínio: público, sem menu e sem
+  // sessão. Como os documentos, vem antes do painel.
+  if (CAMINHO === '/votacao') return <Votacao />;
   return <Painel />;
 }
 
@@ -326,6 +336,7 @@ function Painel() {
         {aba === 'denuncias' && <Denuncias />}
         {aba === 'parceiros' && <Parceiros />}
         {aba === 'assinaturas' && <Assinaturas />}
+        {aba === 'votacoes' && <Votacoes />}
 
         {/* Sem ação: quem está aqui já entrou e já tem espaço cadastrado.
             Repetir "Cadastrar meu espaço" para essa pessoa seria oferecer a

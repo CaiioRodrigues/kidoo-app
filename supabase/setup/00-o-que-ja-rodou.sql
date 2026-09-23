@@ -82,6 +82,9 @@ union all select '31-capa-passa-por-analise',
 union all select '32-denuncia',
        to_regclass('public.reports') is not null
 
+union all select '33-votacao',
+       to_regclass('public.polls') is not null
+
 order by arquivo;
 
 -- ---------------------------------------------------------------------

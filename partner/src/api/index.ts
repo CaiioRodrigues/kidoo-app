@@ -33,4 +33,7 @@ export type {
   ResultadoDaSerie,
   RosterRow,
   StatementRow,
+  NovaVotacao,
+  StatusDaVotacao,
+  VotacaoAdmin,
 } from './types';

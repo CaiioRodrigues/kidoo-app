@@ -215,6 +215,37 @@ export type CapaNaFila = {
   sentAt: string;
 };
 
+/**
+ * Uma votação, como quem organiza a vê.
+ *
+ * O nome é genérico de propósito: a primeira é de fantasia, a próxima pode ser
+ * "melhor parceiro do ano". Nada aqui — nem no banco — sabe de Halloween; a
+ * decoração mora na página pública.
+ */
+export type VotacaoAdmin = {
+  id: string;
+  title: string;
+  status: StatusDaVotacao;
+  /** Quantos se inscreveram. */
+  entries: number;
+  /** Quantas PESSOAS votaram, não quantos votos. */
+  voters: number;
+  createdAt: string;
+};
+
+/** Os quatro estados, na ordem em que acontecem. */
+export type StatusDaVotacao = 'rascunho' | 'inscricoes' | 'votacao' | 'apurada';
+
+/** O pedido de uma votação nova. */
+export type NovaVotacao = {
+  title: string;
+  subtitle: string;
+  /** Uma por linha no formulário; vazias são descartadas pelo banco. */
+  categories: string[];
+  /** A senha da festa. Vazia = qualquer um com o link vota. */
+  passphrase: string;
+};
+
 /** O pedido como quem analisa o vê — com o e-mail da conta junto. */
 export type PedidoNaFila = {
   id: string;
@@ -397,4 +428,19 @@ export type PainelApi = {
   aprovarPedido(id: string): Promise<void>;
   /** O motivo é obrigatório: o banco recusa uma recusa sem ele. */
   recusarPedido(id: string, motivo: string): Promise<void>;
+
+  // --------------------------------------------------------------- votação --
+
+  /** Todas as votações, da mais nova para a mais velha. */
+  votacoesAdmin(): Promise<VotacaoAdmin[]>;
+  /** Cria já em `inscricoes`: quem organiza quer a página no ar agora. */
+  criarVotacao(entrada: NovaVotacao): Promise<string>;
+  /**
+   * Empurra a votação um passo adiante, e devolve onde ela parou.
+   *
+   * Só para frente. Voltar de `votacao` para `inscricoes` deixaria alguém se
+   * inscrever depois que os votos começaram, e voltar de `apurada` reabriria
+   * uma urna já contada — o banco recusa as duas.
+   */
+  avancarVotacao(id: string): Promise<StatusDaVotacao>;
 };

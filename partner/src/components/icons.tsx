@@ -119,6 +119,19 @@ export function IconeCapas() {
   );
 }
 
+/** Urna com a fenda e o papel entrando. */
+export function IconeVotacao() {
+  return (
+    <svg {...base}>
+      <path d="M4 10.5h16v9.5H4z" />
+      <path d="M9 10.5V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3.5" />
+      {/* A fenda é o que distingue urna de caixa: sem ela, o desenho é um
+          pacote de correio. */}
+      <path d="M9.5 14.5h5" />
+    </svg>
+  );
+}
+
 /** Bandeira num mastro: o sinal que alguém levantou. */
 export function IconeDenuncias() {
   return (
