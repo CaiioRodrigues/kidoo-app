@@ -251,6 +251,24 @@ export type Papel = {
   voted: boolean;
 };
 
+/**
+ * Uma linha do pódio de uma votação já apurada.
+ *
+ * `place` empata de propósito: dois primeiros lugares são dois primeiros, e
+ * inventar uma ordem entre eles seria decidir no desempate o que a festa não
+ * decidiu.
+ */
+export type LinhaDoPodio = {
+  categoryId: string;
+  category: string;
+  place: number;
+  entryId: string;
+  entry: string;
+  /** Já resolvida: a tela não sabe de bucket nem de caminho. */
+  photoUrl: string;
+  votes: number;
+};
+
 /** Os quatro estados, na ordem em que acontecem. */
 export type StatusDaVotacao = 'rascunho' | 'inscricoes' | 'votacao' | 'apurada';
 
@@ -476,4 +494,12 @@ export type PainelApi = {
    * todo mundo, e ela só sai por esta função, para quem é do Kidoo.
    */
   papeisDaVotacao(id: string): Promise<Papel[]>;
+  /**
+   * O pódio de uma votação apurada.
+   *
+   * A página pública só mostra a votação mais recente; aqui dá para abrir a
+   * de qualquer festa passada. O banco recusa enquanto ela não estiver
+   * apurada — placar parcial mudaria o voto de quem ainda não votou.
+   */
+  resultadoDaVotacao(id: string): Promise<LinhaDoPodio[]>;
 };

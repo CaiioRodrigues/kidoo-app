@@ -24,6 +24,7 @@ import type {
   StatusDaVotacao,
   VotacaoAdmin,
   Papel,
+  LinhaDoPodio,
 } from './types';
 import type { ActivityCategoryId, SlotKind } from '@app/types/domain';
 
@@ -635,6 +636,35 @@ async function papeisDaVotacao(id: string): Promise<Papel[]> {
   );
 }
 
+async function resultadoDaVotacao(id: string): Promise<LinhaDoPodio[]> {
+  type Linha = {
+    category_id: string;
+    category: string;
+    place: number;
+    entry_id: string;
+    entry: string;
+    photo_path: string;
+    votes: number;
+  };
+  const linhas = await linhasDe<Linha>(
+    'poll_results',
+    { p_poll_id: id },
+    'Não foi possível carregar o resultado.',
+  );
+  // A URL é montada aqui, e não na tela: bucket e caminho são detalhe de
+  // armazenamento, e a tela só precisa de algo que caiba num `src`.
+  const bucket = supabase().storage.from('votacao');
+  return linhas.map((l) => ({
+    categoryId: l.category_id,
+    category: l.category,
+    place: Number(l.place),
+    entryId: l.entry_id,
+    entry: l.entry,
+    photoUrl: bucket.getPublicUrl(l.photo_path).data.publicUrl,
+    votes: Number(l.votes),
+  }));
+}
+
 async function avancarVotacao(id: string): Promise<StatusDaVotacao> {
   const { data, error } = await supabase().rpc('advance_poll', { p_poll_id: id });
   if (error) traduz(error, 'Não foi possível avançar a votação.');
@@ -1029,4 +1059,5 @@ export const supabaseApi: PainelApi = {
   criarVotacao,
   avancarVotacao,
   papeisDaVotacao,
+  resultadoDaVotacao,
 };
