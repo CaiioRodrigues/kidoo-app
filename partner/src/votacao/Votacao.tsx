@@ -25,7 +25,7 @@ import {
  * está POR BAIXO não sabe disso: as tabelas falam de "votação", "categoria" e
  * "inscrito", e servem para melhor parceiro do ano sem trocar uma linha.
  */
-type Passo = 'porta' | 'inscrever' | 'numero' | 'votar' | 'resultado';
+type Passo = 'porta' | 'inscrever' | 'votar' | 'resultado';
 
 export function Votacao() {
   const [passo, setPasso] = useState<Passo>('porta');
@@ -34,9 +34,6 @@ export function Votacao() {
   // porta mostraria o botão "Votar" de novo, e o segundo toque só descobriria
   // que o voto já existe depois de preencher a cédula inteira.
   const [votouAgora, setVotouAgora] = useState(false);
-  // O papel que a pessoa digitou na porta. Vazio numa festa sem papel — ali a
-  // identidade continua sendo o aparelho.
-  const [numero, setNumero] = useState('');
 
   const { dado, carregando, erro, recarregar } = useDados(async () => {
     const atual = await votacaoAtual();
@@ -74,21 +71,11 @@ export function Votacao() {
               recarregar();
             }}
           />
-        ) : passo === 'numero' ? (
-          <Numero
-            votacao={votacao}
-            aoConferir={(n) => {
-              setNumero(n);
-              setPasso('votar');
-            }}
-          />
         ) : passo === 'votar' ? (
           <Cedula
             votacao={votacao}
-            numero={numero}
             aoTerminar={() => {
               setVotouAgora(true);
-              setNumero('');
               setPasso('porta');
             }}
           />
@@ -151,7 +138,7 @@ function Porta({
       <button
         className="hw-botao hw-botao-2"
         disabled={votacao.status !== 'votacao' || votou}
-        onClick={() => aoEscolher(votacao.numeros === null ? 'votar' : 'numero')}
+        onClick={() => aoEscolher('votar')}
       >
         <span className="hw-abobora" aria-hidden>
           🗳️
@@ -250,86 +237,33 @@ function Inscricao({ votacao, aoTerminar }: { votacao: VotacaoAtiva; aoTerminar:
 }
 
 /**
- * O papel entregue na porta.
+ * A cédula, uma categoria por vez.
  *
- * Vem ANTES da cédula de propósito: o número é conferido aqui, contra a faixa
- * e contra quem já votou. Descobrir na hora de enviar que o papel já votou
- * seria jogar fora três escolhas e parecer que o sistema comeu o voto.
+ * Com quatro fantasias, mostrar tudo de uma vez era o certo. Com quarenta em
+ * três categorias são cento e vinte fotos na mesma rolagem, e a pessoa perde
+ * de vista o que já escolheu — ou desiste.
+ *
+ * Então vira um caminho: uma categoria por tela, o que falta dito em cima, e
+ * no fim uma revisão com as três escolhas lado a lado. A chave — o papel e a
+ * senha — só aparece nessa última tela: pedir a credencial antes de a pessoa
+ * ter escolhido alguma coisa é cobrar o ingresso de quem ainda está na fila.
+ *
+ * O número é conferido ali mesmo, ao sair do campo, e não no envio: assim o
+ * "esse papel já votou" chega com as escolhas ainda na tela, e não depois de
+ * jogá-las fora.
  */
-function Numero({
-  votacao,
-  aoConferir,
-}: {
-  votacao: VotacaoAtiva;
-  aoConferir: (numero: string) => void;
-}) {
-  const [numero, setNumero] = useState('');
-  const [conferindo, setConferindo] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-
-  const conferir = async () => {
-    setConferindo(true);
-    setErro(null);
-    try {
-      if (await jaVotei(votacao.id, numero)) {
-        setErro(`O papel ${Number(numero)} já votou.`);
-        return;
-      }
-      aoConferir(numero);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Não deu para conferir.');
-    } finally {
-      setConferindo(false);
-    }
-  };
-
-  return (
-    <div className="hw-caixa">
-      <h2 className="hw-h2">O número do seu papel</h2>
-      <p className="hw-nota" style={{ margin: '0 0 12px' }}>
-        Está no papel que você recebeu na entrada, de 1 a {votacao.numeros}. É ele que garante um
-        voto por pessoa — então o mesmo celular serve para todo mundo.
-      </p>
-      <input
-        className="hw-input"
-        /* `inputMode` numérico abre o teclado de números no celular sem virar
-           um campo com setinhas de incremento, que não fazem sentido aqui. */
-        inputMode="numeric"
-        autoComplete="off"
-        maxLength={3}
-        placeholder="Ex.: 7"
-        value={numero}
-        onChange={(e) => setNumero(e.target.value.replace(/\D/g, ''))}
-      />
-
-      {erro ? <p className="hw-erro">{erro}</p> : null}
-
-      <button
-        className="hw-botao"
-        disabled={numero === '' || conferindo}
-        onClick={() => void conferir()}
-      >
-        {conferindo ? 'Conferindo…' : 'Continuar'}
-      </button>
-    </div>
-  );
-}
-
-function Cedula({
-  votacao,
-  numero,
-  aoTerminar,
-}: {
-  votacao: VotacaoAtiva;
-  numero: string;
-  aoTerminar: () => void;
-}) {
+function Cedula({ votacao, aoTerminar }: { votacao: VotacaoAtiva; aoTerminar: () => void }) {
   const [escolhas, setEscolhas] = useState<Record<string, string>>({});
+  // Qual categoria está na tela. Igual ao total = a revisão final.
+  const [passo, setPasso] = useState(0);
+  const [numero, setNumero] = useState('');
   const [senha, setSenha] = useState('');
+  const [busca, setBusca] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const faltam = votacao.categories.filter((c) => !escolhas[c.id]).length;
+  const total = votacao.categories.length;
+  const categoria = votacao.categories[passo];
 
   const enviar = async () => {
     setEnviando(true);
@@ -344,61 +278,155 @@ function Cedula({
     }
   };
 
+  /** Confere o papel assim que ele sai do campo, com as escolhas ainda de pé. */
+  const conferirNumero = async () => {
+    if (numero === '') return;
+    setErro(null);
+    try {
+      if (await jaVotei(votacao.id, numero)) setErro(`O papel ${Number(numero)} já votou.`);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não deu para conferir o número.');
+    }
+  };
+
   if (votacao.entries.length === 0) {
     return <p className="hw-espera">Ninguém se inscreveu ainda.</p>;
   }
 
+  // ------------------------------------------------------------- revisão --
+  if (!categoria) {
+    const faltaChave =
+      (votacao.numeros !== null && numero === '') || (votacao.protegida && senha === '');
+    return (
+      <div className="hw-caixa">
+        <h2 className="hw-h2">Confira e confirme</h2>
+
+        {votacao.categories.map((cat, i) => {
+          const dela = votacao.entries.find((e) => e.id === escolhas[cat.id]);
+          return (
+            <div key={cat.id} className="hw-revisao">
+              {dela ? <img src={urlDaFoto(dela.photoPath)} alt={dela.name} /> : null}
+              <div className="hw-revisao-texto">
+                <span className="hw-revisao-cat">{cat.label}</span>
+                <strong>{dela?.name ?? '—'}</strong>
+              </div>
+              <button className="hw-trocar" onClick={() => setPasso(i)}>
+                trocar
+              </button>
+            </div>
+          );
+        })}
+
+        {votacao.numeros !== null ? (
+          <input
+            className="hw-input"
+            /* Teclado numérico no celular, sem as setinhas de incremento de um
+               `type="number"` — ninguém escolhe o próprio papel subindo de um
+               em um. */
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={3}
+            placeholder={`Número do seu papel (1 a ${votacao.numeros})`}
+            value={numero}
+            onChange={(e) => setNumero(e.target.value.replace(/\D/g, ''))}
+            onBlur={() => void conferirNumero()}
+          />
+        ) : null}
+
+        {votacao.protegida ? (
+          <input
+            className="hw-input"
+            placeholder="Senha da festa"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+          />
+        ) : null}
+
+        {erro ? <p className="hw-erro">{erro}</p> : null}
+
+        <button
+          className="hw-botao"
+          disabled={faltaChave || enviando}
+          onClick={() => void enviar()}
+        >
+          {enviando ? 'Registrando…' : 'Confirmar meu voto'}
+        </button>
+        <button className="hw-voltar" onClick={() => setPasso(total - 1)}>
+          ← voltar para a última categoria
+        </button>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------------- categoria --
+  const escolhida = escolhas[categoria.id];
+  // A busca só aparece quando a rolagem começa a doer. Numa festa de oito
+  // fantasias ela seria um campo a mais para ignorar.
+  const temBusca = votacao.entries.length > 12;
+  const lista = temBusca
+    ? votacao.entries.filter((e) => e.name.toLowerCase().includes(busca.trim().toLowerCase()))
+    : votacao.entries;
+
+  const avancar = () => {
+    setBusca('');
+    setPasso(passo + 1);
+  };
+
   return (
     <div className="hw-caixa">
-      {/* De quem é esta cédula. Sem isto, quem digitou o número três telas
-          atrás não tem como conferir que acertou antes de enviar. */}
-      {numero !== '' ? (
-        <p className="hw-nota" style={{ margin: '0 0 14px' }}>
-          Papel {Number(numero)}
-        </p>
-      ) : null}
-      {votacao.categories.map((cat) => (
-        <section key={cat.id} className="hw-categoria">
-          <h2 className="hw-h2">{cat.label}</h2>
-          <div className="hw-grade">
-            {votacao.entries.map((ins) => {
-              const marcado = escolhas[cat.id] === ins.id;
-              return (
-                <button
-                  key={ins.id}
-                  className={`hw-card ${marcado ? 'hw-card-on' : ''}`}
-                  aria-pressed={marcado}
-                  onClick={() => setEscolhas((a) => ({ ...a, [cat.id]: ins.id }))}
-                >
-                  <img src={urlDaFoto(ins.photoPath)} alt={ins.name} />
-                  <span>{ins.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+      <p className="hw-passo">
+        Categoria {passo + 1} de {total}
+      </p>
+      <h2 className="hw-h2">{categoria.label}</h2>
 
-      {votacao.protegida ? (
+      {temBusca ? (
         <input
-          className="hw-input"
-          placeholder="Senha da festa"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
+          className="hw-input hw-busca"
+          placeholder="Procurar pelo nome"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
         />
       ) : null}
 
-      {erro ? <p className="hw-erro">{erro}</p> : null}
+      <div className="hw-grade">
+        {lista.map((ins) => {
+          const marcado = escolhida === ins.id;
+          return (
+            <button
+              key={ins.id}
+              className={`hw-card ${marcado ? 'hw-card-on' : ''}`}
+              aria-pressed={marcado}
+              onClick={() => setEscolhas((a) => ({ ...a, [categoria.id]: ins.id }))}
+            >
+              <img src={urlDaFoto(ins.photoPath)} alt={ins.name} />
+              <span>{ins.name}</span>
+            </button>
+          );
+        })}
+      </div>
+      {lista.length === 0 ? <p className="hw-nota">Ninguém com esse nome.</p> : null}
 
-      <button className="hw-botao" disabled={faltam > 0 || enviando} onClick={() => void enviar()}>
-        {enviando
-          ? 'Registrando…'
-          : faltam > 0
-            ? // Contar o que falta, em vez de só desabilitar: botão morto sem
+      {/*
+        Grudado embaixo porque com quarenta fantasias o fim da lista fica a
+        catorze rolagens do começo: um botão lá no fundo é um botão que só
+        existe para quem procura.
+      */}
+      <div className="hw-barra">
+        {passo > 0 ? (
+          <button className="hw-voltar hw-barra-voltar" onClick={() => setPasso(passo - 1)}>
+            ←
+          </button>
+        ) : null}
+        <button className="hw-botao" disabled={!escolhida} onClick={avancar}>
+          {!escolhida
+            ? // Dizer o que falta, em vez de só apagar o botão: botão morto sem
               // explicação é a pessoa achando que a página travou.
-              `Faltam ${faltam} de ${votacao.categories.length}`
-            : 'Confirmar meu voto'}
-      </button>
+              'Escolha uma fantasia'
+            : passo + 1 < total
+              ? 'Próxima categoria'
+              : 'Revisar meu voto'}
+        </button>
+      </div>
     </div>
   );
 }
