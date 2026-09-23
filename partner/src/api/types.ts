@@ -186,6 +186,23 @@ export type Pedido = NovoPedido & {
   createdAt: string;
 };
 
+/** Por que a família denunciou. Lista fechada, igual à do banco. */
+export type MotivoDaDenuncia = 'imagem' | 'descricao' | 'seguranca' | 'outro';
+
+/** Uma denúncia esperando alguém do Kidoo olhar. */
+export type DenunciaNaFila = {
+  id: string;
+  activityId: string;
+  activity: string;
+  partner: string;
+  reason: MotivoDaDenuncia;
+  /** O que a família escreveu, quando escreveu. */
+  detail: string | null;
+  /** A capa que saiu do ar por causa desta denúncia. `null` se não era imagem. */
+  hiddenUrl: string | null;
+  createdAt: string;
+};
+
 /** Uma capa esperando análise, como quem decide a vê. */
 export type CapaNaFila = {
   activityId: string;
@@ -309,6 +326,15 @@ export type PainelApi = {
   aprovarCapa(activityId: string): Promise<void>;
   /** Recusar exige motivo: sem ele o parceiro reenvia a mesma imagem. */
   recusarCapa(activityId: string, motivo: string): Promise<void>;
+  /** As denúncias abertas. Só quem é do Kidoo enxerga. */
+  denunciasAbertas(): Promise<DenunciaNaFila[]>;
+  /**
+   * Resolve uma denúncia.
+   *
+   * `restaurar` decide o destino da capa escondida: de volta ao ar, ou fora
+   * para sempre. Não há meio-termo, e é isso que a tela pergunta.
+   */
+  resolverDenuncia(id: string, restaurar: boolean, nota?: string): Promise<void>;
   extrato(meses?: number): Promise<StatementRow[]>;
   /**
    * Grava o endereço e o telefone que a família vê no app.

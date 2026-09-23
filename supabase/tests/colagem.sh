@@ -104,7 +104,7 @@ for f in "$RAIZ"/supabase/migrations/*.sql; do
   fi
   psql -q -v ON_ERROR_STOP=1 -d kidoo_colagem_velho -f "$f" >/dev/null
 done
-for n in 19 20 21 22 23 24 25 26 27 28 29 30 31; do
+for n in 19 20 21 22 23 24 25 26 27 28 29 30 31 32; do
   arquivo=$(ls "$RAIZ"/supabase/setup/$n-*.sql)
   colar kidoo_colagem_velho "$arquivo" && r=0 || r=1
   ok "$r" "$(basename "$arquivo")"

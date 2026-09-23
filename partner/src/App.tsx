@@ -8,6 +8,7 @@ import {
   IconeEstabelecimentos,
   IconeLocal,
   IconeCapas,
+  IconeDenuncias,
   IconePedidos,
   IconeRepasse,
   IconeSair,
@@ -21,6 +22,7 @@ import { Assinaturas } from '@/screens/Assinaturas';
 import { Parceiros } from '@/screens/Parceiros';
 import { Pedidos } from '@/screens/Pedidos';
 import { Capas } from '@/screens/Capas';
+import { Denuncias } from '@/screens/Denuncias';
 import { Repasse } from '@/screens/Repasse';
 import { MeuLocal } from '@/screens/MeuLocal';
 import { Turmas } from '@/screens/Turmas';
@@ -37,6 +39,7 @@ type Aba =
   | 'repasse'
   | 'pedidos'
   | 'capas'
+  | 'denuncias'
   | 'parceiros'
   | 'assinaturas';
 
@@ -55,6 +58,7 @@ const ABAS_DO_KIDOO: ItemDeMenu[] = [
   // Logo abaixo de Pedidos porque é a mesma tarefa com outro objeto: olhar o
   // que um estabelecimento mandou e decidir se entra no ar.
   { id: 'capas', rotulo: 'Capas', Icone: IconeCapas },
+  { id: 'denuncias', rotulo: 'Denúncias', Icone: IconeDenuncias },
   { id: 'parceiros', rotulo: 'Estabelecimentos', Icone: IconeEstabelecimentos },
   { id: 'assinaturas', rotulo: 'Assinaturas', Icone: IconeAssinaturas },
 ];
@@ -319,6 +323,7 @@ function Painel() {
         {aba === 'repasse' && <Repasse />}
         {aba === 'pedidos' && <Pedidos />}
         {aba === 'capas' && <Capas />}
+        {aba === 'denuncias' && <Denuncias />}
         {aba === 'parceiros' && <Parceiros />}
         {aba === 'assinaturas' && <Assinaturas />}
 

@@ -494,6 +494,14 @@ export type Session = {
 };
 
 /** Em que ponto a assinatura está. Só `ativa` reserva. */
+/**
+ * Por que a família está denunciando.
+ *
+ * Lista fechada, e curta: campo livre sozinho vira desabafo, e quem analisa
+ * precisa saber em dois segundos se é caso de tirar a imagem do ar agora.
+ */
+export type ReportReason = 'imagem' | 'descricao' | 'seguranca' | 'outro';
+
 export type SubscriptionStatus = 'aguardando' | 'ativa' | 'vencida';
 
 export type SubscriptionState = {

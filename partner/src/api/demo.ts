@@ -9,6 +9,7 @@ import type {
   Pedido,
   ParceiroAdmin,
   CapaNaFila,
+  DenunciaNaFila,
   PedidoNaFila,
   ResultadoDaSerie,
   RosterRow,
@@ -415,6 +416,14 @@ export const demoApi: PainelApi = {
 
   async recusarCapa() {
     throw new PainelError('Sua conta não analisa capas.');
+  },
+
+  async denunciasAbertas() {
+    return espera<DenunciaNaFila[]>([]);
+  },
+
+  async resolverDenuncia() {
+    throw new PainelError('Sua conta não resolve denúncias.');
   },
 
   // ------------------------------------------------ cadastro de parceiro --

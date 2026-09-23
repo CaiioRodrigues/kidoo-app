@@ -1,4 +1,5 @@
 import type {
+  ReportReason,
   Activity,
   ActivityCategory,
   ActivityCategoryId,
@@ -146,6 +147,15 @@ export type KidooApi = {
     recommended(childId: string, origin?: Coords): Promise<Activity[]>;
     /** Comentários da atividade, mais recentes primeiro, com o resumo das notas. */
     reviews(activityId: string): Promise<{ summary: RatingSummary; reviews: Review[] }>;
+    /**
+     * Denuncia uma atividade.
+     *
+     * Com motivo `imagem`, a capa sai do ar NA HORA e o app passa a mostrar a
+     * foto genérica da modalidade — antes de qualquer pessoa olhar. É decisão,
+     * não descuido: capa escondida por engano volta com um clique; imagem
+     * imprópria no ar está num app de criança.
+     */
+    report(input: { activityId: string; reason: ReportReason; detail?: string }): Promise<void>;
     /** Avaliação do responsável sobre o estabelecimento, após a aula. */
     submitReview(input: { bookingId: string; rating: number; comment: string }): Promise<Review>;
   };

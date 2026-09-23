@@ -854,6 +854,17 @@ export const supabaseApi: KidooApi = {
       return { summary: summarize(reviews), reviews };
     },
 
+    async report({ activityId, reason, detail }) {
+      run(
+        await supabase().rpc('report_activity', {
+          p_activity_id: activityId,
+          p_reason: reason,
+          p_detail: detail ?? null,
+        }),
+        'Não foi possível enviar a denúncia.',
+      );
+    },
+
     async submitReview({ bookingId, rating, comment }) {
       const row = unwrap(
         await supabase()

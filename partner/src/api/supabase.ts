@@ -13,6 +13,8 @@ import type {
   Partner,
   Pedido,
   CapaNaFila,
+  DenunciaNaFila,
+  MotivoDaDenuncia,
   PedidoNaFila,
   ResultadoDaConta,
   ResultadoDaSerie,
@@ -525,6 +527,43 @@ async function capasPendentes(): Promise<CapaNaFila[]> {
   }));
 }
 
+async function denunciasAbertas(): Promise<DenunciaNaFila[]> {
+  type Linha = {
+    id: string;
+    activity_id: string;
+    activity: string;
+    partner: string;
+    reason: MotivoDaDenuncia;
+    detail: string | null;
+    hidden_url: string | null;
+    created_at: string;
+  };
+  const linhas = await linhasDe<Linha>(
+    'pending_reports',
+    {},
+    'Não foi possível carregar as denúncias.',
+  );
+  return linhas.map((l) => ({
+    id: l.id,
+    activityId: l.activity_id,
+    activity: l.activity,
+    partner: l.partner,
+    reason: l.reason,
+    detail: l.detail,
+    hiddenUrl: l.hidden_url,
+    createdAt: l.created_at,
+  }));
+}
+
+async function resolverDenuncia(id: string, restaurar: boolean, nota?: string): Promise<void> {
+  const { error } = await supabase().rpc('resolve_report', {
+    p_id: id,
+    p_restaurar: restaurar,
+    p_resolution: nota ?? null,
+  });
+  if (error) traduz(error, 'Não foi possível resolver esta denúncia.');
+}
+
 async function aprovarCapa(activityId: string): Promise<void> {
   const { error } = await supabase().rpc('approve_cover', { p_activity_id: activityId });
   if (error) traduz(error, 'Não foi possível publicar esta capa.');
@@ -912,6 +951,8 @@ export const supabaseApi: PainelApi = {
   capasPendentes,
   aprovarCapa,
   recusarCapa,
+  denunciasAbertas,
+  resolverDenuncia,
   souDoKidoo,
   parceirosAdmin,
   ligarParceiro,

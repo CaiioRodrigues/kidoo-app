@@ -1,4 +1,5 @@
 import { ACTIVITIES, CATEGORIES, CLASS_SESSIONS, PARTNERS, PLANS } from './data';
+import { imagemDaAtividade } from '@/lib/activity-image';
 import { REVIEWS, summarize } from './reviews';
 import { slotsAvailable } from '@/types/domain';
 import {
@@ -451,6 +452,18 @@ export const mockApi: KidooApi = {
         }),
         reviews,
       });
+    },
+
+    async report({ activityId, reason }) {
+      // A demonstração espelha o efeito que importa: com motivo `imagem`, a
+      // capa sai do ar na hora e o cartão cai na foto genérica da modalidade.
+      // Quem prova a regra inteira — inclusive o desfazer — é
+      // `supabase/tests/partner.sql`, contra o banco.
+      const denunciada = ACTIVITIES.find((a) => a.id === activityId);
+      if (denunciada && reason === 'imagem') {
+        denunciada.imageUrl = imagemDaAtividade(null, denunciada.category);
+      }
+      return delay(undefined, 200);
     },
 
     async submitReview({ bookingId, rating, comment }) {

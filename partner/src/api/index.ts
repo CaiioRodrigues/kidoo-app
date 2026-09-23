@@ -26,6 +26,8 @@ export type {
   Partner,
   Pedido,
   CapaNaFila,
+  DenunciaNaFila,
+  MotivoDaDenuncia,
   PedidoNaFila,
   ResultadoDaConta,
   ResultadoDaSerie,

@@ -118,3 +118,14 @@ export function IconeCapas() {
     </svg>
   );
 }
+
+/** Bandeira num mastro: o sinal que alguém levantou. */
+export function IconeDenuncias() {
+  return (
+    <svg {...base}>
+      <path d="M6 21V3.5" />
+      {/* A bandeira ondula de leve: um triângulo reto lia como seta. */}
+      <path d="M6 4.5h10.5c1.2 0 1.7 1 1 1.9l-1.6 2c-.4.5-.4 1.2 0 1.7l1.6 2c.7.9.2 1.9-1 1.9H6" />
+    </svg>
+  );
+}
