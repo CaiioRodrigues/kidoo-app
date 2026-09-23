@@ -297,8 +297,19 @@ festa, e o schema não sabe disso: ele fala de "votação", "categoria" e
 
 No dia:
 
-1. **Painel → Votações → Criar votação.** Nome, categorias (uma por linha) e,
-   se quiser, a senha da festa. Ela nasce recebendo inscrições.
+1. **Painel → Votações → Criar votação.** Nome, categorias (uma por linha),
+   quantos **papéis numerados** você vai entregar e, se quiser, a senha da
+   festa. Ela nasce recebendo inscrições.
+
+   Os papéis são o jeito de saber quem votou: entregue um a cada convidado,
+   numerado de 1 até a quantidade escolhida, e é esse número que a pessoa
+   digita na hora de votar. O voto passa a ser único **por papel**, não por
+   aparelho — então um celular só serve a festa inteira, e o painel mostra
+   quais números já votaram.
+
+   Em branco, vale o jeito antigo: um voto por aparelho, que é o que uma
+   votação sem porta física precisa.
+
 2. **Divulgue o `/votacao`.** O endereço é o do painel publicado mais
    `/votacao` — hoje `sejakidoo.com.br/votacao`, porque é ali que o painel
    responde. Quem abre tira a foto pelo próprio celular e escolhe um nome:
@@ -312,10 +323,13 @@ está em `kidoo_admins`, e a página pública não tem comando nenhum. A senha d
 festa é pedida na hora de votar, não na de se inscrever — ela existe porque o
 link circula em grupo de WhatsApp e chega a quem não está lá.
 
-Um voto por categoria por aparelho, garantido por índice único no banco. Quem
-abrir uma janela anônima de propósito vota de novo; contra isso só entregando
-um código na mão de cada pessoa, e o schema já aceita isso sem mudar — a chave
-do votante é texto livre.
+Um voto por categoria por votante, garantido por índice único no banco — o
+votante sendo o papel, onde há papel, e o aparelho onde não há.
+
+E uma coisa que o papel numerado **não** resolve: número sequencial não é
+segredo. Quem tem o link e sabe que a festa tem 60 convidados pode digitar 37 e
+votar no lugar de quem ainda não votou. A senha da festa é o que fecha essa
+porta — com papéis, vale a pena usar as duas.
 
 ## Depois desta primeira vez
 

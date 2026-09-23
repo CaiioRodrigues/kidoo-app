@@ -1398,3 +1398,29 @@ textarea.input {
   color: rgba(245, 236, 221, 0.6);
   font-size: 13px;
 }
+
+/* Os papéis entregues na porta de uma votação: aceso é quem já votou.
+   Quadrados pequenos porque uma festa de 100 precisa caber na tela sem
+   rolagem — o que importa é o padrão de buracos, não ler cada número. */
+.papeis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 12px;
+}
+.papel {
+  min-width: 26px;
+  padding: 3px 5px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.papel-on {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #fff;
+  font-weight: 600;
+}

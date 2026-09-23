@@ -23,6 +23,13 @@ export type Votacao = {
   status: 'inscricoes' | 'votacao' | 'apurada';
   /** Se precisa da senha da festa para votar. A senha em si nunca sai do banco. */
   protegida: boolean;
+  /**
+   * Quantos papéis numerados foram entregues na porta, ou `null`.
+   *
+   * Com papel, a identidade de quem vota é o NÚMERO, e não o aparelho: o mesmo
+   * celular serve a festa inteira, e quem organiza sabe quais papéis votaram.
+   */
+  numeros: number | null;
   categories: Categoria[];
   entries: Inscrito[];
 };
@@ -75,6 +82,9 @@ function erro(mensagem: string, causa?: { message?: string }): Error {
     name_required: 'Escreva um nome.',
     photo_required: 'A foto é obrigatória.',
     already_counted: 'Esta votação já foi apurada.',
+    voter_required: 'Digite o número do seu papel.',
+    invalid_number: 'Digite só o número do papel, sem letras.',
+    number_out_of_range: 'Não existe papel com esse número nesta festa.',
   };
   const conhecido = causa?.message ? CONHECIDOS[causa.message] : undefined;
   return new Error(conhecido ?? mensagem);
@@ -86,12 +96,20 @@ export async function votacaoAtual(): Promise<Votacao | null> {
   return (data as Votacao | null) ?? null;
 }
 
-export async function jaVotei(pollId: string): Promise<boolean> {
+/**
+ * Já votou?
+ *
+ * `chave` é o número do papel, quando a festa entrega papel, e o id do
+ * navegador quando não entrega. Aqui o erro SOBE: perguntar por um número
+ * fora da faixa precisa dizer isso, e não responder "ainda não votou" — que
+ * mandaria a pessoa preencher a cédula inteira para só então ouvir não.
+ */
+export async function jaVotei(pollId: string, chave?: string): Promise<boolean> {
   const { data, error } = await supabase().rpc('has_voted', {
     p_poll_id: pollId,
-    p_voter_key: chaveDoVotante(),
+    p_voter_key: chave ?? chaveDoVotante(),
   });
-  if (error) return false;
+  if (error) throw erro('Não foi possível conferir o seu número.', error);
   return data === true;
 }
 
@@ -120,10 +138,11 @@ export async function votar(
   pollId: string,
   escolhas: Record<string, string>,
   senha?: string,
+  numero?: string,
 ): Promise<void> {
   const { error } = await supabase().rpc('cast_ballot', {
     p_poll_id: pollId,
-    p_voter_key: chaveDoVotante(),
+    p_voter_key: numero ?? chaveDoVotante(),
     p_choices: escolhas,
     p_passphrase: senha ?? null,
   });
@@ -131,7 +150,9 @@ export async function votar(
     // O índice único é quem barra o voto repetido, e ele fala em código, não
     // em português. A frase certa importa: "erro desconhecido" faria a pessoa
     // tentar de novo a noite inteira.
-    if (error.code === '23505') throw new Error('Este aparelho já votou.');
+    if (error.code === '23505') {
+      throw new Error(numero ? `O papel ${numero} já votou.` : 'Este aparelho já votou.');
+    }
     throw erro('Não foi possível registrar seu voto.', error);
   }
 }

@@ -126,9 +126,15 @@ function CartaoDaVotacao({ votacao, aoAvancar }: { votacao: VotacaoAdmin; aoAvan
           {votacao.entries} {votacao.entries === 1 ? 'inscrito' : 'inscritos'} ·{' '}
           {/* Pessoas, não votos: quem votou em três categorias é uma pessoa,
               e é esse número que diz se a festa inteira já votou. */}
-          {votacao.voters} {votacao.voters === 1 ? 'pessoa votou' : 'pessoas votaram'} · criada em{' '}
-          {new Date(votacao.createdAt).toLocaleDateString('pt-BR')}
+          {votacao.voterNumbers
+            ? `${votacao.voters} de ${votacao.voterNumbers} papéis votaram`
+            : `${votacao.voters} ${votacao.voters === 1 ? 'pessoa votou' : 'pessoas votaram'}`}{' '}
+          · criada em {new Date(votacao.createdAt).toLocaleDateString('pt-BR')}
         </p>
+
+        {votacao.voterNumbers && (
+          <Papeis total={votacao.voterNumbers} votaram={votacao.votedNumbers ?? []} />
+        )}
 
         <p className="muted" style={{ marginTop: 12 }}>
           {AVISO[votacao.status]}
@@ -168,6 +174,9 @@ function Formulario({ aoCriar, aoCancelar }: { aoCriar: () => void; aoCancelar: 
   const [subtitulo, setSubtitulo] = useState('');
   const [categorias, setCategorias] = useState('');
   const [senha, setSenha] = useState('');
+  // Texto, e não número: vazio é uma resposta legítima ("sem papel"), e
+  // `0`/`NaN` seriam duas formas de dizer isso num campo numérico.
+  const [papeis, setPapeis] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -175,6 +184,8 @@ function Formulario({ aoCriar, aoCancelar }: { aoCriar: () => void; aoCancelar: 
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l !== '');
+  // O banco recusa fora de 2..999; barrar aqui evita a viagem só para ouvir não.
+  const faixaInvalida = papeis.trim() !== '' && !(Number(papeis) >= 2 && Number(papeis) <= 999);
 
   const criar = async () => {
     setOcupado(true);
@@ -185,6 +196,7 @@ function Formulario({ aoCriar, aoCancelar }: { aoCriar: () => void; aoCancelar: 
         subtitle: subtitulo,
         categories: linhas,
         passphrase: senha,
+        voterNumbers: papeis.trim() === '' ? null : Number(papeis),
       });
       aoCriar();
     } catch (e) {
@@ -234,6 +246,46 @@ function Formulario({ aoCriar, aoCancelar }: { aoCriar: () => void; aoCancelar: 
         </p>
       </div>
       <div className="field">
+        <label htmlFor="votacao-papeis">Papéis numerados (opcional)</label>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+          {[10, 20, 30, 50, 100].map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={papeis === String(n) ? 'btn btn-sm' : 'btn btn-ghost btn-sm'}
+              onClick={() => setPapeis(String(n))}
+            >
+              {n} convidados
+            </button>
+          ))}
+          <button
+            type="button"
+            className={papeis === '' ? 'btn btn-sm' : 'btn btn-ghost btn-sm'}
+            onClick={() => setPapeis('')}
+          >
+            sem papel
+          </button>
+        </div>
+        <input
+          id="votacao-papeis"
+          className="input"
+          type="number"
+          min={2}
+          max={999}
+          placeholder="ou digite a quantidade"
+          value={papeis}
+          onChange={(e) => setPapeis(e.target.value)}
+        />
+        <p className="faint" style={{ marginTop: 6 }}>
+          {/* O papel é o que transforma "alguém votou" em "o 37 votou" — e é o
+              que faz um celular só servir a festa inteira. */}
+          Entregue um papel a cada convidado, numerado de 1 até a quantidade acima. É o número que a
+          pessoa digita para votar, e é por ele que o voto é único — não pelo aparelho. Em branco,
+          vale um voto por aparelho.
+        </p>
+      </div>
+
+      <div className="field">
         <label htmlFor="votacao-senha">Senha da festa (opcional)</label>
         <input
           id="votacao-senha"
@@ -247,6 +299,8 @@ function Formulario({ aoCriar, aoCancelar }: { aoCriar: () => void; aoCancelar: 
           {/* O link é público e circula em grupo de WhatsApp. A senha é o que
               separa quem está na festa de quem só recebeu o endereço. */}
           Pedida na hora de votar, não na de se inscrever. Em branco, qualquer um com o link vota.
+          {papeis.trim() !== '' &&
+            ' Com papel numerado ela importa mais: quem sabe o tamanho da festa adivinha um número.'}
         </p>
       </div>
 
@@ -255,7 +309,7 @@ function Formulario({ aoCriar, aoCancelar }: { aoCriar: () => void; aoCancelar: 
       <div className="row" style={{ gap: 10, marginTop: 14 }}>
         <button
           className="btn"
-          disabled={ocupado || titulo.trim() === '' || linhas.length === 0}
+          disabled={ocupado || titulo.trim() === '' || linhas.length === 0 || faixaInvalida}
           onClick={() => void criar()}
         >
           {ocupado ? 'Criando…' : 'Criar e abrir inscrições'}
@@ -265,5 +319,24 @@ function Formulario({ aoCriar, aoCancelar }: { aoCriar: () => void; aoCancelar: 
         </button>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Os papéis entregues, um quadradinho cada: aceso quem já votou.
+ *
+ * É a pergunta que fez o papel existir — "quem falta?" —, e ela não se responde
+ * com um número só. Com a grade, quem organiza olha e sabe a quem cobrar.
+ */
+function Papeis({ total, votaram }: { total: number; votaram: number[] }) {
+  const jaVotou = new Set(votaram);
+  return (
+    <div className="papeis" aria-label={`${votaram.length} de ${total} papéis votaram`}>
+      {Array.from({ length: total }, (_, i) => i + 1).map((n) => (
+        <span key={n} className={jaVotou.has(n) ? 'papel papel-on' : 'papel'}>
+          {n}
+        </span>
+      ))}
+    </div>
   );
 }

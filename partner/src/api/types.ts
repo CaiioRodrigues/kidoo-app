@@ -230,6 +230,15 @@ export type VotacaoAdmin = {
   entries: number;
   /** Quantas PESSOAS votaram, não quantos votos. */
   voters: number;
+  /** Quantos papéis numerados foram entregues. `null` = votação sem papel. */
+  voterNumbers: number | null;
+  /**
+   * Os papéis que já votaram, para quem organiza saber quem falta.
+   *
+   * `null` na votação sem faixa: ali a chave é um id de navegador, e uma lista
+   * deles não responde pergunta nenhuma.
+   */
+  votedNumbers: number[] | null;
   createdAt: string;
 };
 
@@ -244,6 +253,14 @@ export type NovaVotacao = {
   categories: string[];
   /** A senha da festa. Vazia = qualquer um com o link vota. */
   passphrase: string;
+  /**
+   * Quantos papéis numerados serão entregues na porta, de 1 até este total.
+   *
+   * `null` mantém a identidade no aparelho. Com número, um celular serve a
+   * festa inteira e quem organiza sabe quais papéis já votaram — em troca de
+   * alguém precisar distribuir papel.
+   */
+  voterNumbers: number | null;
 };
 
 /** O pedido como quem analisa o vê — com o e-mail da conta junto. */
